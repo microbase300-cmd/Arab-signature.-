@@ -113,6 +113,15 @@ export default function Footer({ onNavigate, onOpenBooking }) {
           <span>Verified Paystack Payment</span>
           <span>•</span>
           <span>Diplomatic Choice</span>
+          <span>•</span>
+          <button
+            onClick={() => handleNav('portal-login')}
+            className="text-gray-400 hover:text-[#d4af37] transition-colors flex items-center gap-1 font-medium"
+            title="Password Restricted Staff Portal"
+          >
+            <span className="text-[#d4af37]">🔒</span>
+            <span>Staff Portal</span>
+          </button>
         </div>
       </div>
     </footer>

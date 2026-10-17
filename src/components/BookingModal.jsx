@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ROOMS, HOTEL_INFO } from '../data/hotelData';
+import { portalStore } from '../data/portalStore';
 import { X, Calendar, User, Phone, Mail, CheckCircle2, ShieldCheck, Download, Share2, ArrowRight } from 'lucide-react';
 
 export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
@@ -29,6 +30,25 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
     setTimeout(() => {
       const randomCode = 'ASH-' + Math.floor(1000 + Math.random() * 9000);
       setBookingCode(randomCode);
+
+      // Persist booking into real-time receptionist & admin portal store
+      portalStore.addBooking({
+        id: randomCode,
+        guestName: guestName,
+        phone: guestPhone,
+        email: guestEmail,
+        roomType: selectedRoom.id,
+        roomName: selectedRoom.name,
+        checkIn: checkIn,
+        checkOut: checkOut,
+        nights: nights,
+        amount: totalAmount,
+        status: "Confirmed",
+        paymentMethod: "Paystack (Online)",
+        paymentStatus: "Paid",
+        source: "Direct Website"
+      });
+
       setIsProcessing(false);
       setStep(3);
     }, 1500);
