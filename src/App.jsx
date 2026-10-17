@@ -13,8 +13,9 @@ import AmenitiesPage from './pages/AmenitiesPage';
 import DiningPage from './pages/DiningPage';
 import ContactPage from './pages/ContactPage';
 
-// Password-Restricted Operations Portals
-import PortalLogin from './pages/PortalLogin';
+// Separate Password-Restricted Operations Portals (Zero public links on main site)
+import AdminLogin from './pages/AdminLogin';
+import ReceptionLogin from './pages/ReceptionLogin';
 import ReceptionPortal from './pages/ReceptionPortal';
 import AdminPortal from './pages/AdminPortal';
 
@@ -47,34 +48,50 @@ export default function App() {
         return;
       }
 
-      // Portal Route Protection
-      if (rawHash === 'reception') {
-        const user = portalStore.getCurrentUser();
-        if (!user) {
-          setCurrentPage('portal-login');
-          window.location.hash = 'portal-login';
-          return;
-        }
-        setCurrentPage('reception');
+      // Dedicated Admin Login Gate (#admin-login)
+      if (rawHash === 'admin-login') {
+        setCurrentPage('admin-login');
         return;
       }
 
+      // Dedicated Admin Dashboard (#admin) - Protected
       if (rawHash === 'admin') {
         const user = portalStore.getCurrentUser();
         if (!user || user.role !== 'admin') {
-          setCurrentPage('portal-login');
-          window.location.hash = 'portal-login';
+          setCurrentPage('admin-login');
+          window.location.hash = 'admin-login';
           return;
         }
         setCurrentPage('admin');
         return;
       }
 
-      if (rawHash === 'portal-login') {
-        setCurrentPage('portal-login');
+      // Dedicated Receptionist Login Gate (#reception-login)
+      if (rawHash === 'reception-login') {
+        setCurrentPage('reception-login');
         return;
       }
 
+      // Dedicated Receptionist Front Desk (#reception) - Protected
+      if (rawHash === 'reception') {
+        const user = portalStore.getCurrentUser();
+        if (!user) {
+          setCurrentPage('reception-login');
+          window.location.hash = 'reception-login';
+          return;
+        }
+        setCurrentPage('reception');
+        return;
+      }
+
+      // Redirect legacy shared portal login to reception-login
+      if (rawHash === 'portal-login') {
+        setCurrentPage('reception-login');
+        window.location.hash = 'reception-login';
+        return;
+      }
+
+      // Public multi-page views
       const validPages = ['about', 'suites', 'amenities', 'dining', 'contact'];
       if (validPages.includes(rawHash)) {
         setCurrentPage(rawHash);
@@ -94,7 +111,6 @@ export default function App() {
   const handleNavigate = (pageId) => {
     setCurrentPage(pageId);
     if (pageId === 'home') {
-      // Clean URL: don't append #home to the address bar
       window.history.pushState(null, '', window.location.pathname);
     } else {
       window.location.hash = pageId;
@@ -107,18 +123,20 @@ export default function App() {
     setIsBookingOpen(true);
   };
 
-  // Determine if on staff operations portal
-  const isPortalPage = ['portal-login', 'reception', 'admin'].includes(currentPage);
+  // Determine if viewing staff operations portal
+  const isPortalPage = ['admin-login', 'reception-login', 'reception', 'admin'].includes(currentPage);
 
   // Render the appropriate dedicated page
   const renderCurrentPage = () => {
     switch (currentPage) {
-      case 'portal-login':
-        return <PortalLogin onNavigate={handleNavigate} />;
-      case 'reception':
-        return <ReceptionPortal onNavigate={handleNavigate} />;
+      case 'admin-login':
+        return <AdminLogin onNavigate={handleNavigate} />;
       case 'admin':
         return <AdminPortal onNavigate={handleNavigate} />;
+      case 'reception-login':
+        return <ReceptionLogin onNavigate={handleNavigate} />;
+      case 'reception':
+        return <ReceptionPortal onNavigate={handleNavigate} />;
       case 'about':
         return <AboutPage onNavigate={handleNavigate} onOpenBooking={handleOpenBooking} />;
       case 'suites':
@@ -157,7 +175,7 @@ export default function App() {
         {renderCurrentPage()}
       </main>
 
-      {/* 3. Official Hotel Footer (Hidden in Staff Portals) */}
+      {/* 3. Official Hotel Footer (Hidden in Staff Portals; Zero Portal Links for Guests) */}
       {!isPortalPage && (
         <Footer
           onNavigate={handleNavigate}

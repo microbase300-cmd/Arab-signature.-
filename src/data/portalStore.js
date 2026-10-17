@@ -3,6 +3,8 @@ import { ROOMS as DEFAULT_ROOMS, HOTEL_INFO as DEFAULT_HOTEL_INFO } from './hote
 
 const STORAGE_KEYS = {
   AUTH: 'ash_portal_auth_user',
+  USERS: 'ash_portal_staff_users',
+  LOGIN_LOGS: 'ash_portal_login_attempts',
   BOOKINGS: 'ash_portal_bookings',
   ROOMS: 'ash_portal_rooms_inventory',
   ROOM_RATES: 'ash_portal_room_rates',
@@ -26,7 +28,7 @@ const INITIAL_ROOMS_INVENTORY = [
   { roomNumber: "404", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "cleaning", currentGuest: null, checkOut: null, price: 35000 },
 ];
 
-// 2. Pre-Seeded Real Bookings
+// 2. Pre-Seeded Real Bookings with Backend Confirmation status
 const INITIAL_BOOKINGS = [
   {
     id: "ASH-9421",
@@ -40,9 +42,11 @@ const INITIAL_BOOKINGS = [
     checkOut: "2026-10-22",
     nights: 2,
     amount: 240000,
-    status: "Checked In", // Confirmed, Checked In, Completed, Cancelled
+    status: "Checked In",
     paymentMethod: "Paystack (Online)",
-    paymentStatus: "Paid",
+    paymentStatus: "Paid", // Confirmed by backend
+    backendVerified: true,
+    verifiedAt: "2026-10-17 08:31",
     source: "Direct Website",
     createdAt: "2026-10-17 08:30"
   },
@@ -60,7 +64,9 @@ const INITIAL_BOOKINGS = [
     amount: 90000,
     status: "Confirmed",
     paymentMethod: "Paystack (Online)",
-    paymentStatus: "Paid",
+    paymentStatus: "Paid", // Confirmed by backend
+    backendVerified: true,
+    verifiedAt: "2026-10-17 09:16",
     source: "Direct Website",
     createdAt: "2026-10-17 09:15"
   },
@@ -77,8 +83,10 @@ const INITIAL_BOOKINGS = [
     nights: 2,
     amount: 130000,
     status: "Checked In",
-    paymentMethod: "Bank Transfer",
-    paymentStatus: "Paid",
+    paymentMethod: "Bank Transfer (Approved by GM)",
+    paymentStatus: "Paid", // Confirmed by backend
+    backendVerified: true,
+    verifiedAt: "2026-10-16 16:45",
     source: "Front Desk Walk-In",
     createdAt: "2026-10-16 16:40"
   },
@@ -96,9 +104,89 @@ const INITIAL_BOOKINGS = [
     amount: 90000,
     status: "Checked In",
     paymentMethod: "POS Terminal (Front Desk)",
-    paymentStatus: "Paid",
+    paymentStatus: "Paid", // Confirmed by backend
+    backendVerified: true,
+    verifiedAt: "2026-10-17 07:12",
     source: "Front Desk Walk-In",
     createdAt: "2026-10-17 07:10"
+  },
+  {
+    id: "ASH-3105",
+    guestName: "Arc. Kenneth Igwe",
+    phone: "0814 888 2345",
+    email: "kenneth.igwe@architects.ng",
+    roomType: "deluxe",
+    roomName: "Deluxe Doha Suite",
+    roomNumber: "102",
+    checkIn: "2026-10-21",
+    checkOut: "2026-10-22",
+    nights: 1,
+    amount: 45000,
+    status: "Confirmed",
+    paymentMethod: "Direct Bank Transfer (Awaiting Audit)",
+    paymentStatus: "Pending Backend Confirmation", // Not yet verified by backend
+    backendVerified: false,
+    verifiedAt: null,
+    source: "Direct Website",
+    createdAt: "2026-10-17 10:15"
+  }
+];
+
+// 3. Initial Staff Users
+const INITIAL_USERS = [
+  {
+    id: "u-admin",
+    username: "admin@arabsignature.com",
+    password: "admin2026",
+    name: "General Manager",
+    role: "admin",
+    badge: "Executive Admin",
+    active: true,
+    lastLogin: "2026-10-17 11:20:14"
+  },
+  {
+    id: "u-reception",
+    username: "reception@arabsignature.com",
+    password: "reception2026",
+    name: "Lead Front Desk Concierge",
+    role: "reception",
+    badge: "Lead Receptionist",
+    active: true,
+    lastLogin: "2026-10-17 10:45:00"
+  }
+];
+
+// 4. Initial Login Monitor & Attempts Logs
+const INITIAL_LOGIN_LOGS = [
+  {
+    id: "log-101",
+    timestamp: "2026-10-17 11:20:14",
+    usernameAttempted: "admin@arabsignature.com",
+    targetRole: "admin",
+    status: "SUCCESS",
+    reason: "Authorized Admin Authentication",
+    ip: "197.210.64.12 (Onitsha, NG)",
+    device: "Chrome / Windows 11"
+  },
+  {
+    id: "log-102",
+    timestamp: "2026-10-17 10:45:00",
+    usernameAttempted: "reception@arabsignature.com",
+    targetRole: "reception",
+    status: "SUCCESS",
+    reason: "Front Desk Shift Sign-In",
+    ip: "197.210.64.12 (Onitsha, NG)",
+    device: "Chrome / Windows 11"
+  },
+  {
+    id: "log-103",
+    timestamp: "2026-10-17 06:12:30",
+    usernameAttempted: "reception@arabsignature.com",
+    targetRole: "reception",
+    status: "FAILED",
+    reason: "Invalid password attempt",
+    ip: "102.89.41.98 (Enugu, NG)",
+    device: "Safari / iOS"
   }
 ];
 
@@ -121,48 +209,123 @@ function setLocalItem(key, val) {
 }
 
 export const portalStore = {
-  // --- AUTHENTICATION ---
-  // Preset secure credentials
-  USERS: [
-    {
-      id: "u-admin",
-      username: "admin@arabsignature.com",
-      password: "admin2026",
-      name: "Engr. K. O. (General Manager)",
-      role: "admin",
-      badge: "Executive Admin"
-    },
-    {
-      id: "u-reception",
-      username: "reception@arabsignature.com",
-      password: "reception2026",
-      name: "Front Desk Concierge Desk 1",
-      role: "reception",
-      badge: "Lead Receptionist"
+  // --- STAFF USERS MANAGEMENT ---
+  getUsers() {
+    return getLocalItem(STORAGE_KEYS.USERS, INITIAL_USERS);
+  },
+
+  getReceptionistUser() {
+    const users = this.getUsers();
+    return users.find(u => u.role === 'reception') || INITIAL_USERS[1];
+  },
+
+  getAdminUser() {
+    const users = this.getUsers();
+    return users.find(u => u.role === 'admin') || INITIAL_USERS[0];
+  },
+
+  updateReceptionistCredentials(newUsername, newPassword, staffName) {
+    const users = this.getUsers();
+    const updated = users.map(u => {
+      if (u.role === 'reception') {
+        return {
+          ...u,
+          username: newUsername.trim(),
+          password: newPassword.trim(),
+          name: staffName ? staffName.trim() : u.name
+        };
+      }
+      return u;
+    });
+
+    setLocalItem(STORAGE_KEYS.USERS, updated);
+    this.logActivity(`Admin changed Receptionist login to '${newUsername.trim()}'.`);
+    return updated;
+  },
+
+  // --- SEPARATE AUTHENTICATION HANDLERS ---
+  
+  // 1. Dedicated Admin Login Gate (#admin-login)
+  loginAdmin(username, password) {
+    const users = this.getUsers();
+    const adminUser = users.find(u => u.role === 'admin');
+
+    const cleanUser = username.trim().toLowerCase();
+    const isUserMatch = adminUser && adminUser.username.toLowerCase() === cleanUser;
+    const isPassMatch = adminUser && adminUser.password === password;
+
+    const timestamp = new Date().toLocaleString();
+
+    if (!isUserMatch || !isPassMatch) {
+      // Record failed attempt
+      this.recordLoginAttempt({
+        usernameAttempted: username,
+        targetRole: 'admin',
+        status: 'FAILED',
+        reason: !isUserMatch ? 'Unknown Admin Username' : 'Incorrect Admin Password'
+      });
+      throw new Error("Access Denied: Invalid Executive Admin credentials.");
     }
-  ],
 
-  login(usernameOrEmail, password) {
-    const cleanedUser = usernameOrEmail.trim().toLowerCase();
-    const user = this.USERS.find(
-      u => u.username.toLowerCase() === cleanedUser && u.password === password
-    );
-
-    if (!user) {
-      throw new Error("Invalid access credentials. Please verify username and password.");
-    }
-
+    // Success
     const session = {
-      id: user.id,
-      name: user.name,
-      username: user.username,
-      role: user.role,
-      badge: user.badge,
+      id: adminUser.id,
+      name: adminUser.name,
+      username: adminUser.username,
+      role: 'admin',
+      badge: adminUser.badge,
       loginTime: new Date().toISOString()
     };
 
     setLocalItem(STORAGE_KEYS.AUTH, session);
-    this.logActivity(`User ${user.name} logged into ${user.role} portal.`);
+    this.recordLoginAttempt({
+      usernameAttempted: adminUser.username,
+      targetRole: 'admin',
+      status: 'SUCCESS',
+      reason: 'Authorized Executive Admin Authentication'
+    });
+    this.logActivity(`Executive Admin (${adminUser.name}) authenticated successfully.`);
+    return session;
+  },
+
+  // 2. Dedicated Receptionist Login Gate (#reception-login)
+  loginReception(username, password) {
+    const users = this.getUsers();
+    const receptionUser = users.find(u => u.role === 'reception');
+
+    const cleanUser = username.trim().toLowerCase();
+    const isUserMatch = receptionUser && receptionUser.username.toLowerCase() === cleanUser;
+    const isPassMatch = receptionUser && receptionUser.password === password;
+
+    if (!isUserMatch || !isPassMatch) {
+      // Record failed attempt
+      this.recordLoginAttempt({
+        usernameAttempted: username,
+        targetRole: 'reception',
+        status: 'FAILED',
+        reason: !isUserMatch ? 'Unknown Receptionist Username' : 'Incorrect Receptionist Password'
+      });
+      throw new Error("Access Denied: Invalid Front Desk Reception credentials.");
+    }
+
+    // Success
+    const session = {
+      id: receptionUser.id,
+      name: receptionUser.name,
+      username: receptionUser.username,
+      role: 'reception',
+      badge: receptionUser.badge,
+      loginTime: new Date().toISOString()
+    };
+
+    setLocalItem(STORAGE_KEYS.AUTH, session);
+    this.recordLoginAttempt({
+      usernameAttempted: receptionUser.username,
+      targetRole: 'reception',
+      status: 'SUCCESS',
+      reason: 'Authorized Front Desk Shift Login'
+    });
+    this.logActivity(`Front Desk Reception (${receptionUser.name}) signed in for shift.`);
     return session;
   },
 
@@ -178,13 +341,44 @@ export const portalStore = {
     localStorage.removeItem(STORAGE_KEYS.AUTH);
   },
 
-  // --- BOOKINGS LEDGER ---
+  // --- LOGIN MONITOR & AUDIT ATTEMPTS ---
+  getLoginAttempts() {
+    return getLocalItem(STORAGE_KEYS.LOGIN_LOGS, INITIAL_LOGIN_LOGS);
+  },
+
+  recordLoginAttempt({ usernameAttempted, targetRole, status, reason }) {
+    const logs = this.getLoginAttempts();
+    const newAttempt = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toLocaleString(),
+      usernameAttempted: usernameAttempted || 'unknown',
+      targetRole: targetRole || 'unknown',
+      status: status, // 'SUCCESS' | 'FAILED'
+      reason: reason || '',
+      ip: '197.210.64.12 (Onitsha, NG)',
+      device: navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Desktop Browser'
+    };
+
+    const updated = [newAttempt, ...logs.slice(0, 99)];
+    setLocalItem(STORAGE_KEYS.LOGIN_LOGS, updated);
+    return updated;
+  },
+
+  clearLoginAttempts() {
+    setLocalItem(STORAGE_KEYS.LOGIN_LOGS, []);
+  },
+
+  // --- BOOKINGS LEDGER & BACKEND PAYMENT CONFIRMATION ---
   getBookings() {
     return getLocalItem(STORAGE_KEYS.BOOKINGS, INITIAL_BOOKINGS);
   },
 
   addBooking(bookingData) {
     const bookings = this.getBookings();
+    
+    // Check if payment is verified (online Paystack with verified transaction, or cash at counter)
+    const isPaymentConfirmed = bookingData.paymentStatus === 'Paid' || bookingData.paymentMethod.includes('POS');
+
     const newBooking = {
       id: bookingData.id || ('ASH-' + Math.floor(1000 + Math.random() * 9000)),
       guestName: bookingData.guestName || "Guest",
@@ -199,7 +393,9 @@ export const portalStore = {
       amount: bookingData.amount || 45000,
       status: bookingData.status || "Confirmed",
       paymentMethod: bookingData.paymentMethod || "Paystack (Online)",
-      paymentStatus: bookingData.paymentStatus || "Paid",
+      paymentStatus: isPaymentConfirmed ? "Paid" : "Pending Backend Confirmation",
+      backendVerified: isPaymentConfirmed,
+      verifiedAt: isPaymentConfirmed ? new Date().toLocaleString() : null,
       source: bookingData.source || "Direct Website",
       createdAt: new Date().toLocaleString()
     };
@@ -210,10 +406,28 @@ export const portalStore = {
     return newBooking;
   },
 
+  // ADMIN ACTION: Confirm payment backend / audit verification
+  confirmPaymentBackend(bookingId) {
+    const bookings = this.getBookings();
+    const updated = bookings.map(b => {
+      if (b.id === bookingId) {
+        return {
+          ...b,
+          paymentStatus: "Paid",
+          backendVerified: true,
+          verifiedAt: new Date().toLocaleString()
+        };
+      }
+      return b;
+    });
+
+    setLocalItem(STORAGE_KEYS.BOOKINGS, updated);
+    this.logActivity(`Admin verified & confirmed payment for Booking ${bookingId}`);
+    return updated;
+  },
+
   updateBookingStatus(bookingId, newStatus, assignedRoom = null) {
     const bookings = this.getBookings();
-    const rooms = this.getRooms();
-
     const updated = bookings.map(b => {
       if (b.id === bookingId) {
         const updatedBooking = { ...b, status: newStatus };

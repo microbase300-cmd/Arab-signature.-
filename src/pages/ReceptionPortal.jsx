@@ -46,10 +46,10 @@ export default function ReceptionPortal({ onNavigate }) {
   };
 
   useEffect(() => {
-    // 1. Check Auth
+    // 1. Check Auth (Requires Reception or Admin session)
     const user = portalStore.getCurrentUser();
     if (!user) {
-      onNavigate('portal-login');
+      onNavigate('reception-login');
       return;
     }
     setCurrentUser(user);
@@ -72,7 +72,7 @@ export default function ReceptionPortal({ onNavigate }) {
   // Logout handler
   const handleLogout = () => {
     portalStore.logout();
-    onNavigate('portal-login');
+    onNavigate('reception-login');
   };
 
   // Quick Room Status Toggle
@@ -279,18 +279,6 @@ export default function ReceptionPortal({ onNavigate }) {
               <Plus size={15} className="stroke-[2.5]" />
               <span>New Walk-In</span>
             </button>
-
-            {/* Quick Link to Admin if authorized */}
-            {currentUser?.role === 'admin' && (
-              <button
-                onClick={() => onNavigate('admin')}
-                className="px-3 py-2 rounded-xl bg-[#5c0725]/60 hover:bg-[#5c0725] text-[#f3e5ab] text-xs font-semibold border border-[#d4af37]/40 flex items-center gap-1.5 transition-all"
-                title="Switch to Admin Management Portal"
-              >
-                <ShieldCheck size={14} className="text-[#d4af37]" />
-                <span className="hidden sm:inline">Admin Portal</span>
-              </button>
-            )}
 
             {/* Back to Guest Website */}
             <button
@@ -711,14 +699,29 @@ export default function ReceptionPortal({ onNavigate }) {
                             </div>
                           </td>
 
-                          {/* Amount */}
+                          {/* Amount & Backend Confirmation Check */}
                           <td className="py-3.5 px-4">
-                            <div className="font-bold text-[#f3e5ab] font-mono">
-                              ₦{Number(b.amount).toLocaleString()}
-                            </div>
-                            <div className="text-[10px] text-emerald-400">
-                              {b.paymentMethod}
-                            </div>
+                            {b.paymentStatus === 'Paid' ? (
+                              <>
+                                <div className="font-bold text-[#f3e5ab] font-mono">
+                                  ₦{Number(b.amount).toLocaleString()}
+                                </div>
+                                <div className="text-[10px] text-emerald-400 flex items-center gap-1">
+                                  <CheckCircle2 size={11} />
+                                  <span>Paid • Backend Confirmed</span>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="text-amber-400 font-semibold text-xs flex items-center gap-1">
+                                  <Clock size={12} className="text-amber-400" />
+                                  <span>Pending Backend</span>
+                                </div>
+                                <div className="text-[10px] text-gray-500 italic">
+                                  Awaiting GM / Backend Confirmation
+                                </div>
+                              </>
+                            )}
                           </td>
 
                           {/* Status */}
@@ -726,11 +729,11 @@ export default function ReceptionPortal({ onNavigate }) {
                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border ${
                               isCheckedIn
                                 ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-                                : isConfirmed
+                                : b.paymentStatus === 'Paid'
                                 ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
-                                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                             }`}>
-                              {b.status}
+                              {b.paymentStatus === 'Paid' ? b.status : 'Awaiting Payment Audit'}
                             </span>
                           </td>
 
@@ -739,7 +742,7 @@ export default function ReceptionPortal({ onNavigate }) {
                             <div className="flex items-center justify-end gap-1.5">
                               
                               {/* Check In / Out Toggle Button */}
-                              {isConfirmed && (
+                              {isConfirmed && b.paymentStatus === 'Paid' && (
                                 <button
                                   onClick={() => handleToggleBookingStatus(b)}
                                   className="px-2.5 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white text-[11px] font-semibold transition-all flex items-center gap-1"
@@ -747,6 +750,16 @@ export default function ReceptionPortal({ onNavigate }) {
                                   <Key size={12} />
                                   <span>Check In</span>
                                 </button>
+                              )}
+
+                              {isConfirmed && b.paymentStatus !== 'Paid' && (
+                                <span
+                                  className="px-2.5 py-1 rounded-lg bg-amber-950/40 border border-amber-500/30 text-amber-300 text-[10px] flex items-center gap-1 font-semibold cursor-help"
+                                  title="Check-in locked: Payment must be confirmed by backend or GM before issuing keys"
+                                >
+                                  <Lock size={11} />
+                                  <span>Payment Pending</span>
+                                </span>
                               )}
 
                               {isCheckedIn && (
@@ -767,14 +780,23 @@ export default function ReceptionPortal({ onNavigate }) {
                                 <MessageSquare size={13} />
                               </button>
 
-                              {/* Print Luxury Guest Receipt */}
-                              <button
-                                onClick={() => setSelectedReceiptBooking(b)}
-                                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-[#d4af37] transition-all"
-                                title="Print Luxury Receipt Folio"
-                              >
-                                <Printer size={13} />
-                              </button>
+                              {/* Print Luxury Guest Receipt (Only if Confirmed) */}
+                              {b.paymentStatus === 'Paid' ? (
+                                <button
+                                  onClick={() => setSelectedReceiptBooking(b)}
+                                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-[#d4af37] transition-all"
+                                  title="Print Luxury Receipt Folio"
+                                >
+                                  <Printer size={13} />
+                                </button>
+                              ) : (
+                                <span
+                                  className="p-1.5 rounded-lg bg-white/5 text-gray-600 cursor-not-allowed border border-white/5"
+                                  title="Receipt locked until payment is confirmed by backend"
+                                >
+                                  <Printer size={13} />
+                                </span>
+                              )}
 
                             </div>
                           </td>
