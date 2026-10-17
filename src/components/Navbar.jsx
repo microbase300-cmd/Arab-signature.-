@@ -123,7 +123,7 @@ export default function Navbar({ currentPage, onNavigate, onOpenBooking }) {
                 rel="noreferrer"
                 className="w-full py-2.5 px-3 rounded-xl bg-[#25D366] text-black font-bold text-xs uppercase tracking-wider text-center block"
               >
-                Chat on WhatsApp (₦0)
+                Chat on WhatsApp
               </a>
 
               <button

@@ -315,7 +315,7 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
                   onClick={handleWhatsAppSend}
                   className="w-full py-3 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-black font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-98"
                 >
-                  <Share2 size={16} /> Send Booking to Hotel WhatsApp (₦0)
+                  <Share2 size={16} /> Send Booking to Hotel WhatsApp
                 </button>
                 <button
                   type="button"

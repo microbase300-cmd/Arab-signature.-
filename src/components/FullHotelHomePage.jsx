@@ -1214,7 +1214,7 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
                   className="px-6 py-3 rounded-xl bg-[#25D366] text-black font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg hover:opacity-95"
                 >
                   <Share2 size={15} />
-                  <span>Chat on WhatsApp (₦0)</span>
+                  <span>Chat on WhatsApp</span>
                 </a>
 
                 <button
