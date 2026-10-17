@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Arab Signature Hotel & Suites — Nsugbe, Onitsha</title>
+    <link rel="icon" type="image/jpeg" href="/logo.jpg" />
+    <meta name="description" content="Arab Signature Hotel and Suites — Premier luxury destination located in Nsugbe, Onitsha. 5-star palatial suites, private poolside VIP cabanas, and 24/7 security." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN for instant styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              burgundy: {
+                deep: '#420317',
+                DEFAULT: '#5c0725',
+                light: '#7a1236',
+              },
+              gold: {
+                DEFAULT: '#d4af37',
+                light: '#f3e5ab',
+                dark: '#aa820a',
+              }
+            },
+            fontFamily: {
+              cinzel: ['Cinzel', 'serif'],
+              playfair: ['Playfair Display', 'serif'],
+              grotesk: ['Space Grotesk', 'sans-serif'],
+              sans: ['Plus Jakarta Sans', 'sans-serif']
+            }
+          }
+        }
+      }
+    </script>
+  </head>
+  <body class="bg-[#0f0e13] text-gray-100 antialiased selection:bg-[#d4af37] selection:text-black">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
