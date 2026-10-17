@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
-import { HOTEL_INFO, ROOMS } from '../data/hotelData';
+import React, { useState, useEffect } from 'react';
+import { HOTEL_INFO } from '../data/hotelData';
+import { portalStore } from '../data/portalStore';
 import { 
   MapPin, Phone, Mail, Clock, ShieldCheck, Car, 
   Plane, Sparkles, Send, CheckCircle2, MessageSquare, ArrowRight 
 } from 'lucide-react';
 
 export default function ContactPage({ onNavigate, onOpenBooking }) {
+  const [rooms, setRooms] = useState(() => portalStore.getRoomRates());
+
+  useEffect(() => {
+    return portalStore.subscribeRates(setRooms);
+  }, []);
+
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -257,7 +264,7 @@ export default function ContactPage({ onNavigate, onOpenBooking }) {
                     onChange={(e) => setFormData({ ...formData, suiteType: e.target.value })}
                     className="w-full px-4 py-3 rounded-xl bg-[#1c040e] border border-white/15 text-white focus:outline-none focus:border-[#d4af37] text-sm"
                   >
-                    {ROOMS.map((r) => (
+                    {rooms.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name} — {r.priceFormatted}/night
                       </option>

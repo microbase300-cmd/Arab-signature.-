@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { ROOMS, HOTEL_INFO } from '../data/hotelData';
+import React, { useState, useEffect } from 'react';
+import { HOTEL_INFO } from '../data/hotelData';
+import { portalStore } from '../data/portalStore';
 import { 
   Calendar, Users, ArrowRight, Star, ShieldCheck, Zap, Crown, 
   Car, Sparkles, Utensils, Waves, Phone, MapPin, Check, 
@@ -10,6 +11,12 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
   const [checkIn, setCheckIn] = useState('2026-10-20');
   const [checkOut, setCheckOut] = useState('2026-10-22');
   const [roomType, setRoomType] = useState('deluxe');
+  const [rooms, setRooms] = useState(() => portalStore.getRoomRates());
+
+  // Listen for real-time room rate adjustments made by Admin
+  useEffect(() => {
+    return portalStore.subscribeRates(setRooms);
+  }, []);
 
   const goldGradient = 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black';
 
@@ -115,7 +122,7 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
                     onChange={(e) => setRoomType(e.target.value)}
                     className="w-full bg-transparent text-xs font-semibold focus:outline-none cursor-pointer"
                   >
-                    {ROOMS.map(r => (
+                    {rooms.map(r => (
                       <option key={r.id} value={r.id} className="text-black">
                         {r.name} ({r.priceFormatted})
                       </option>
@@ -212,7 +219,7 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {ROOMS.map((room) => (
+            {rooms.map((room) => (
               <div
                 key={room.id}
                 className="rounded-3xl overflow-hidden border border-[#d4af37]/30 bg-[#1f050f]/80 shadow-xl flex flex-col justify-between group hover:-translate-y-1 transition-all"

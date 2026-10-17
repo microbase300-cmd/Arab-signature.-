@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Logo from './Logo';
-import { HOTEL_INFO, ROOMS } from '../data/hotelData';
+import { HOTEL_INFO } from '../data/hotelData';
+import { portalStore } from '../data/portalStore';
 import { MapPin, Phone, ShieldCheck, Clock } from 'lucide-react';
 
 export default function Footer({ onNavigate, onOpenBooking }) {
+  const [rooms, setRooms] = useState(() => portalStore.getRoomRates());
+
+  useEffect(() => {
+    return portalStore.subscribeRates(setRooms);
+  }, []);
+
   const handleNav = (pageId) => {
     onNavigate(pageId);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -70,7 +77,7 @@ export default function Footer({ onNavigate, onOpenBooking }) {
             Accommodations
           </h4>
           <ul className="space-y-2.5 text-xs">
-            {ROOMS.map((r) => (
+            {rooms.map((r) => (
               <li key={r.id}>
                 <button 
                   onClick={() => onOpenBooking(r.id)}

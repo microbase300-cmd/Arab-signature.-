@@ -1,15 +1,20 @@
-import React, { useState } from 'react';
-import { ROOMS } from '../data/hotelData';
+import React, { useState, useEffect } from 'react';
+import { portalStore } from '../data/portalStore';
 import { Star, Check, ArrowRight, Crown, Sparkles, ShieldCheck, Clock, Users, Bed } from 'lucide-react';
 
 export default function SuitesPage({ onNavigate, onOpenBooking }) {
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [rooms, setRooms] = useState(() => portalStore.getRoomRates());
+
+  useEffect(() => {
+    return portalStore.subscribeRates(setRooms);
+  }, []);
 
   const goldGradient = 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black';
 
   const filteredRooms = selectedCategory === 'all'
-    ? ROOMS
-    : ROOMS.filter(r => r.category.toLowerCase().includes(selectedCategory.toLowerCase()));
+    ? rooms
+    : rooms.filter(r => r.category.toLowerCase().includes(selectedCategory.toLowerCase()));
 
   return (
     <div className="bg-[#120208] text-gray-100 min-h-screen">

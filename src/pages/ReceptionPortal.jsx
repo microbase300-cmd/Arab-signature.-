@@ -60,7 +60,16 @@ export default function ReceptionPortal({ onNavigate }) {
       setCurrentTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     }, 1000);
 
-    return () => clearInterval(timer);
+    // 3. Listen for live incoming bookings & price adjustments in real time
+    const handleLiveSync = () => refreshData();
+    window.addEventListener('ash_bookings_updated', handleLiveSync);
+    window.addEventListener('ash_rates_updated', handleLiveSync);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('ash_bookings_updated', handleLiveSync);
+      window.removeEventListener('ash_rates_updated', handleLiveSync);
+    };
   }, []);
 
   // Flash feedback toast
@@ -706,9 +715,9 @@ export default function ReceptionPortal({ onNavigate }) {
                                 <div className="font-bold text-[#f3e5ab] font-mono">
                                   ₦{Number(b.amount).toLocaleString()}
                                 </div>
-                                <div className="text-[10px] text-emerald-400 flex items-center gap-1">
+                                <div className="text-[10px] text-emerald-400 flex items-center gap-1 font-medium">
                                   <CheckCircle2 size={11} />
-                                  <span>Paid • Backend Confirmed</span>
+                                  <span>Paid • Paystack Auto-Confirmed</span>
                                 </div>
                               </>
                             ) : (

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ROOMS, HOTEL_INFO } from '../data/hotelData';
+import { HOTEL_INFO } from '../data/hotelData';
 import { portalStore } from '../data/portalStore';
 import { X, Calendar, User, Phone, Mail, CheckCircle2, ShieldCheck, Download, Share2, ArrowRight } from 'lucide-react';
 
@@ -16,7 +16,8 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
 
   if (!isOpen) return null;
 
-  const selectedRoom = ROOMS.find(r => r.id === roomId) || ROOMS[0];
+  const rooms = portalStore.getRoomRates();
+  const selectedRoom = rooms.find(r => r.id === roomId) || rooms[0];
 
   // Calculate nights
   const d1 = new Date(checkIn);
@@ -99,7 +100,7 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
                   Select Room / Suite
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {ROOMS.map((room) => (
+                  {rooms.map((room) => (
                     <button
                       key={room.id}
                       type="button"

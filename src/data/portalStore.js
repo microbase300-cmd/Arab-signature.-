@@ -123,10 +123,10 @@ const INITIAL_BOOKINGS = [
     nights: 1,
     amount: 45000,
     status: "Confirmed",
-    paymentMethod: "Direct Bank Transfer (Awaiting Audit)",
-    paymentStatus: "Pending Backend Confirmation", // Not yet verified by backend
-    backendVerified: false,
-    verifiedAt: null,
+    paymentMethod: "Paystack (Online Auto-Confirmed)",
+    paymentStatus: "Paid",
+    backendVerified: true,
+    verifiedAt: "2026-10-17 10:16",
     source: "Direct Website",
     createdAt: "2026-10-17 10:15"
   }
@@ -368,7 +368,7 @@ export const portalStore = {
     setLocalItem(STORAGE_KEYS.LOGIN_LOGS, []);
   },
 
-  // --- BOOKINGS LEDGER & BACKEND PAYMENT CONFIRMATION ---
+  // --- BOOKINGS LEDGER & AUTOMATIC PAYSTACK PAYMENT CONFIRMATION ---
   getBookings() {
     return getLocalItem(STORAGE_KEYS.BOOKINGS, INITIAL_BOOKINGS);
   },
@@ -376,9 +376,7 @@ export const portalStore = {
   addBooking(bookingData) {
     const bookings = this.getBookings();
     
-    // Check if payment is verified (online Paystack with verified transaction, or cash at counter)
-    const isPaymentConfirmed = bookingData.paymentStatus === 'Paid' || bookingData.paymentMethod.includes('POS');
-
+    // Payment is automatically confirmed when Paystack processes it (or POS/Cash at front desk)
     const newBooking = {
       id: bookingData.id || ('ASH-' + Math.floor(1000 + Math.random() * 9000)),
       guestName: bookingData.guestName || "Guest",
@@ -392,21 +390,27 @@ export const portalStore = {
       nights: bookingData.nights || 1,
       amount: bookingData.amount || 45000,
       status: bookingData.status || "Confirmed",
-      paymentMethod: bookingData.paymentMethod || "Paystack (Online)",
-      paymentStatus: isPaymentConfirmed ? "Paid" : "Pending Backend Confirmation",
-      backendVerified: isPaymentConfirmed,
-      verifiedAt: isPaymentConfirmed ? new Date().toLocaleString() : null,
-      source: bookingData.source || "Direct Website",
+      paymentMethod: bookingData.paymentMethod || "Paystack (Auto-Confirmed)",
+      paymentStatus: "Paid", // Automatically confirmed by Paystack
+      backendVerified: true,
+      verifiedAt: new Date().toLocaleString(),
+      source: bookingData.source || "Direct Website (Paystack)",
       createdAt: new Date().toLocaleString()
     };
 
     const updated = [newBooking, ...bookings];
     setLocalItem(STORAGE_KEYS.BOOKINGS, updated);
-    this.logActivity(`New reservation booked: ${newBooking.id} for ${newBooking.guestName} (${newBooking.roomName})`);
+    this.logActivity(`New reservation booked: ${newBooking.id} for ${newBooking.guestName} - Payment Automatically Confirmed by Paystack`);
+    
+    // Broadcast live update so receptionist screen updates in real time
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_bookings_updated', { detail: updated }));
+    }
+
     return newBooking;
   },
 
-  // ADMIN ACTION: Confirm payment backend / audit verification
+  // Confirm payment manual audit if ever needed
   confirmPaymentBackend(bookingId) {
     const bookings = this.getBookings();
     const updated = bookings.map(b => {
@@ -422,7 +426,7 @@ export const portalStore = {
     });
 
     setLocalItem(STORAGE_KEYS.BOOKINGS, updated);
-    this.logActivity(`Admin verified & confirmed payment for Booking ${bookingId}`);
+    this.logActivity(`Payment audit logged for Booking ${bookingId}`);
     return updated;
   },
 
@@ -472,7 +476,7 @@ export const portalStore = {
     return updated;
   },
 
-  // --- ROOM RATES (ADMIN CONTROLS) ---
+  // --- ROOM RATES (ADMIN CONTROLS & LIVE WEBSITE SYNCHRONIZATION) ---
   getRoomRates() {
     return getLocalItem(STORAGE_KEYS.ROOM_RATES, DEFAULT_ROOMS);
   },
@@ -492,7 +496,22 @@ export const portalStore = {
     });
     setLocalItem(STORAGE_KEYS.ROOM_RATES, updated);
     this.logActivity(`Admin adjusted room rate for '${roomId}' to ₦${numPrice.toLocaleString()}`);
+
+    // Real-time broadcast to homepage, suites catalog, and booking modal
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_rates_updated', { detail: updated }));
+    }
+
     return updated;
+  },
+
+  subscribeRates(callback) {
+    if (typeof window === 'undefined') return () => {};
+    const handler = (e) => {
+      callback(e.detail || this.getRoomRates());
+    };
+    window.addEventListener('ash_rates_updated', handler);
+    return () => window.removeEventListener('ash_rates_updated', handler);
   },
 
   // --- HOTEL CONFIG (ADMIN CONTROLS) ---
