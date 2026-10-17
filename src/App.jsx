@@ -19,6 +19,9 @@ import ReceptionLogin from './pages/ReceptionLogin';
 import ReceptionPortal from './pages/ReceptionPortal';
 import AdminPortal from './pages/AdminPortal';
 
+// Lightweight Hotel AI Concierge
+import HotelAiChat from './components/HotelAiChat';
+
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [isBookingOpen, setIsBookingOpen] = useState(false);
@@ -190,6 +193,14 @@ export default function App() {
         onClose={() => setIsBookingOpen(false)}
         preselectedRoomId={preselectedRoom}
       />
+
+      {/* 5. Arab Signature AI Concierge (Lightweight & Zero-Vercel Cost) */}
+      {!isPortalPage && (
+        <HotelAiChat
+          onOpenBooking={handleOpenBooking}
+          onNavigate={handleNavigate}
+        />
+      )}
 
     </div>
   );
