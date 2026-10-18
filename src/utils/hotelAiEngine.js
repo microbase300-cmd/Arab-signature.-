@@ -113,20 +113,20 @@ export const hotelAiEngine = {
     // 3. REAL-TIME ROOM INVENTORY & AVAILABILITY (Direct from Reception)
     // ========================================================
     const directKeywords = [
-      "avail", "avaliab", "avaiab", "vacan", "free room", "free suite", 
-      "occupan", "how many room", "how many suite", "room count", "suite count",
-      "any room", "any suite", "which room", "rooms left", "suites left",
-      "rooms open", "suites open", "book tonight", "room tonight", "suite tonight",
+      "avail", "avali", "avalib", "avalibl", "avalible", "avaliable", "avaiable", "avaiab",
+      "vacan", "free room", "free suite", "occupan", "how many room", "how many suite", 
+      "room count", "suite count", "any room", "any suite", "which room", "rooms left", 
+      "suites left", "rooms open", "suites open", "book tonight", "room tonight", "suite tonight",
       "available", "availability"
     ];
 
     const availabilityRegex = [
       /how\s+many.*(room|suite)/i,
-      /(room|suite).*(avail|vacan|free|left|open)/i,
-      /(avail|vacan|free|left).*(room|suite)/i,
-      /(check|see|view|get).*(avail)/i,
+      /(room|suite).*(avail|aval|vacan|free|left|open)/i,
+      /(avail|aval|vacan|free|left).*(room|suite)/i,
+      /(check|see|view|get).*(avail|aval)/i,
       /\b(vacant|vacancy|vacancies|occupancy)\b/i,
-      /\b(available|availability)\b/i
+      /\b(available|availability|avalible|avaliable|avaiable)\b/i
     ];
 
     const isAvailabilityQuery = 

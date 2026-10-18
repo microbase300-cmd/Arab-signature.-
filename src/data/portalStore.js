@@ -6,26 +6,26 @@ const STORAGE_KEYS = {
   USERS: 'ash_portal_staff_users',
   LOGIN_LOGS: 'ash_portal_login_attempts',
   BOOKINGS: 'ash_portal_bookings',
-  ROOMS: 'ash_portal_rooms_inventory',
+  ROOMS: 'ash_portal_rooms_inventory_v3',
   ROOM_RATES: 'ash_portal_room_rates',
   HOTEL_CONFIG: 'ash_portal_hotel_config',
   ACTIVITY_LOG: 'ash_portal_activity_log',
 };
 
-// 1. Initial Room Inventory (12 Luxury Keys in Nsugbe, Onitsha)
+// 1. Initial Room Inventory (12 Luxury Keys in Nsugbe, Onitsha - 7 Live Available)
 const INITIAL_ROOMS_INVENTORY = [
   { roomNumber: "101", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "occupied", currentGuest: "Dr. Ngozi Adeleke", checkOut: "2026-10-22", price: 45000 },
   { roomNumber: "102", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
   { roomNumber: "103", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "reserved", currentGuest: "Alhaji Ibrahim Musa", checkOut: "2026-10-23", price: 45000 },
   { roomNumber: "201", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
   { roomNumber: "202", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "occupied", currentGuest: "Senator Chuka Nwosu", checkOut: "2026-10-21", price: 65000 },
-  { roomNumber: "203", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "cleaning", currentGuest: null, checkOut: null, price: 65000 },
+  { roomNumber: "203", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
   { roomNumber: "301", type: "royal", name: "Royal Diplomatic Penthouse", floor: "Penthouse", status: "occupied", currentGuest: "Chief Emeka Obi", checkOut: "2026-10-25", price: 120000 },
   { roomNumber: "302", type: "royal", name: "Royal Diplomatic Penthouse", floor: "Penthouse", status: "available", currentGuest: null, checkOut: null, price: 120000 },
   { roomNumber: "401", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
   { roomNumber: "402", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
   { roomNumber: "403", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "occupied", currentGuest: "Engr. Tunde Bakare", checkOut: "2026-10-20", price: 35000 },
-  { roomNumber: "404", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "cleaning", currentGuest: null, checkOut: null, price: 35000 },
+  { roomNumber: "404", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
 ];
 
 // 2. Pre-Seeded Real Bookings with Backend Confirmation status
@@ -456,6 +456,19 @@ export const portalStore = {
 
   // --- ROOMS INVENTORY ---
   getRooms() {
+    // Clean up stale v1/v2 storage keys if any exist in the browser
+    if (typeof localStorage !== 'undefined') {
+      try {
+        if (localStorage.getItem('ash_portal_rooms_inventory')) {
+          localStorage.removeItem('ash_portal_rooms_inventory');
+        }
+        if (localStorage.getItem('ash_portal_rooms_inventory_v2')) {
+          localStorage.removeItem('ash_portal_rooms_inventory_v2');
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
     return getLocalItem(STORAGE_KEYS.ROOMS, INITIAL_ROOMS_INVENTORY);
   },
 
