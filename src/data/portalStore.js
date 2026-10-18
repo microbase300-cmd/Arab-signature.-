@@ -6,16 +6,16 @@ const STORAGE_KEYS = {
   USERS: 'ash_portal_staff_users',
   LOGIN_LOGS: 'ash_portal_login_attempts',
   BOOKINGS: 'ash_portal_bookings',
-  ROOMS: 'ash_portal_rooms_inventory_v4',
+  ROOMS: 'ash_portal_rooms_inventory_v5',
   ROOM_RATES: 'ash_portal_room_rates',
   HOTEL_CONFIG: 'ash_portal_hotel_config',
   ACTIVITY_LOG: 'ash_portal_activity_log',
 };
 
-// 1. Initial Room Inventory (12 Luxury Keys in Nsugbe, Onitsha - 8 Live Available matching Receptionist Portal)
+// 1. Initial Room Inventory (12 Luxury Keys in Nsugbe, Onitsha - 7 Live Available baseline matching Receptionist Portal)
 const INITIAL_ROOMS_INVENTORY = [
   { roomNumber: "101", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "occupied", currentGuest: "Dr. Ngozi Adeleke", checkOut: "2026-10-22", price: 45000 },
-  { roomNumber: "102", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
+  { roomNumber: "102", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "occupied", currentGuest: "Walk-In Guest", checkOut: "2026-10-20", price: 45000 },
   { roomNumber: "103", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "reserved", currentGuest: "Alhaji Ibrahim Musa", checkOut: "2026-10-23", price: 45000 },
   { roomNumber: "201", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
   { roomNumber: "202", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "occupied", currentGuest: "Senator Chuka Nwosu", checkOut: "2026-10-21", price: 65000 },
@@ -470,21 +470,22 @@ export const portalStore = {
 
   // --- ROOMS INVENTORY ---
   getRooms() {
-    // One-time migration to v4 (baseline: 8 live available rooms matching Receptionist Portal)
+    // One-time migration to v5 (baseline: 7 live available rooms matching Receptionist Portal)
     if (typeof localStorage !== 'undefined') {
       try {
-        if (!localStorage.getItem('ash_portal_rooms_v4_migrated')) {
+        if (!localStorage.getItem('ash_portal_rooms_v5_migrated')) {
           localStorage.removeItem('ash_portal_rooms_inventory');
           localStorage.removeItem('ash_portal_rooms_inventory_v2');
           localStorage.removeItem('ash_portal_rooms_inventory_v3');
-          localStorage.setItem('ash_portal_rooms_v4_migrated', 'true');
+          localStorage.removeItem('ash_portal_rooms_inventory_v4');
+          localStorage.setItem('ash_portal_rooms_v5_migrated', 'true');
         }
       } catch (e) {
         // ignore
       }
     }
-    const v4Rooms = getLocalItem(STORAGE_KEYS.ROOMS, null);
-    if (v4Rooms && Array.isArray(v4Rooms)) return v4Rooms;
+    const v5Rooms = getLocalItem(STORAGE_KEYS.ROOMS, null);
+    if (v5Rooms && Array.isArray(v5Rooms)) return v5Rooms;
     const legacyRooms = getLocalItem('ash_portal_rooms_inventory', null);
     if (legacyRooms && Array.isArray(legacyRooms)) return legacyRooms;
     return INITIAL_ROOMS_INVENTORY;
@@ -497,18 +498,17 @@ export const portalStore = {
         return {
           ...r,
           status: newStatus,
-          currentGuest: newStatus === 'occupied' ? (guestName || r.currentGuest) : null
+          currentGuest: newStatus === 'occupied' ? (guestName || r.currentGuest || 'Guest') : null
         };
       }
       return r;
     });
 
-    // Save to v4, legacy key, and timestamp for all tabs to detect instantly
+    // Save locally
     setLocalItem(STORAGE_KEYS.ROOMS, updated);
     setLocalItem('ash_portal_rooms_inventory', updated);
     if (typeof localStorage !== 'undefined') {
       try {
-        localStorage.setItem('ash_portal_rooms_v4_migrated', 'true');
         localStorage.setItem('ash_portal_rooms_updated_at', String(Date.now()));
       } catch (e) {
         // ignore
@@ -532,46 +532,94 @@ export const portalStore = {
       }
     }
 
-    // 3. Asynchronously sync to Vercel Cloud API so other browser profiles, windows, and devices update instantly
+    // 3. Asynchronously sync to Vercel Cloud API + Persistent MantleDB Cloud
     if (typeof window !== 'undefined') {
+      const payload = JSON.stringify({ rooms: updated, updatedAt: Date.now() });
+      
+      // Primary sync via Vercel /api/rooms
       fetch('/api/rooms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rooms: updated })
-      }).catch(err => {
-        // silent fallback if running in preview without server
-      });
+        body: payload
+      }).catch(() => {});
+
+      // Direct secondary dual-write to MantleDB
+      fetch('https://mantledb.sh/v2/arab-signature-hotel-2026/inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      }).catch(() => {});
     }
 
     return updated;
   },
 
   /**
-   * Synchronize room inventory with Vercel Cloud API
-   * Used by AI Concierge and Receptionist to ensure 100% parity across all devices and profiles
+   * Synchronize room inventory with Persistent Cloud (Vercel API + MantleDB)
+   * Ensures 100% real-time parity across all windows, devices, and browser profiles with strict 1.5s timeout
    */
   async syncRoomsFromCloud() {
     if (typeof window === 'undefined') return this.getRooms();
+
+    const applyCloudRooms = (newRooms) => {
+      if (!newRooms || !Array.isArray(newRooms) || newRooms.length === 0) return null;
+      const currentRooms = this.getRooms();
+      const cloudAvail = newRooms.filter(r => r.status === 'available').length;
+      const localAvail = currentRooms.filter(r => r.status === 'available').length;
+
+      if (cloudAvail !== localAvail || JSON.stringify(newRooms) !== JSON.stringify(currentRooms)) {
+        setLocalItem(STORAGE_KEYS.ROOMS, newRooms);
+        setLocalItem('ash_portal_rooms_inventory', newRooms);
+        window.dispatchEvent(new CustomEvent('ash_rooms_updated', { detail: newRooms }));
+        return newRooms;
+      }
+      return currentRooms;
+    };
+
+    // Primary: Query /api/rooms with strict 1.5s timeout
     try {
-      const res = await fetch('/api/rooms');
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort(), 1500);
+
+      const res = await fetch(`/api/rooms?_t=${Date.now()}`, {
+        cache: 'no-store',
+        signal: ctrl.signal
+      });
+      clearTimeout(timeoutId);
+
       if (res.ok) {
         const data = await res.json();
         if (data && data.rooms && Array.isArray(data.rooms) && data.rooms.length > 0) {
-          const currentRooms = this.getRooms();
-          const cloudAvail = data.rooms.filter(r => r.status === 'available').length;
-          const localAvail = currentRooms.filter(r => r.status === 'available').length;
-
-          if (cloudAvail !== localAvail || JSON.stringify(data.rooms) !== JSON.stringify(currentRooms)) {
-            setLocalItem(STORAGE_KEYS.ROOMS, data.rooms);
-            setLocalItem('ash_portal_rooms_inventory', data.rooms);
-            window.dispatchEvent(new CustomEvent('ash_rooms_updated', { detail: data.rooms }));
-            return data.rooms;
-          }
+          const applied = applyCloudRooms(data.rooms);
+          if (applied) return applied;
         }
       }
     } catch (err) {
-      // Offline fallback to local store
+      // Fall through to direct MantleDB check
     }
+
+    // Secondary Fallback: Query MantleDB directly
+    try {
+      const ctrl2 = new AbortController();
+      const timeoutId2 = setTimeout(() => ctrl2.abort(), 1500);
+
+      const res2 = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-2026/inventory?_t=${Date.now()}`, {
+        cache: 'no-store',
+        signal: ctrl2.signal
+      });
+      clearTimeout(timeoutId2);
+
+      if (res2.ok) {
+        const data2 = await res2.json();
+        if (data2 && data2.rooms && Array.isArray(data2.rooms) && data2.rooms.length > 0) {
+          const applied = applyCloudRooms(data2.rooms);
+          if (applied) return applied;
+        }
+      }
+    } catch (err2) {
+      // Offline fallback
+    }
+
     return this.getRooms();
   },
 

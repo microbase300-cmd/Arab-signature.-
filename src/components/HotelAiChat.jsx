@@ -81,8 +81,8 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
     // Immediate initial sync
     syncCurrentRooms();
 
-    // 10-second client-side heartbeat
-    const intervalId = setInterval(syncCurrentRooms, 10000);
+    // 5-second client-side heartbeat
+    const intervalId = setInterval(syncCurrentRooms, 5000);
 
     // Instant event listeners
     const unsubPortal = portalStore.subscribeRooms(() => {
@@ -154,7 +154,11 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
     // Process with AI Engine
     setTimeout(async () => {
       try {
-        await portalStore.syncRoomsFromCloud().catch(() => {});
+        await Promise.race([
+          portalStore.syncRoomsFromCloud(),
+          new Promise(r => setTimeout(r, 800))
+        ]).catch(() => {});
+
         const response = hotelAiEngine.processQuery(text);
         const currentAvail = portalStore.getRooms().filter(r => r.status === 'available').length;
         setLiveAvailableCount(currentAvail);
@@ -236,7 +240,7 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
                     Arab Signature AI
                   </h3>
                   <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] font-semibold border border-emerald-500/30">
-                    10s Auto-Sync
+                    Live Auto-Sync
                   </span>
                 </div>
                 <p className="text-[10px] text-gray-300">
@@ -247,21 +251,24 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
 
             <div className="flex items-center gap-1">
               <button
-                onClick={() => {
-                  const brain = hotelAiEngine.refreshBrain();
-                  setLiveAvailableCount(brain.availableRooms.length);
-                  setMessages([
-                    {
-                      id: "welcome-reset",
-                      sender: "ai",
-                      text: `AI Brain refreshed (${brain.availableRooms.length} of ${brain.rooms.length} suites currently available). How may I assist your reservation or stay today?`,
-                      suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe"],
-                      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    }
-                  ]);
+                onClick={async () => {
+                  try {
+                    const freshRooms = await portalStore.syncRoomsFromCloud();
+                    const avail = (freshRooms || portalStore.getRooms()).filter(r => r.status === 'available').length;
+                    setLiveAvailableCount(avail);
+                    setMessages([
+                      {
+                        id: `welcome-reset-${Date.now()}`,
+                        sender: "ai",
+                        text: `Live Sync Complete! **${avail} luxury suites** are currently available at Arab Signature Hotel. How may I assist you?`,
+                        suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe"],
+                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      }
+                    ]);
+                  } catch (e) {}
                 }}
                 className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-                title="Refresh AI Brain & Reset Chat"
+                title="Force Live Cloud Sync"
               >
                 <RefreshCw size={14} />
               </button>
