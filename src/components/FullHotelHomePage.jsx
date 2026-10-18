@@ -185,12 +185,13 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
         <section className="relative min-h-[85vh] flex items-center justify-center px-6 py-16 overflow-hidden">
           <div className="absolute inset-0 z-0">
             <img
-              src="https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1920&q=85"
+              src="/hero-palace.jpg"
               alt="Arab Signature Hotel Grand Exterior & Suites"
-              className="w-full h-full object-cover object-center scale-105 animate-pulse duration-[10000ms]"
+              className="w-full h-full object-cover object-center scale-105 transition-transform duration-1000"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-[#380314]/85 to-black/90" />
-            <div className="absolute inset-0 arabesque-pattern opacity-15 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-[#380314]/65 to-black/85" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#120208] via-transparent to-black/60" />
+            <div className="absolute inset-0 arabesque-pattern opacity-10 pointer-events-none" />
           </div>
 
           <div className="relative z-10 max-w-5xl mx-auto text-center space-y-6 pt-4">
