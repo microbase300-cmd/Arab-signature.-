@@ -55,6 +55,17 @@ export default function ReceptionPortal({ onNavigate }) {
     setCurrentUser(user);
     refreshData();
 
+    // 1.1 Sync with Cloud API and seed live rooms to /api/rooms
+    portalStore.syncRoomsFromCloud().then(() => {
+      refreshData();
+    });
+    const currentInventory = portalStore.getRooms();
+    fetch('/api/rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rooms: currentInventory })
+    }).catch(() => {});
+
     // 2. Digital clock timer
     const timer = setInterval(() => {
       setCurrentTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));

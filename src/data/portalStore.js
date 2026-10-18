@@ -532,7 +532,47 @@ export const portalStore = {
       }
     }
 
+    // 3. Asynchronously sync to Vercel Cloud API so other browser profiles, windows, and devices update instantly
+    if (typeof window !== 'undefined') {
+      fetch('/api/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rooms: updated })
+      }).catch(err => {
+        // silent fallback if running in preview without server
+      });
+    }
+
     return updated;
+  },
+
+  /**
+   * Synchronize room inventory with Vercel Cloud API
+   * Used by AI Concierge and Receptionist to ensure 100% parity across all devices and profiles
+   */
+  async syncRoomsFromCloud() {
+    if (typeof window === 'undefined') return this.getRooms();
+    try {
+      const res = await fetch('/api/rooms');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.rooms && Array.isArray(data.rooms) && data.rooms.length > 0) {
+          const currentRooms = this.getRooms();
+          const cloudAvail = data.rooms.filter(r => r.status === 'available').length;
+          const localAvail = currentRooms.filter(r => r.status === 'available').length;
+
+          if (cloudAvail !== localAvail || JSON.stringify(data.rooms) !== JSON.stringify(currentRooms)) {
+            setLocalItem(STORAGE_KEYS.ROOMS, data.rooms);
+            setLocalItem('ash_portal_rooms_inventory', data.rooms);
+            window.dispatchEvent(new CustomEvent('ash_rooms_updated', { detail: data.rooms }));
+            return data.rooms;
+          }
+        }
+      }
+    } catch (err) {
+      // Offline fallback to local store
+    }
+    return this.getRooms();
   },
 
   subscribeRooms(callback) {
