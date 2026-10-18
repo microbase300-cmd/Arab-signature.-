@@ -34,7 +34,7 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Start 10-second Client-Side AI Brain Auto-Refresh + Cloud API Listeners
+  // Start 5-second Client-Side AI Brain Auto-Refresh + Cloud API Listeners
   useEffect(() => {
     const syncCurrentRooms = async () => {
       // 1. Instant local sync (0ms latency)
@@ -44,34 +44,12 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
       setLiveAvailableCount(avail);
       setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
 
-      const applyAvailUpdate = (newAvail) => {
-        if (prevAvailCountRef.current !== newAvail) {
-          prevAvailCountRef.current = newAvail;
-          const updatedAvailResponse = hotelAiEngine.buildAvailabilityResponse();
-          setMessages(prev => prev.map(msg => {
-            if (msg.sender === 'ai' && (msg.isAvailabilityMsg || msg.text.includes('Live Suite Availability') || msg.text.includes('luxury suites ready') || msg.text.includes('Live Receptionist Portal Availability'))) {
-              return {
-                ...msg,
-                text: updatedAvailResponse.text,
-                suggestions: updatedAvailResponse.suggestions,
-                isAvailabilityMsg: true,
-                timestamp: `${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Live Sync (${newAvail} Suites)`
-              };
-            }
-            return msg;
-          }));
-        }
-      };
-
-      applyAvailUpdate(avail);
-
       // 2. Background cloud sync to catch updates from other browser profiles or devices
       try {
         const cloudRooms = await portalStore.syncRoomsFromCloud();
         if (cloudRooms && Array.isArray(cloudRooms)) {
           const cloudAvail = cloudRooms.filter(r => r.status === 'available').length;
           setLiveAvailableCount(cloudAvail);
-          applyAvailUpdate(cloudAvail);
         }
       } catch (e) {
         // offline fallback
@@ -256,15 +234,7 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
                     const freshRooms = await portalStore.syncRoomsFromCloud();
                     const avail = (freshRooms || portalStore.getRooms()).filter(r => r.status === 'available').length;
                     setLiveAvailableCount(avail);
-                    setMessages([
-                      {
-                        id: `welcome-reset-${Date.now()}`,
-                        sender: "ai",
-                        text: `Live Sync Complete! **${avail} luxury suites** are currently available at Arab Signature Hotel. How may I assist you?`,
-                        suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe"],
-                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                      }
-                    ]);
+                    setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
                   } catch (e) {}
                 }}
                 className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
