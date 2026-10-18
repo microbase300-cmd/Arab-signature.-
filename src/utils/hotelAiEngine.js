@@ -27,40 +27,60 @@ const aiBrainMemory = {
 };
 
 let brainIntervalId = null;
+let isBrainRefreshing = false;
 
 export const hotelAiEngine = {
+  /**
+   * Return the current in-memory AI Brain state instantly (synchronous, 0 cost)
+   */
+  getBrainState() {
+    if (!aiBrainMemory.lastRefreshedAt) {
+      return this.refreshBrain();
+    }
+    return aiBrainMemory;
+  },
+
   /**
    * Synchronize the AI Brain directly from client-side portalStore (0 serverless cost)
    */
   refreshBrain() {
-    const rooms = portalStore.getRooms();
-    const availableRooms = rooms.filter(r => r.status === 'available');
-    const rates = portalStore.getRoomRates();
-    const bookings = portalStore.getBookings();
+    if (isBrainRefreshing) return aiBrainMemory;
+    isBrainRefreshing = true;
 
-    aiBrainMemory.rooms = rooms;
-    aiBrainMemory.availableRooms = availableRooms;
-    aiBrainMemory.rates = rates;
-    aiBrainMemory.bookings = bookings;
-    aiBrainMemory.lastRefreshedAt = new Date().toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-    aiBrainMemory.refreshCount += 1;
+    try {
+      const rooms = portalStore.getRooms();
+      const availableRooms = rooms.filter(r => r.status === 'available');
+      const rates = portalStore.getRoomRates();
+      const bookings = portalStore.getBookings();
 
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent('ash_ai_brain_refreshed', {
-          detail: {
-            availableCount: availableRooms.length,
-            rooms,
-            rates,
-            lastRefreshedAt: aiBrainMemory.lastRefreshedAt,
-            refreshCount: aiBrainMemory.refreshCount
-          }
-        })
-      );
+      aiBrainMemory.rooms = rooms;
+      aiBrainMemory.availableRooms = availableRooms;
+      aiBrainMemory.rates = rates;
+      aiBrainMemory.bookings = bookings;
+      aiBrainMemory.lastRefreshedAt = new Date().toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      aiBrainMemory.refreshCount += 1;
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('ash_ai_brain_refreshed', {
+            detail: {
+              availableCount: availableRooms.length,
+              rooms,
+              rates,
+              lastRefreshedAt: aiBrainMemory.lastRefreshedAt,
+              refreshCount: aiBrainMemory.refreshCount
+            }
+          })
+        );
+      }
+    } catch (err) {
+      console.warn("Hotel AI Brain refresh error:", err);
+    } finally {
+      isBrainRefreshing = false;
     }
 
     return aiBrainMemory;
@@ -102,8 +122,8 @@ export const hotelAiEngine = {
   /**
    * Build the live suite availability response from fresh brain state
    */
-  buildAvailabilityResponse() {
-    const brain = this.refreshBrain();
+  buildAvailabilityResponse(customBrain = null) {
+    const brain = customBrain || this.getBrainState();
     const { availableRooms, rates } = brain;
 
     const deluxeAvail = availableRooms.filter(r => r.type === 'deluxe').length;
@@ -136,8 +156,9 @@ export const hotelAiEngine = {
    * @returns {Object} - { text: string, suggestions: string[], meta: any }
    */
   processQuery(userMessage) {
-    // Always refresh the client-side AI brain before answering
-    this.refreshBrain();
+    try {
+      // Refresh brain state safely
+      this.refreshBrain();
 
     if (!userMessage || !userMessage.trim()) {
       return {
@@ -309,10 +330,17 @@ export const hotelAiEngine = {
     // ========================================================
     // 6. GENERAL LUXURY CONCIERGE FALLBACK
     // ========================================================
-    return {
-      text: `Thank you for contacting Arab Signature Hotel & Suites in Nsugbe, Onitsha. We are an ultra-luxury hospitality retreat offering 12 handcrafted Doha suites, Olympic-grade poolside cabanas, Al-Sultan gourmet dining, and 24/7 uninterrupted power.\n\n` +
-            `You can check suite availability, track an existing reservation code (e.g. ASH-7812), or ask me about our location and amenities. For urgent VIP assistance, our Front Desk Hotline is **0812 578 6875**.`,
-      suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe", "Al-Sultan Dining Menu"]
-    };
+      return {
+        text: `Thank you for contacting Arab Signature Hotel & Suites in Nsugbe, Onitsha. We are an ultra-luxury hospitality retreat offering 12 handcrafted Doha suites, Olympic-grade poolside cabanas, Al-Sultan gourmet dining, and 24/7 uninterrupted power.\n\n` +
+              `You can check suite availability, track an existing reservation code (e.g. ASH-7812), or ask me about our location and amenities. For urgent VIP assistance, our Front Desk Hotline is **0812 578 6875**.`,
+        suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe", "Al-Sultan Dining Menu"]
+      };
+    } catch (err) {
+      console.error("hotelAiEngine processQuery error:", err);
+      return {
+        text: "I am Arab Signature's AI Concierge. We currently have luxury suites available in Nsugbe, Onitsha. You can check live suite availability, track a booking reference code, or ask for directions.",
+        suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe"]
+      };
+    }
   }
 };

@@ -36,18 +36,17 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
 
   // Start 10-second Client-Side AI Brain Auto-Refresh + Instant Portal Listeners (0 Vercel cost)
   useEffect(() => {
-    const syncAiState = () => {
-      const brain = hotelAiEngine.refreshBrain();
-      const avail = brain.availableRooms.length;
+    const handleBrainRefreshed = (event) => {
+      const avail = event.detail?.availableCount ?? hotelAiEngine.getBrainState().availableRooms.length;
       setLiveAvailableCount(avail);
       setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
 
       if (prevAvailCountRef.current !== avail) {
         prevAvailCountRef.current = avail;
         // Automatically update any existing availability message in the chat stream so it's never stale
-        const updatedAvailResponse = hotelAiEngine.buildAvailabilityResponse(brain);
+        const updatedAvailResponse = hotelAiEngine.buildAvailabilityResponse();
         setMessages(prev => prev.map(msg => {
-          if (msg.sender === 'ai' && (msg.isAvailabilityMsg || msg.text.includes('Live Receptionist Portal Availability'))) {
+          if (msg.sender === 'ai' && (msg.isAvailabilityMsg || msg.text.includes('Live Receptionist Portal Availability') || msg.text.includes('Live Suite Availability'))) {
             return {
               ...msg,
               text: updatedAvailResponse.text,
@@ -62,15 +61,11 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
     };
 
     const stopBrainTimer = hotelAiEngine.startBrainAutoRefresh(10000);
-    const unsubscribeRooms = portalStore.subscribeRooms(() => {
-      syncAiState();
-    });
-    window.addEventListener('ash_ai_brain_refreshed', syncAiState);
+    window.addEventListener('ash_ai_brain_refreshed', handleBrainRefreshed);
 
     return () => {
       stopBrainTimer();
-      unsubscribeRooms();
-      window.removeEventListener('ash_ai_brain_refreshed', syncAiState);
+      window.removeEventListener('ash_ai_brain_refreshed', handleBrainRefreshed);
     };
   }, []);
 
@@ -122,22 +117,39 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
 
     // Process with AI Engine
     setTimeout(() => {
-      const response = hotelAiEngine.processQuery(text);
-      const brain = hotelAiEngine.getBrainState();
-      setLiveAvailableCount(brain.availableRooms.length);
-      setIsTyping(false);
-      setMessages(prev => [
-        ...prev,
-        {
-          id: `ai-${Date.now()}`,
-          sender: "ai",
-          text: response.text,
-          isAvailabilityMsg: !!response.isAvailabilityMsg,
-          suggestions: response.suggestions || [],
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      try {
+        const response = hotelAiEngine.processQuery(text);
+        const brain = hotelAiEngine.getBrainState();
+        if (brain && brain.availableRooms) {
+          setLiveAvailableCount(brain.availableRooms.length);
         }
-      ]);
-    }, 350);
+        setMessages(prev => [
+          ...prev,
+          {
+            id: `ai-${Date.now()}`,
+            sender: "ai",
+            text: response.text,
+            isAvailabilityMsg: !!response.isAvailabilityReport,
+            suggestions: response.suggestions || [],
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ]);
+      } catch (err) {
+        console.error("AI chat processing error:", err);
+        setMessages(prev => [
+          ...prev,
+          {
+            id: `ai-err-${Date.now()}`,
+            sender: "ai",
+            text: "Warm greetings from Arab Signature Hotel. How may I assist your stay or reservation today?",
+            suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe"],
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ]);
+      } finally {
+        setIsTyping(false);
+      }
+    }, 250);
   };
 
   const handleKeyDown = (e) => {
