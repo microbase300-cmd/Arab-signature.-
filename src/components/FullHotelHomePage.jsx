@@ -226,8 +226,8 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
               </button>
             </div>
 
-            {/* Horizontal Booking Engine Bar */}
-            <div className="pt-8 max-w-4xl mx-auto">
+            {/* Horizontal Booking Engine Bar (Hidden on Mobile to keep hotel image fully visible) */}
+            <div className="pt-8 max-w-4xl mx-auto hidden md:block">
               <form 
                 onSubmit={handleBookingSubmit}
                 className="p-4 sm:p-5 rounded-3xl border shadow-2xl backdrop-blur-xl bg-[#1c040e]/95 border-[#d4af37]/40 text-white"
