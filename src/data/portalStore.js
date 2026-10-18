@@ -462,7 +462,7 @@ export const portalStore = {
   updateRoomStatus(roomNumber, newStatus, guestName = null) {
     const rooms = this.getRooms();
     const updated = rooms.map(r => {
-      if (r.roomNumber === roomNumber) {
+      if (String(r.roomNumber) === String(roomNumber)) {
         return {
           ...r,
           status: newStatus,
@@ -473,7 +473,62 @@ export const portalStore = {
     });
     setLocalItem(STORAGE_KEYS.ROOMS, updated);
     this.logActivity(`Room ${roomNumber} status set to '${newStatus}'`);
+
+    // 1. Dispatch custom window event for in-tab reactivity
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_rooms_updated', { detail: updated }));
+    }
+
+    // 2. BroadcastChannel for instant cross-tab & cross-window synchronization
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const bc = new BroadcastChannel('ash_portal_sync');
+        bc.postMessage({ type: 'ROOMS_UPDATED', rooms: updated });
+        bc.close();
+      } catch (e) {
+        console.warn("BroadcastChannel error:", e);
+      }
+    }
+
     return updated;
+  },
+
+  subscribeRooms(callback) {
+    if (typeof window === 'undefined') return () => {};
+
+    const handler = (e) => {
+      callback(e.detail || this.getRooms());
+    };
+    window.addEventListener('ash_rooms_updated', handler);
+
+    // Browser storage event listener (for cross-tab updates via localStorage)
+    const storageHandler = (e) => {
+      if (e.key === STORAGE_KEYS.ROOMS) {
+        callback(this.getRooms());
+      }
+    };
+    window.addEventListener('storage', storageHandler);
+
+    // BroadcastChannel listener
+    let bc = null;
+    if ('BroadcastChannel' in window) {
+      try {
+        bc = new BroadcastChannel('ash_portal_sync');
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'ROOMS_UPDATED') {
+            callback(event.data.rooms || this.getRooms());
+          }
+        };
+      } catch (e) {
+        console.warn("BroadcastChannel error:", e);
+      }
+    }
+
+    return () => {
+      window.removeEventListener('ash_rooms_updated', handler);
+      window.removeEventListener('storage', storageHandler);
+      if (bc) bc.close();
+    };
   },
 
   // --- ROOM RATES (ADMIN CONTROLS & LIVE WEBSITE SYNCHRONIZATION) ---

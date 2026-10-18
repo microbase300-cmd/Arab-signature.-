@@ -112,12 +112,29 @@ export const hotelAiEngine = {
     // ========================================================
     // 3. REAL-TIME ROOM INVENTORY & AVAILABILITY (Direct from Reception)
     // ========================================================
-    const roomAvailabilityTriggers = [
-      "available", "vacant", "free room", "any room", "room tonight", 
-      "book tonight", "available suites", "occupancy", "how many rooms"
+    const directKeywords = [
+      "avail", "avaliab", "avaiab", "vacan", "free room", "free suite", 
+      "occupan", "how many room", "how many suite", "room count", "suite count",
+      "any room", "any suite", "which room", "rooms left", "suites left",
+      "rooms open", "suites open", "book tonight", "room tonight", "suite tonight",
+      "available", "availability"
     ];
 
-    if (roomAvailabilityTriggers.some(t => query.includes(t))) {
+    const availabilityRegex = [
+      /how\s+many.*(room|suite)/i,
+      /(room|suite).*(avail|vacan|free|left|open)/i,
+      /(avail|vacan|free|left).*(room|suite)/i,
+      /(check|see|view|get).*(avail)/i,
+      /\b(vacant|vacancy|vacancies|occupancy)\b/i,
+      /\b(available|availability)\b/i
+    ];
+
+    const isAvailabilityQuery = 
+      directKeywords.some(k => query.includes(k)) || 
+      availabilityRegex.some(p => p.test(query));
+
+    if (isAvailabilityQuery) {
+      // Read 100% fresh real-time rooms directly from portalStore
       const rooms = portalStore.getRooms();
       const availableRooms = rooms.filter(r => r.status === 'available');
       const rates = portalStore.getRoomRates();

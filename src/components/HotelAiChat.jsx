@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { hotelAiEngine } from '../utils/hotelAiEngine';
+import { portalStore } from '../data/portalStore';
 import { 
   Sparkles, MessageSquare, X, Send, Bot, User, 
   ShieldCheck, BedDouble, ChevronRight, Phone, RefreshCw, Key
@@ -8,6 +9,9 @@ import {
 export default function HotelAiChat({ onOpenBooking, onNavigate }) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(true);
+  const [liveAvailableCount, setLiveAvailableCount] = useState(() => {
+    return portalStore.getRooms().filter(r => r.status === 'available').length;
+  });
   const [messages, setMessages] = useState([
     {
       id: "welcome-1",
@@ -25,6 +29,15 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
+
+  // Subscribe to real-time room updates across tabs & portals
+  useEffect(() => {
+    const unsubscribe = portalStore.subscribeRooms((rooms) => {
+      const avail = rooms.filter(r => r.status === 'available').length;
+      setLiveAvailableCount(avail);
+    });
+    return unsubscribe;
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -180,7 +193,10 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
               <ShieldCheck size={12} />
               <span>Zero-Leak Security Protected</span>
             </span>
-            <span className="font-mono text-[9px] text-gray-500">12 Keys Live Feed</span>
+            <span className="font-mono text-[9px] text-emerald-400 font-semibold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{liveAvailableCount} Suites Ready</span>
+            </span>
           </div>
 
           {/* Message Stream */}

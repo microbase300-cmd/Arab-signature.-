@@ -96,6 +96,19 @@ export default function AdminPortal({ onNavigate }) {
     
     setCurrentUser(user);
     refreshData();
+
+    const handleLiveSync = () => refreshData();
+    window.addEventListener('ash_bookings_updated', handleLiveSync);
+    window.addEventListener('ash_rates_updated', handleLiveSync);
+    window.addEventListener('ash_rooms_updated', handleLiveSync);
+    const unsubscribeRooms = portalStore.subscribeRooms(() => refreshData());
+
+    return () => {
+      window.removeEventListener('ash_bookings_updated', handleLiveSync);
+      window.removeEventListener('ash_rates_updated', handleLiveSync);
+      window.removeEventListener('ash_rooms_updated', handleLiveSync);
+      unsubscribeRooms();
+    };
   }, []);
 
   const showToast = (msg) => {
