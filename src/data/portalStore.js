@@ -6,13 +6,13 @@ const STORAGE_KEYS = {
   USERS: 'ash_portal_staff_users',
   LOGIN_LOGS: 'ash_portal_login_attempts',
   BOOKINGS: 'ash_portal_bookings',
-  ROOMS: 'ash_portal_rooms_inventory_v3',
+  ROOMS: 'ash_portal_rooms_inventory_v4',
   ROOM_RATES: 'ash_portal_room_rates',
   HOTEL_CONFIG: 'ash_portal_hotel_config',
   ACTIVITY_LOG: 'ash_portal_activity_log',
 };
 
-// 1. Initial Room Inventory (12 Luxury Keys in Nsugbe, Onitsha - 7 Live Available)
+// 1. Initial Room Inventory (12 Luxury Keys in Nsugbe, Onitsha - 8 Live Available matching Receptionist Portal)
 const INITIAL_ROOMS_INVENTORY = [
   { roomNumber: "101", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "occupied", currentGuest: "Dr. Ngozi Adeleke", checkOut: "2026-10-22", price: 45000 },
   { roomNumber: "102", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
@@ -20,7 +20,7 @@ const INITIAL_ROOMS_INVENTORY = [
   { roomNumber: "201", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
   { roomNumber: "202", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "occupied", currentGuest: "Senator Chuka Nwosu", checkOut: "2026-10-21", price: 65000 },
   { roomNumber: "203", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
-  { roomNumber: "301", type: "royal", name: "Royal Diplomatic Penthouse", floor: "Penthouse", status: "occupied", currentGuest: "Chief Emeka Obi", checkOut: "2026-10-25", price: 120000 },
+  { roomNumber: "301", type: "royal", name: "Royal Diplomatic Penthouse", floor: "Penthouse", status: "available", currentGuest: null, checkOut: null, price: 120000 },
   { roomNumber: "302", type: "royal", name: "Royal Diplomatic Penthouse", floor: "Penthouse", status: "available", currentGuest: null, checkOut: null, price: 120000 },
   { roomNumber: "401", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
   { roomNumber: "402", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
@@ -206,6 +206,20 @@ function setLocalItem(key, val) {
   } catch (e) {
     console.error("Local storage error:", e);
   }
+}
+
+// Shared BroadcastChannel singleton across the window life-cycle
+let sharedBroadcastChannel = null;
+function getSharedBroadcastChannel() {
+  if (typeof window === 'undefined' || !('BroadcastChannel' in window)) return null;
+  if (!sharedBroadcastChannel) {
+    try {
+      sharedBroadcastChannel = new BroadcastChannel('ash_portal_sync');
+    } catch (e) {
+      console.warn("BroadcastChannel initialization error:", e);
+    }
+  }
+  return sharedBroadcastChannel;
 }
 
 export const portalStore = {
@@ -456,20 +470,21 @@ export const portalStore = {
 
   // --- ROOMS INVENTORY ---
   getRooms() {
-    // One-time migration from initial 5-room cache to v3 (7 rooms)
+    // One-time migration to v4 (baseline: 8 live available rooms matching Receptionist Portal)
     if (typeof localStorage !== 'undefined') {
       try {
-        if (!localStorage.getItem('ash_portal_rooms_v3_migrated')) {
+        if (!localStorage.getItem('ash_portal_rooms_v4_migrated')) {
           localStorage.removeItem('ash_portal_rooms_inventory');
           localStorage.removeItem('ash_portal_rooms_inventory_v2');
-          localStorage.setItem('ash_portal_rooms_v3_migrated', 'true');
+          localStorage.removeItem('ash_portal_rooms_inventory_v3');
+          localStorage.setItem('ash_portal_rooms_v4_migrated', 'true');
         }
       } catch (e) {
         // ignore
       }
     }
-    const v3Rooms = getLocalItem(STORAGE_KEYS.ROOMS, null);
-    if (v3Rooms && Array.isArray(v3Rooms)) return v3Rooms;
+    const v4Rooms = getLocalItem(STORAGE_KEYS.ROOMS, null);
+    if (v4Rooms && Array.isArray(v4Rooms)) return v4Rooms;
     const legacyRooms = getLocalItem('ash_portal_rooms_inventory', null);
     if (legacyRooms && Array.isArray(legacyRooms)) return legacyRooms;
     return INITIAL_ROOMS_INVENTORY;
@@ -488,12 +503,12 @@ export const portalStore = {
       return r;
     });
 
-    // Save to both v3 and legacy key so all tabs (even unrefreshed tabs) read the exact same state
+    // Save to v4, legacy key, and timestamp for all tabs to detect instantly
     setLocalItem(STORAGE_KEYS.ROOMS, updated);
     setLocalItem('ash_portal_rooms_inventory', updated);
     if (typeof localStorage !== 'undefined') {
       try {
-        localStorage.setItem('ash_portal_rooms_v3_migrated', 'true');
+        localStorage.setItem('ash_portal_rooms_v4_migrated', 'true');
         localStorage.setItem('ash_portal_rooms_updated_at', String(Date.now()));
       } catch (e) {
         // ignore
@@ -508,13 +523,12 @@ export const portalStore = {
     }
 
     // 2. BroadcastChannel for instant cross-tab & cross-window synchronization
-    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+    const bc = getSharedBroadcastChannel();
+    if (bc) {
       try {
-        const bc = new BroadcastChannel('ash_portal_sync');
         bc.postMessage({ type: 'ROOMS_UPDATED', rooms: updated, timestamp: Date.now() });
-        bc.close();
       } catch (e) {
-        console.warn("BroadcastChannel error:", e);
+        console.warn("BroadcastChannel postMessage error:", e);
       }
     }
 
@@ -550,18 +564,14 @@ export const portalStore = {
     document.addEventListener('visibilitychange', focusHandler);
 
     // BroadcastChannel listener
-    let bc = null;
-    if ('BroadcastChannel' in window) {
-      try {
-        bc = new BroadcastChannel('ash_portal_sync');
-        bc.onmessage = (event) => {
-          if (event.data?.type === 'ROOMS_UPDATED') {
-            callback(event.data.rooms || this.getRooms());
-          }
-        };
-      } catch (e) {
-        console.warn("BroadcastChannel error:", e);
+    const bc = getSharedBroadcastChannel();
+    const bcHandler = (event) => {
+      if (event.data?.type === 'ROOMS_UPDATED') {
+        callback(event.data.rooms || this.getRooms());
       }
+    };
+    if (bc) {
+      bc.addEventListener('message', bcHandler);
     }
 
     return () => {
@@ -569,7 +579,9 @@ export const portalStore = {
       window.removeEventListener('storage', storageHandler);
       window.removeEventListener('focus', focusHandler);
       document.removeEventListener('visibilitychange', focusHandler);
-      if (bc) bc.close();
+      if (bc) {
+        bc.removeEventListener('message', bcHandler);
+      }
     };
   },
 
