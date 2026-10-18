@@ -443,11 +443,11 @@ export const portalStore = {
 
     setLocalItem(STORAGE_KEYS.BOOKINGS, updated);
 
-    // If Checked In, update room inventory to occupied
+    // If Checked In, update room inventory to occupied; if Completed (Checked Out), mark room available immediately
     if (newStatus === "Checked In" && assignedRoom) {
       this.updateRoomStatus(assignedRoom, "occupied", bookings.find(b => b.id === bookingId)?.guestName);
     } else if (newStatus === "Completed" && assignedRoom) {
-      this.updateRoomStatus(assignedRoom, "cleaning", null);
+      this.updateRoomStatus(assignedRoom, "available", null);
     }
 
     this.logActivity(`Booking ${bookingId} status updated to '${newStatus}'`);
@@ -456,20 +456,23 @@ export const portalStore = {
 
   // --- ROOMS INVENTORY ---
   getRooms() {
-    // Clean up stale v1/v2 storage keys if any exist in the browser
+    // One-time migration from initial 5-room cache to v3 (7 rooms)
     if (typeof localStorage !== 'undefined') {
       try {
-        if (localStorage.getItem('ash_portal_rooms_inventory')) {
+        if (!localStorage.getItem('ash_portal_rooms_v3_migrated')) {
           localStorage.removeItem('ash_portal_rooms_inventory');
-        }
-        if (localStorage.getItem('ash_portal_rooms_inventory_v2')) {
           localStorage.removeItem('ash_portal_rooms_inventory_v2');
+          localStorage.setItem('ash_portal_rooms_v3_migrated', 'true');
         }
       } catch (e) {
         // ignore
       }
     }
-    return getLocalItem(STORAGE_KEYS.ROOMS, INITIAL_ROOMS_INVENTORY);
+    const v3Rooms = getLocalItem(STORAGE_KEYS.ROOMS, null);
+    if (v3Rooms && Array.isArray(v3Rooms)) return v3Rooms;
+    const legacyRooms = getLocalItem('ash_portal_rooms_inventory', null);
+    if (legacyRooms && Array.isArray(legacyRooms)) return legacyRooms;
+    return INITIAL_ROOMS_INVENTORY;
   },
 
   updateRoomStatus(roomNumber, newStatus, guestName = null) {
@@ -479,12 +482,24 @@ export const portalStore = {
         return {
           ...r,
           status: newStatus,
-          currentGuest: newStatus === 'occupied' ? (guestName || r.currentGuest) : (newStatus === 'cleaning' ? null : null)
+          currentGuest: newStatus === 'occupied' ? (guestName || r.currentGuest) : null
         };
       }
       return r;
     });
+
+    // Save to both v3 and legacy key so all tabs (even unrefreshed tabs) read the exact same state
     setLocalItem(STORAGE_KEYS.ROOMS, updated);
+    setLocalItem('ash_portal_rooms_inventory', updated);
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('ash_portal_rooms_v3_migrated', 'true');
+        localStorage.setItem('ash_portal_rooms_updated_at', String(Date.now()));
+      } catch (e) {
+        // ignore
+      }
+    }
+
     this.logActivity(`Room ${roomNumber} status set to '${newStatus}'`);
 
     // 1. Dispatch custom window event for in-tab reactivity
@@ -496,7 +511,7 @@ export const portalStore = {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       try {
         const bc = new BroadcastChannel('ash_portal_sync');
-        bc.postMessage({ type: 'ROOMS_UPDATED', rooms: updated });
+        bc.postMessage({ type: 'ROOMS_UPDATED', rooms: updated, timestamp: Date.now() });
         bc.close();
       } catch (e) {
         console.warn("BroadcastChannel error:", e);
@@ -516,11 +531,23 @@ export const portalStore = {
 
     // Browser storage event listener (for cross-tab updates via localStorage)
     const storageHandler = (e) => {
-      if (e.key === STORAGE_KEYS.ROOMS) {
+      if (
+        !e.key ||
+        e.key === STORAGE_KEYS.ROOMS ||
+        e.key === 'ash_portal_rooms_inventory' ||
+        e.key === 'ash_portal_rooms_updated_at'
+      ) {
         callback(this.getRooms());
       }
     };
     window.addEventListener('storage', storageHandler);
+
+    // Window focus & visibility listener so switching tabs immediately refreshes rooms
+    const focusHandler = () => {
+      callback(this.getRooms());
+    };
+    window.addEventListener('focus', focusHandler);
+    document.addEventListener('visibilitychange', focusHandler);
 
     // BroadcastChannel listener
     let bc = null;
@@ -540,6 +567,8 @@ export const portalStore = {
     return () => {
       window.removeEventListener('ash_rooms_updated', handler);
       window.removeEventListener('storage', storageHandler);
+      window.removeEventListener('focus', focusHandler);
+      document.removeEventListener('visibilitychange', focusHandler);
       if (bc) bc.close();
     };
   },

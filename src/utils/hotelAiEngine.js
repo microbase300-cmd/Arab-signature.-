@@ -16,13 +16,129 @@ import { portalStore } from '../data/portalStore';
 let failedBookingLookupAttempts = 0;
 const MAX_FAILED_ATTEMPTS = 4;
 
+// Live Client-Side AI Brain Memory (Refreshes every 10 seconds + on every room event, 0 Vercel cost)
+const aiBrainMemory = {
+  rooms: [],
+  availableRooms: [],
+  rates: [],
+  bookings: [],
+  lastRefreshedAt: null,
+  refreshCount: 0
+};
+
+let brainIntervalId = null;
+
 export const hotelAiEngine = {
+  /**
+   * Synchronize the AI Brain directly from client-side portalStore (0 serverless cost)
+   */
+  refreshBrain() {
+    const rooms = portalStore.getRooms();
+    const availableRooms = rooms.filter(r => r.status === 'available');
+    const rates = portalStore.getRoomRates();
+    const bookings = portalStore.getBookings();
+
+    aiBrainMemory.rooms = rooms;
+    aiBrainMemory.availableRooms = availableRooms;
+    aiBrainMemory.rates = rates;
+    aiBrainMemory.bookings = bookings;
+    aiBrainMemory.lastRefreshedAt = new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    aiBrainMemory.refreshCount += 1;
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('ash_ai_brain_refreshed', {
+          detail: {
+            availableCount: availableRooms.length,
+            rooms,
+            rates,
+            lastRefreshedAt: aiBrainMemory.lastRefreshedAt,
+            refreshCount: aiBrainMemory.refreshCount
+          }
+        })
+      );
+    }
+
+    return aiBrainMemory;
+  },
+
+  /**
+   * Start the 10-second client-side AI Brain auto-refresh heartbeat + instant cross-tab listeners
+   */
+  startBrainAutoRefresh(intervalMs = 10000) {
+    if (typeof window === 'undefined') return () => {};
+
+    // Initial immediate brain sync
+    this.refreshBrain();
+
+    // Clear any existing interval before starting a fresh 10-second client-side loop
+    if (brainIntervalId) clearInterval(brainIntervalId);
+    brainIntervalId = setInterval(() => {
+      this.refreshBrain();
+    }, intervalMs);
+
+    // Also subscribe to instant room/rate/booking updates across tabs
+    const unsubRooms = portalStore.subscribeRooms(() => {
+      this.refreshBrain();
+    });
+    const unsubRates = portalStore.subscribeRates(() => {
+      this.refreshBrain();
+    });
+
+    return () => {
+      if (brainIntervalId) {
+        clearInterval(brainIntervalId);
+        brainIntervalId = null;
+      }
+      unsubRooms();
+      unsubRates();
+    };
+  },
+
+  /**
+   * Build the live suite availability response from fresh brain state
+   */
+  buildAvailabilityResponse() {
+    const brain = this.refreshBrain();
+    const { availableRooms, rates } = brain;
+
+    const deluxeAvail = availableRooms.filter(r => r.type === 'deluxe').length;
+    const execAvail = availableRooms.filter(r => r.type === 'executive').length;
+    const royalAvail = availableRooms.filter(r => r.type === 'royal').length;
+    const stdAvail = availableRooms.filter(r => r.type === 'standard').length;
+
+    const deluxeRate = rates.find(r => r.id === 'deluxe')?.priceFormatted || '₦45,000';
+    const execRate = rates.find(r => r.id === 'executive')?.priceFormatted || '₦65,000';
+    const royalRate = rates.find(r => r.id === 'royal')?.priceFormatted || '₦120,000';
+    const stdRate = rates.find(r => r.id === 'standard')?.priceFormatted || '₦35,000';
+
+    return {
+      isAvailabilityReport: true,
+      availableCount: availableRooms.length,
+      text: `🏨 **Live Suite Availability (Nsugbe, Onitsha):**\n\n` +
+            `We currently have **${availableRooms.length} luxury suites** ready for immediate check-in:\n\n` +
+            `• **Deluxe Doha Suite:** ${deluxeAvail > 0 ? `${deluxeAvail} available (${deluxeRate}/night)` : 'Fully Booked Tonight'}\n` +
+            `• **Executive Arabian Suite:** ${execAvail > 0 ? `${execAvail} available with private Majlis lounge (${execRate}/night)` : 'Fully Booked Tonight'}\n` +
+            `• **Royal Diplomatic Penthouse:** ${royalAvail > 0 ? `${royalAvail} available on top floor (${royalRate}/night)` : 'Fully Booked Tonight'}\n` +
+            `• **Standard Classic Suite:** ${stdAvail > 0 ? `${stdAvail} available (${stdRate}/night)` : 'Fully Booked Tonight'}\n\n` +
+            `All bookings include complimentary gourmet breakfast, Olympic pool access, and 24/7 solar/CAT power guarantee. Would you like to reserve one right now?`,
+      suggestions: ["Reserve Deluxe Suite", "Reserve Executive Suite", "Reserve Penthouse", "Track My Booking"]
+    };
+  },
+
   /**
    * Process a user question and generate an intelligent, secure, luxury response
    * @param {string} userMessage - The raw message input by the user
    * @returns {Object} - { text: string, suggestions: string[], meta: any }
    */
   processQuery(userMessage) {
+    // Always refresh the client-side AI brain before answering
+    this.refreshBrain();
+
     if (!userMessage || !userMessage.trim()) {
       return {
         text: "Warm greetings from Arab Signature Hotel & Suites, Nsugbe. How may I assist your stay or reservation today?",
@@ -68,7 +184,7 @@ export const hotelAiEngine = {
         };
       }
 
-      const allBookings = portalStore.getBookings();
+      const allBookings = aiBrainMemory.bookings;
       const matchedBooking = allBookings.find(b => b.id.toUpperCase() === codeToSearch);
 
       if (matchedBooking) {
@@ -113,7 +229,7 @@ export const hotelAiEngine = {
     // 3. REAL-TIME ROOM INVENTORY & AVAILABILITY (Direct from Reception)
     // ========================================================
     const directKeywords = [
-      "avail", "avali", "avalib", "avalibl", "avalible", "avaliable", "avaiable", "avaiab",
+      "avai", "aval", "avall", "avail", "avali", "avalib", "avalibl", "avalible", "avaliable", "avalliable",
       "vacan", "free room", "free suite", "occupan", "how many room", "how many suite", 
       "room count", "suite count", "any room", "any suite", "which room", "rooms left", 
       "suites left", "rooms open", "suites open", "book tonight", "room tonight", "suite tonight",
@@ -122,11 +238,11 @@ export const hotelAiEngine = {
 
     const availabilityRegex = [
       /how\s+many.*(room|suite)/i,
-      /(room|suite).*(avail|aval|vacan|free|left|open)/i,
-      /(avail|aval|vacan|free|left).*(room|suite)/i,
-      /(check|see|view|get).*(avail|aval)/i,
+      /(room|suite).*(avai|aval|vacan|free|left|open)/i,
+      /(avai|aval|vacan|free|left).*(room|suite)/i,
+      /(check|see|view|get).*(avai|aval)/i,
       /\b(vacant|vacancy|vacancies|occupancy)\b/i,
-      /\b(available|availability|avalible|avaliable|avaiable)\b/i
+      /\b(available|availability|avalible|avaliable|avalliable|avaiable)\b/i
     ];
 
     const isAvailabilityQuery = 
@@ -134,32 +250,7 @@ export const hotelAiEngine = {
       availabilityRegex.some(p => p.test(query));
 
     if (isAvailabilityQuery) {
-      // Read 100% fresh real-time rooms directly from portalStore
-      const rooms = portalStore.getRooms();
-      const availableRooms = rooms.filter(r => r.status === 'available');
-      const rates = portalStore.getRoomRates();
-
-      // Count by category
-      const deluxeAvail = availableRooms.filter(r => r.type === 'deluxe').length;
-      const execAvail = availableRooms.filter(r => r.type === 'executive').length;
-      const royalAvail = availableRooms.filter(r => r.type === 'royal').length;
-      const stdAvail = availableRooms.filter(r => r.type === 'standard').length;
-
-      const deluxeRate = rates.find(r => r.id === 'deluxe')?.priceFormatted || '₦45,000';
-      const execRate = rates.find(r => r.id === 'executive')?.priceFormatted || '₦65,000';
-      const royalRate = rates.find(r => r.id === 'royal')?.priceFormatted || '₦120,000';
-      const stdRate = rates.find(r => r.id === 'standard')?.priceFormatted || '₦35,000';
-
-      return {
-        text: `🏨 **Live Suite Availability (Nsugbe, Onitsha):**\n\n` +
-              `We currently have **${availableRooms.length} luxury suites** ready for immediate check-in:\n\n` +
-              `• **Deluxe Doha Suite:** ${deluxeAvail > 0 ? `${deluxeAvail} available (${deluxeRate}/night)` : 'Fully Booked Tonight'}\n` +
-              `• **Executive Arabian Suite:** ${execAvail > 0 ? `${execAvail} available with private Majlis lounge (${execRate}/night)` : 'Fully Booked Tonight'}\n` +
-              `• **Royal Diplomatic Penthouse:** ${royalAvail > 0 ? `${royalAvail} available on top floor (${royalRate}/night)` : 'Fully Booked Tonight'}\n` +
-              `• **Standard Classic Suite:** ${stdAvail > 0 ? `${stdAvail} available (${stdRate}/night)` : 'Fully Booked Tonight'}\n\n` +
-              `All bookings include complimentary gourmet breakfast, Olympic pool access, and 24/7 solar/CAT power guarantee. Would you like to reserve one right now?`,
-        suggestions: ["Reserve Deluxe Suite", "Reserve Executive Suite", "Reserve Penthouse", "Track My Booking"]
-      };
+      return this.buildAvailabilityResponse();
     }
 
     // ========================================================
@@ -167,7 +258,7 @@ export const hotelAiEngine = {
     // ========================================================
     const pricingTriggers = ["price", "cost", "how much", "rate", "rates", "charge", "expensive", "cheapest"];
     if (pricingTriggers.some(t => query.includes(t))) {
-      const rates = portalStore.getRoomRates();
+      const rates = aiBrainMemory.rates;
       const rateSummary = rates.map(r => `• **${r.name}:** ${r.priceFormatted}/night — ${r.bed}, ${r.guests}`).join("\n");
 
       return {

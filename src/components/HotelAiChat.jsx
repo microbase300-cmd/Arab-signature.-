@@ -10,8 +10,12 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(true);
   const [liveAvailableCount, setLiveAvailableCount] = useState(() => {
-    return portalStore.getRooms().filter(r => r.status === 'available').length;
+    return hotelAiEngine.refreshBrain().availableRooms.length;
   });
+  const [lastSyncTime, setLastSyncTime] = useState(() => {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  });
+  const prevAvailCountRef = useRef(liveAvailableCount);
   const [messages, setMessages] = useState([
     {
       id: "welcome-1",
@@ -30,13 +34,44 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Subscribe to real-time room updates across tabs & portals
+  // Start 10-second Client-Side AI Brain Auto-Refresh + Instant Portal Listeners (0 Vercel cost)
   useEffect(() => {
-    const unsubscribe = portalStore.subscribeRooms((rooms) => {
-      const avail = rooms.filter(r => r.status === 'available').length;
+    const syncAiState = () => {
+      const brain = hotelAiEngine.refreshBrain();
+      const avail = brain.availableRooms.length;
       setLiveAvailableCount(avail);
+      setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+
+      if (prevAvailCountRef.current !== avail) {
+        prevAvailCountRef.current = avail;
+        // Automatically update any existing availability message in the chat stream so it's never stale
+        const updatedAvailResponse = hotelAiEngine.buildAvailabilityResponse(brain);
+        setMessages(prev => prev.map(msg => {
+          if (msg.sender === 'ai' && (msg.isAvailabilityMsg || msg.text.includes('Live Receptionist Portal Availability'))) {
+            return {
+              ...msg,
+              text: updatedAvailResponse.text,
+              suggestions: updatedAvailResponse.suggestions,
+              isAvailabilityMsg: true,
+              timestamp: `${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Auto-Synced`
+            };
+          }
+          return msg;
+        }));
+      }
+    };
+
+    const stopBrainTimer = hotelAiEngine.startBrainAutoRefresh(10000);
+    const unsubscribeRooms = portalStore.subscribeRooms(() => {
+      syncAiState();
     });
-    return unsubscribe;
+    window.addEventListener('ash_ai_brain_refreshed', syncAiState);
+
+    return () => {
+      stopBrainTimer();
+      unsubscribeRooms();
+      window.removeEventListener('ash_ai_brain_refreshed', syncAiState);
+    };
   }, []);
 
   const scrollToBottom = () => {
@@ -88,6 +123,8 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
     // Process with AI Engine
     setTimeout(() => {
       const response = hotelAiEngine.processQuery(text);
+      const brain = hotelAiEngine.getBrainState();
+      setLiveAvailableCount(brain.availableRooms.length);
       setIsTyping(false);
       setMessages(prev => [
         ...prev,
@@ -95,11 +132,12 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
           id: `ai-${Date.now()}`,
           sender: "ai",
           text: response.text,
+          isAvailabilityMsg: !!response.isAvailabilityMsg,
           suggestions: response.suggestions || [],
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
-    }, 450);
+    }, 350);
   };
 
   const handleKeyDown = (e) => {
@@ -129,7 +167,7 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
               <Sparkles size={11} className="text-[#d4af37]" />
               <span>AI Concierge</span>
             </div>
-            <span className="text-[10px] text-gray-300">Live Room Availability</span>
+            <span className="text-[10px] text-gray-300">{liveAvailableCount} Suites Ready</span>
           </div>
         </button>
       )}
@@ -150,7 +188,7 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
                     Arab Signature AI
                   </h3>
                   <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] font-semibold border border-emerald-500/30">
-                    Live
+                    10s Auto-Sync
                   </span>
                 </div>
                 <p className="text-[10px] text-gray-300">
@@ -162,18 +200,20 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => {
+                  const brain = hotelAiEngine.refreshBrain();
+                  setLiveAvailableCount(brain.availableRooms.length);
                   setMessages([
                     {
                       id: "welcome-reset",
                       sender: "ai",
-                      text: "Chat refreshed. How may I assist your reservation or stay today?",
+                      text: `AI Brain refreshed (${brain.availableRooms.length} of ${brain.rooms.length} suites currently available). How may I assist your reservation or stay today?`,
                       suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe"],
                       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                     }
                   ]);
                 }}
                 className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-                title="Reset Conversation"
+                title="Refresh AI Brain & Reset Chat"
               >
                 <RefreshCw size={14} />
               </button>
@@ -187,11 +227,11 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
             </div>
           </div>
 
-          {/* Security Banner */}
+          {/* Security & Live Brain Sync Banner */}
           <div className="px-3 py-1.5 bg-[#090105] border-b border-white/5 text-[10px] text-gray-400 flex items-center justify-between">
-            <span className="flex items-center gap-1 text-[#d4af37]">
+            <span className="flex items-center gap-1 text-[#d4af37]" title={`Last client-side brain refresh: ${lastSyncTime}`}>
               <ShieldCheck size={12} />
-              <span>Zero-Leak Security Protected</span>
+              <span>Client Brain Sync (10s)</span>
             </span>
             <span className="font-mono text-[9px] text-emerald-400 font-semibold flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />

@@ -110,7 +110,7 @@ export default function ReceptionPortal({ onNavigate }) {
     } else if (booking.status === 'Checked In') {
       portalStore.updateBookingStatus(booking.id, 'Completed', booking.roomNumber);
       refreshData();
-      showToast(`Guest ${booking.guestName} Checked Out. Room ${booking.roomNumber} marked for Cleaning.`);
+      showToast(`Guest ${booking.guestName} Checked Out. Room ${booking.roomNumber} is now AVAILABLE.`);
     }
   };
 
@@ -561,51 +561,80 @@ export default function ReceptionPortal({ onNavigate }) {
                           </div>
 
                           {/* Quick Actions */}
-                          <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-1.5">
+                          <div className="pt-2 border-t border-white/10 flex flex-col gap-1.5">
                             {isOccupied && (
-                              <button
-                                onClick={() => handleUpdateRoomStatus(room.roomNumber, 'cleaning')}
-                                className="w-full py-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900 border border-rose-500/40 text-rose-200 text-xs font-medium transition-all"
-                              >
-                                Check Out Room
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => handleUpdateRoomStatus(room.roomNumber, 'available')}
+                                  className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 text-[11px] font-semibold transition-all flex items-center justify-center gap-1"
+                                  title="Check out guest and immediately mark suite available"
+                                >
+                                  <Check size={12} />
+                                  <span>Make Available</span>
+                                </button>
+                                <button
+                                  onClick={() => handleUpdateRoomStatus(room.roomNumber, 'cleaning')}
+                                  className="py-1.5 px-2.5 rounded-lg bg-amber-950/60 hover:bg-amber-900 border border-amber-500/40 text-amber-200 text-[11px] font-medium transition-all"
+                                  title="Send to Housekeeping / Cleaning"
+                                >
+                                  Clean
+                                </button>
+                              </div>
                             )}
 
                             {isCleaning && (
                               <button
                                 onClick={() => handleUpdateRoomStatus(room.roomNumber, 'available')}
-                                className="w-full py-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 text-xs font-medium transition-all flex items-center justify-center gap-1"
+                                className="w-full py-1.5 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 text-xs font-semibold transition-all flex items-center justify-center gap-1"
                               >
                                 <Check size={12} />
-                                <span>Mark Clean & Ready</span>
+                                <span>Mark Clean & Available</span>
                               </button>
                             )}
 
                             {isAvailable && (
-                              <button
-                                onClick={() => {
-                                  setWalkInForm(prev => ({
-                                    ...prev,
-                                    roomType: room.type,
-                                    roomNumber: room.roomNumber,
-                                    amount: room.price
-                                  }));
-                                  setIsWalkInOpen(true);
-                                }}
-                                className="w-full py-1.5 rounded-lg bg-[#5c0725]/60 hover:bg-[#5c0725] border border-[#d4af37]/40 text-[#f3e5ab] text-xs font-medium transition-all flex items-center justify-center gap-1"
-                              >
-                                <Key size={12} className="text-[#d4af37]" />
-                                <span>Assign Walk-In</span>
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    setWalkInForm(prev => ({
+                                      ...prev,
+                                      roomType: room.type,
+                                      roomNumber: room.roomNumber,
+                                      amount: room.price
+                                    }));
+                                    setIsWalkInOpen(true);
+                                  }}
+                                  className="flex-1 py-1.5 px-2 rounded-lg bg-[#5c0725]/60 hover:bg-[#5c0725] border border-[#d4af37]/40 text-[#f3e5ab] text-xs font-medium transition-all flex items-center justify-center gap-1"
+                                >
+                                  <Key size={12} className="text-[#d4af37]" />
+                                  <span>Assign Walk-In</span>
+                                </button>
+                                <button
+                                  onClick={() => handleUpdateRoomStatus(room.roomNumber, 'occupied', 'Walk-In Guest')}
+                                  className="py-1.5 px-2 rounded-lg bg-rose-950/50 hover:bg-rose-900/70 border border-rose-500/30 text-rose-200 text-[10px] font-medium transition-all"
+                                  title="Quick mark as Occupied"
+                                >
+                                  Occupy
+                                </button>
+                              </div>
                             )}
 
                             {isReserved && (
-                              <button
-                                onClick={() => handleUpdateRoomStatus(room.roomNumber, 'occupied', room.currentGuest)}
-                                className="w-full py-1.5 rounded-lg bg-sky-950/60 hover:bg-sky-900 border border-sky-500/40 text-sky-200 text-xs font-medium transition-all"
-                              >
-                                Check In Guest
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => handleUpdateRoomStatus(room.roomNumber, 'occupied', room.currentGuest)}
+                                  className="flex-1 py-1.5 px-2 rounded-lg bg-sky-950/60 hover:bg-sky-900 border border-sky-500/40 text-sky-200 text-[11px] font-medium transition-all"
+                                >
+                                  Check In
+                                </button>
+                                <button
+                                  onClick={() => handleUpdateRoomStatus(room.roomNumber, 'available')}
+                                  className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 text-[11px] font-semibold transition-all flex items-center justify-center gap-1"
+                                >
+                                  <Check size={11} />
+                                  <span>Make Available</span>
+                                </button>
+                              </div>
                             )}
                           </div>
 
