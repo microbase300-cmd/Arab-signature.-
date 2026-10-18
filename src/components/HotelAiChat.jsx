@@ -36,7 +36,10 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
 
   // Start 5-second Client-Side AI Brain Auto-Refresh + Cloud API Listeners
   useEffect(() => {
-    const syncCurrentRooms = async () => {
+    const syncCurrentRooms = async (force = false) => {
+      // Skip background polling if tab is minimized or hidden (saves data & battery)
+      if (!force && typeof document !== 'undefined' && document.hidden) return;
+
       // 1. Instant local sync (0ms latency)
       const currentRooms = portalStore.getRooms();
       const avail = currentRooms.filter(r => r.status === 'available').length;

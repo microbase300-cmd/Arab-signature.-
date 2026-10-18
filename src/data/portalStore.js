@@ -532,31 +532,31 @@ export const portalStore = {
       }
     }
 
-    // 3. Asynchronously sync to Vercel Cloud API + Persistent MantleDB Cloud
+    // 3. Asynchronously sync to Persistent Cloud (0 Vercel function invocations)
     if (typeof window !== 'undefined') {
       const payload = JSON.stringify({ rooms: updated, updatedAt: Date.now() });
       
-      // Primary sync via Vercel /api/rooms
-      fetch('/api/rooms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }).catch(() => {});
-
-      // Direct secondary dual-write to MantleDB
+      // Direct Primary: MantleDB (100% Client-side, 0 Vercel Serverless Function calls)
       fetch('https://mantledb.sh/v2/arab-signature-hotel-2026/inventory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: payload
-      }).catch(() => {});
+      }).catch(() => {
+        // Fallback to /api/rooms only if direct cloud write failed
+        fetch('/api/rooms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload
+        }).catch(() => {});
+      });
     }
 
     return updated;
   },
 
   /**
-   * Synchronize room inventory with Persistent Cloud (Vercel API + MantleDB)
-   * Ensures 100% real-time parity across all windows, devices, and browser profiles with strict 1.5s timeout
+   * Synchronize room inventory from Persistent Cloud (0 Vercel Serverless Function Invocations)
+   * Client connects directly to MantleDB, completely bypassing Vercel Functions to preserve 100% of your free tier
    */
   async syncRoomsFromCloud() {
     if (typeof window === 'undefined') return this.getRooms();
@@ -576,12 +576,12 @@ export const portalStore = {
       return currentRooms;
     };
 
-    // Primary: Query /api/rooms with strict 1.5s timeout
+    // Primary: Query MantleDB directly from client (0 Vercel Serverless Function invocations)
     try {
       const ctrl = new AbortController();
       const timeoutId = setTimeout(() => ctrl.abort(), 1500);
 
-      const res = await fetch(`/api/rooms?_t=${Date.now()}`, {
+      const res = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-2026/inventory?_t=${Date.now()}`, {
         cache: 'no-store',
         signal: ctrl.signal
       });
@@ -595,15 +595,15 @@ export const portalStore = {
         }
       }
     } catch (err) {
-      // Fall through to direct MantleDB check
+      // Fall through to secondary fallback
     }
 
-    // Secondary Fallback: Query MantleDB directly
+    // Secondary Fallback: Query /api/rooms only if MantleDB is unreachable
     try {
       const ctrl2 = new AbortController();
       const timeoutId2 = setTimeout(() => ctrl2.abort(), 1500);
 
-      const res2 = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-2026/inventory?_t=${Date.now()}`, {
+      const res2 = await fetch(`/api/rooms?_t=${Date.now()}`, {
         cache: 'no-store',
         signal: ctrl2.signal
       });
