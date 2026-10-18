@@ -89,8 +89,8 @@ export default function ReceptionPortal({ onNavigate }) {
   };
 
   // Quick Room Status Toggle
-  const handleUpdateRoomStatus = (roomNumber, newStatus) => {
-    portalStore.updateRoomStatus(roomNumber, newStatus);
+  const handleUpdateRoomStatus = (roomNumber, newStatus, guestName = null) => {
+    portalStore.updateRoomStatus(roomNumber, newStatus, guestName);
     refreshData();
     showToast(`Room ${roomNumber} updated to ${newStatus.toUpperCase()}`);
   };

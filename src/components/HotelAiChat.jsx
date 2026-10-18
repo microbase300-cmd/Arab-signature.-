@@ -36,23 +36,25 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
 
   // Start 10-second Client-Side AI Brain Auto-Refresh + Instant Portal Listeners (0 Vercel cost)
   useEffect(() => {
-    const handleBrainRefreshed = (event) => {
-      const avail = event.detail?.availableCount ?? hotelAiEngine.getBrainState().availableRooms.length;
+    const syncCurrentRooms = () => {
+      const currentRooms = portalStore.getRooms();
+      const avail = currentRooms.filter(r => r.status === 'available').length;
+      
       setLiveAvailableCount(avail);
       setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
 
+      // Automatically update any existing availability message in the chat stream whenever the count changes
       if (prevAvailCountRef.current !== avail) {
         prevAvailCountRef.current = avail;
-        // Automatically update any existing availability message in the chat stream so it's never stale
         const updatedAvailResponse = hotelAiEngine.buildAvailabilityResponse();
         setMessages(prev => prev.map(msg => {
-          if (msg.sender === 'ai' && (msg.isAvailabilityMsg || msg.text.includes('Live Receptionist Portal Availability') || msg.text.includes('Live Suite Availability'))) {
+          if (msg.sender === 'ai' && (msg.isAvailabilityMsg || msg.text.includes('Live Suite Availability') || msg.text.includes('luxury suites ready') || msg.text.includes('Live Receptionist Portal Availability'))) {
             return {
               ...msg,
               text: updatedAvailResponse.text,
               suggestions: updatedAvailResponse.suggestions,
               isAvailabilityMsg: true,
-              timestamp: `${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Auto-Synced`
+              timestamp: `${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Auto-Updated (${avail} Suites)`
             };
           }
           return msg;
@@ -60,12 +62,30 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
       }
     };
 
-    const stopBrainTimer = hotelAiEngine.startBrainAutoRefresh(10000);
-    window.addEventListener('ash_ai_brain_refreshed', handleBrainRefreshed);
+    // Immediate initial sync
+    syncCurrentRooms();
+
+    // 10-second client-side heartbeat
+    const intervalId = setInterval(syncCurrentRooms, 10000);
+
+    // Instant event listeners
+    const unsubPortal = portalStore.subscribeRooms(() => {
+      syncCurrentRooms();
+    });
+    window.addEventListener('ash_rooms_updated', syncCurrentRooms);
+    window.addEventListener('ash_ai_brain_refreshed', syncCurrentRooms);
+    window.addEventListener('storage', syncCurrentRooms);
+    window.addEventListener('focus', syncCurrentRooms);
+    document.addEventListener('visibilitychange', syncCurrentRooms);
 
     return () => {
-      stopBrainTimer();
-      window.removeEventListener('ash_ai_brain_refreshed', handleBrainRefreshed);
+      clearInterval(intervalId);
+      unsubPortal();
+      window.removeEventListener('ash_rooms_updated', syncCurrentRooms);
+      window.removeEventListener('ash_ai_brain_refreshed', syncCurrentRooms);
+      window.removeEventListener('storage', syncCurrentRooms);
+      window.removeEventListener('focus', syncCurrentRooms);
+      document.removeEventListener('visibilitychange', syncCurrentRooms);
     };
   }, []);
 
@@ -119,10 +139,9 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
     setTimeout(() => {
       try {
         const response = hotelAiEngine.processQuery(text);
-        const brain = hotelAiEngine.getBrainState();
-        if (brain && brain.availableRooms) {
-          setLiveAvailableCount(brain.availableRooms.length);
-        }
+        const currentAvail = portalStore.getRooms().filter(r => r.status === 'available').length;
+        setLiveAvailableCount(currentAvail);
+        prevAvailCountRef.current = currentAvail;
         setMessages(prev => [
           ...prev,
           {

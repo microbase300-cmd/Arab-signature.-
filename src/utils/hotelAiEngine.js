@@ -34,10 +34,7 @@ export const hotelAiEngine = {
    * Return the current in-memory AI Brain state instantly (synchronous, 0 cost)
    */
   getBrainState() {
-    if (!aiBrainMemory.lastRefreshedAt) {
-      return this.refreshBrain();
-    }
-    return aiBrainMemory;
+    return this.refreshBrain();
   },
 
   /**
@@ -123,8 +120,10 @@ export const hotelAiEngine = {
    * Build the live suite availability response from fresh brain state
    */
   buildAvailabilityResponse(customBrain = null) {
-    const brain = customBrain || this.getBrainState();
-    const { availableRooms, rates } = brain;
+    // ALWAYS query live portalStore directly to ensure 100% instant real-time synchronization
+    const rooms = customBrain?.rooms || portalStore.getRooms();
+    const availableRooms = rooms.filter(r => r.status === 'available');
+    const rates = customBrain?.rates || portalStore.getRoomRates();
 
     const deluxeAvail = availableRooms.filter(r => r.type === 'deluxe').length;
     const execAvail = availableRooms.filter(r => r.type === 'executive').length;
