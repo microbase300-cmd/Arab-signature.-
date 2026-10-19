@@ -162,6 +162,19 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#120208] text-gray-100 font-sans selection:bg-[#d4af37] selection:text-black antialiased flex flex-col justify-between">
       
+      {/* Global Site-Wide Vivid HDR & Hyper-Realistic Sharpness Convolution Filter */}
+      <svg className="hidden" aria-hidden="true">
+        <defs>
+          <filter id="arab-site-vivid-hdr" colorInterpolationFilters="sRGB">
+            <feConvolveMatrix
+              order="3 3"
+              preserveAlpha="true"
+              kernelMatrix="0 -0.18 0 -0.18 1.72 -0.18 0 -0.18 0"
+            />
+          </filter>
+        </defs>
+      </svg>
+
       {/* 0. Cinematic Welcome Intro Overlay (Active on refresh / initial open only on public guest site) */}
       {!isPortalPage && showWelcome && (
         <WelcomeIntro onComplete={() => setShowWelcome(false)} />

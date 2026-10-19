@@ -167,3 +167,12 @@ body {
   transform: translateX(-100%);
   animation: shimmer 2.5s infinite;
 }
+
+/* Global Vivid HDR & Hyper-Realistic Sharpness for All Site Photography */
+img {
+  filter: url(#arab-site-vivid-hdr) contrast(1.08) saturate(1.15) brightness(1.02);
+  image-rendering: -webkit-optimize-contrast;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+

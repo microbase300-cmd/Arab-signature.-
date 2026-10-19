@@ -337,7 +337,7 @@ export default function ReceptionPortal({ onNavigate }) {
           
           <div className="p-3.5 sm:p-4 rounded-2xl bg-[#16030c] border border-white/10">
             <div className="text-[11px] text-gray-400 font-medium">Total Suites</div>
-            <div className="text-xl sm:text-2xl font-bold font-cinzel text-white mt-1">12 Keys</div>
+            <div className="text-xl sm:text-2xl font-bold font-cinzel text-white mt-1">{totalRooms || 34} Keys</div>
             <div className="text-[10px] text-[#d4af37] mt-0.5">Nsugbe Location</div>
           </div>
 

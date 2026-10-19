@@ -158,14 +158,24 @@ export default function AboutPage({ onNavigate, onOpenBooking }) {
 
           <div className="grid grid-cols-2 gap-4">
             <img
-              src="https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=600&q=80"
-              alt="Suite Bedroom"
-              className="rounded-2xl border border-[#d4af37]/30 h-64 w-full object-cover shadow-xl"
+              src="/rooms/arch-facade-main.jpg"
+              alt="Arab Signature Hotel Exterior Architecture"
+              className="rounded-2xl border border-[#d4af37]/30 h-56 w-full object-cover shadow-xl"
             />
             <img
-              src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=600&q=80"
-              alt="Suite Living"
-              className="rounded-2xl border border-[#d4af37]/30 h-64 w-full object-cover shadow-xl mt-6"
+              src="/rooms/arch-reception-entrance.jpg"
+              alt="Grand Reception Canopy"
+              className="rounded-2xl border border-[#d4af37]/30 h-56 w-full object-cover shadow-xl mt-6"
+            />
+            <img
+              src="/rooms/suite-royal-penthouse.jpg"
+              alt="Royal Diplomatic Penthouse"
+              className="rounded-2xl border border-[#d4af37]/30 h-56 w-full object-cover shadow-xl"
+            />
+            <img
+              src="/rooms/suite-deluxe-doha.jpg"
+              alt="Deluxe Doha Suite"
+              className="rounded-2xl border border-[#d4af37]/30 h-56 w-full object-cover shadow-xl mt-6"
             />
           </div>
 

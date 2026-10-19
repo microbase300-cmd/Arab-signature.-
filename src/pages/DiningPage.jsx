@@ -54,8 +54,8 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
         <div className="rounded-3xl overflow-hidden border border-[#d4af37]/40 bg-[#1c040e]/90 shadow-2xl grid grid-cols-1 lg:grid-cols-2 items-center">
           <div className="h-full min-h-[360px] bg-black">
             <img
-              src="https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1000&q=80"
-              alt="Gourmet Dining"
+              src="/rooms/al-sultan-dining-hall.jpg"
+              alt="Al-Sultan Gourmet Dining Hall"
               className="w-full h-full object-cover"
             />
           </div>

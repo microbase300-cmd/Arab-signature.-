@@ -11,7 +11,7 @@ export default function PhotoGallerySection({
   onOpenBooking,
 }) {
   const [activeCategory, setActiveCategory] = useState('all');
-  const [visualGrade, setVisualGrade] = useState('uhd'); // 'uhd' | 'hdr' | 'natural'
+  const [visualGrade, setVisualGrade] = useState('hdr'); // Default to Vivid HDR per client preference ('hdr' | 'uhd' | 'natural')
   const [mobileColumns, setMobileColumns] = useState(1); // 1 = Full Cinema Card on mobile, 2 = 2-Col Grid on mobile
   const [heroIndex, setHeroIndex] = useState(0);
   const [isReelPlaying, setIsReelPlaying] = useState(true);
@@ -101,20 +101,20 @@ export default function PhotoGallerySection({
 
   // Visual Grade CSS Filter & Texture Classes
   const getPhotoFilterStyle = () => {
-    if (visualGrade === 'uhd') {
+    if (visualGrade === 'hdr') {
       return {
-        filter: 'url(#arab-uhd-clarity) contrast(1.07) saturate(1.12) brightness(1.03)',
+        filter: 'url(#arab-uhd-clarity) contrast(1.12) saturate(1.18) brightness(1.04)',
         imageRendering: 'auto',
       };
     }
-    if (visualGrade === 'hdr') {
+    if (visualGrade === 'uhd') {
       return {
-        filter: 'url(#arab-uhd-clarity) contrast(1.14) saturate(1.22) brightness(1.05)',
+        filter: 'url(#arab-uhd-clarity) contrast(1.06) saturate(1.10) brightness(1.02)',
         imageRendering: 'auto',
       };
     }
     return {
-      filter: 'contrast(1.03) saturate(1.04) brightness(1.01)',
+      filter: 'contrast(1.02) saturate(1.04) brightness(1.01)',
       imageRendering: 'auto',
     };
   };
@@ -129,11 +129,11 @@ export default function PhotoGallerySection({
       <svg className="hidden" aria-hidden="true">
         <defs>
           <filter id="arab-uhd-clarity" colorInterpolationFilters="sRGB">
-            {/* Subtle Unsharp Convolution Matrix for Razor-Sharp HD Edges & Texture */}
+            {/* Hyper-Realistic Micro-Contrast & Edge Sharpness Convolution Matrix */}
             <feConvolveMatrix
               order="3 3"
               preserveAlpha="true"
-              kernelMatrix="0 -0.18 0 -0.18 1.72 -0.18 0 -0.18 0"
+              kernelMatrix="0 -0.22 0 -0.22 1.88 -0.22 0 -0.22 0"
             />
           </filter>
         </defs>
@@ -150,7 +150,7 @@ export default function PhotoGallerySection({
           <div className="space-y-3 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#380214] via-[#5c0725] to-[#380214] border border-[#d4af37]/50 text-[#f3e5ab] text-[11px] font-mono uppercase tracking-widest shadow-lg">
               <Camera size={13} className="text-[#d4af37]" />
-              <span>Ultra-HD 4K Visual Archive • Nsugbe, Onitsha</span>
+              <span>Vivid HDR 4K Visual Archive • 34 Luxury Suites • Nsugbe</span>
             </div>
 
             <h2 className="font-cinzel text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-wide text-white leading-tight">
@@ -158,7 +158,7 @@ export default function PhotoGallerySection({
             </h2>
 
             <p className="text-xs sm:text-sm md:text-base text-gray-300 leading-relaxed">
-              Experience the electric nightlife, VIP Don Julio 1942 bottle service, multi-channel Silent Disco sessions, live DJ sets, and palatial architecture of <strong className="text-white">Arab Signature Hotel & Suites</strong> in razor-sharp Ultra-HD clarity.
+              Explore our <strong className="text-white">34 luxury rooms & diplomatic suites</strong>, palatial architecture, VIP Don Julio 1942 bottle service, multi-channel Silent Disco sessions, and live DJ nights in hyper-realistic <strong className="text-[#f3e5ab]">Vivid HDR</strong> clarity.
             </p>
           </div>
 
@@ -170,8 +170,8 @@ export default function PhotoGallerySection({
                 Optical Grade:
               </span>
               {[
+                { id: 'hdr', label: 'Vivid HDR' },
                 { id: 'uhd', label: '4K Cinema UHD' },
-                { id: 'hdr', label: 'Vivid Night HDR' },
                 { id: 'natural', label: 'Studio Natural' },
               ].map((mode) => (
                 <button

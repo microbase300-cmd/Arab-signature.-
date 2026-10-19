@@ -5,6 +5,7 @@ import { Star, Check, ArrowRight, Crown, Sparkles, ShieldCheck, Clock, Users, Be
 export default function SuitesPage({ onNavigate, onOpenBooking }) {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [rooms, setRooms] = useState(() => portalStore.getRoomRates());
+  const [activePhotoMap, setActivePhotoMap] = useState({});
 
   useEffect(() => {
     return portalStore.subscribeRates(setRooms);
@@ -26,7 +27,7 @@ export default function SuitesPage({ onNavigate, onOpenBooking }) {
         <div className="relative z-10 max-w-4xl mx-auto space-y-4">
           <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-[#5c0725]/50 border border-[#d4af37]/40 text-[#f3e5ab] text-xs font-mono tracking-widest">
             <Crown size={14} className="text-[#d4af37]" />
-            <span>LUXURY ACCOMMODATIONS IN NSUGBE, ONITSHA</span>
+            <span>34 LUXURY ROOMS & SUITES IN NSUGBE, ONITSHA</span>
           </div>
 
           <h1 className="font-cinzel text-4xl sm:text-5xl font-extrabold text-white tracking-wide">
@@ -35,7 +36,7 @@ export default function SuitesPage({ onNavigate, onOpenBooking }) {
           </h1>
 
           <p className="text-sm sm:text-base text-gray-300 max-w-2xl mx-auto leading-relaxed">
-            Every suite is elegantly appointed with handcrafted Arabian gilded accents, plush king bedding, marble rain showers, and complimentary morning gourmet breakfast.
+            Featuring <strong className="text-white">34 luxury rooms and suites</strong> appointed with handcrafted Arabian accents, plush king bedding, marble flooring, and complimentary morning gourmet breakfast.
           </p>
 
           {/* Category Filter Pills */}
@@ -50,7 +51,7 @@ export default function SuitesPage({ onNavigate, onOpenBooking }) {
                     : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
                 }`}
               >
-                {cat === 'all' ? 'All Residences' : `${cat} Suites`}
+                {cat === 'all' ? 'All 34 Residences' : `${cat} Suites`}
               </button>
             ))}
           </div>
@@ -60,25 +61,51 @@ export default function SuitesPage({ onNavigate, onOpenBooking }) {
       {/* 2. SUITES CATALOG GRID */}
       <section className="py-20 px-6 max-w-7xl mx-auto space-y-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {filteredRooms.map((room) => (
-            <div
-              key={room.id}
-              className="rounded-3xl overflow-hidden border border-[#d4af37]/40 bg-[#1c040e]/90 shadow-2xl flex flex-col md:flex-row group hover:border-[#d4af37] transition-all"
-            >
-              {/* Photo */}
-              <div className="md:w-5/12 relative h-64 md:h-auto bg-black overflow-hidden flex-shrink-0">
-                <img
-                  src={room.image}
-                  alt={room.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-90 group-hover:opacity-100"
-                />
-                <div className="absolute top-3 left-3 bg-[#5c0725] text-[#f3e5ab] text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow">
-                  {room.category}
+          {filteredRooms.map((room) => {
+            const roomGallery = room.gallery && room.gallery.length > 0 ? room.gallery : [room.image];
+            const currentPhoto = activePhotoMap[room.id] || room.image;
+            return (
+              <div
+                key={room.id}
+                className="rounded-3xl overflow-hidden border border-[#d4af37]/40 bg-[#1c040e]/90 shadow-2xl flex flex-col md:flex-row group hover:border-[#d4af37] transition-all"
+              >
+                {/* Photo */}
+                <div className="md:w-5/12 relative h-72 md:h-auto bg-black overflow-hidden flex-shrink-0">
+                  <img
+                    src={currentPhoto}
+                    alt={room.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  />
+                  <div className="absolute top-3 left-3 bg-[#5c0725] text-[#f3e5ab] text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow">
+                    {room.category}
+                  </div>
+                  <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md text-[#d4af37] text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1 border border-white/10">
+                    <Star size={12} fill="#d4af37" /> {room.rating} ({room.reviews})
+                  </div>
+
+                  {/* Multi-Angle Vivid HDR Thumbnail Switcher */}
+                  {roomGallery.length > 1 && (
+                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-center gap-2 bg-black/75 backdrop-blur-md p-1.5 rounded-xl border border-white/15">
+                      {roomGallery.map((imgUrl, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() =>
+                            setActivePhotoMap((prev) => ({ ...prev, [room.id]: imgUrl }))
+                          }
+                          className={`w-12 h-8 rounded-lg overflow-hidden border transition-all ${
+                            currentPhoto === imgUrl
+                              ? 'border-[#d4af37] scale-105 ring-1 ring-[#d4af37]'
+                              : 'border-white/20 opacity-70 hover:opacity-100'
+                          }`}
+                          title={`View Suite Angle ${idx + 1}`}
+                        >
+                          <img src={imgUrl} alt="" className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md text-[#d4af37] text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1 border border-white/10">
-                  <Star size={12} fill="#d4af37" /> {room.rating} ({room.reviews})
-                </div>
-              </div>
 
               {/* Content */}
               <div className="p-6 md:w-7/12 flex flex-col justify-between space-y-5">
@@ -141,7 +168,8 @@ export default function SuitesPage({ onNavigate, onOpenBooking }) {
 
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 

@@ -21,7 +21,7 @@ export const HOTEL_CORE_PROFILE = {
   checkOutTime: "12:00 PM",
   powerSupply: "24/7 Uninterrupted Electricity with silent heavy-duty industrial backup & solar microgrid",
   security: "24/7 Armed diplomatic security, continuous CCTV coverage, and secure gated perimeter in Nsugbe",
-  totalRooms: 12
+  totalRooms: 34
 };
 
 export const CUSTOM_TRAINING_DATA = [
@@ -103,8 +103,8 @@ export const CUSTOM_TRAINING_DATA = [
   {
     id: "suite-types",
     category: "suites",
-    keywords: ["suite", "room", "rooms", "types", "category", "penthouse", "deluxe", "executive", "standard"],
-    answer: "We offer 4 distinct luxury categories: 1) Deluxe Doha Suite (₦45,000/night), 2) Executive Arabian Suite with private majlis lounge (₦65,000/night), 3) Royal Diplomatic Penthouse with dual master suites (₦120,000/night), and 4) Standard Classic Suite (₦35,000/night). All suites feature marble bathrooms, plush king beds, and soundproof acoustics."
+    keywords: ["suite", "room", "rooms", "types", "category", "penthouse", "deluxe", "executive", "standard", "total rooms", "how many rooms"],
+    answer: "Arab Signature Hotel & Suites features 34 luxury rooms and suites across 4 distinct categories: 1) Deluxe Doha Suite (₦45,000/night), 2) Executive Arabian Suite with lounge seating (₦65,000/night), 3) Royal Diplomatic Penthouse with Majlis lounge armchairs (₦120,000/night), and 4) Standard Classic Room (₦35,000/night). All 34 rooms feature marble floors, plush king bedding, and soundproof acoustics."
   },
 
   // 6. SPECIAL EVENTS & MEETINGS

@@ -72,13 +72,16 @@ export default function AmenitiesPage({ onNavigate, onOpenBooking }) {
 
           <div className="h-full min-h-[380px] relative bg-black">
             <img
-              src="https://images.unsplash.com/photo-1578683010236-d716f9a3f461?auto=format&fit=crop&w=1000&q=80"
-              alt="Poolside Cabanas"
+              src="/gallery/IMG-20261018-WA0108.jpg"
+              alt="VIP Lounge & Cabana Experience"
               className="w-full h-full object-cover"
             />
+            <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/75 border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] font-mono font-bold uppercase tracking-wider">
+              VIVID HDR • 4K
+            </div>
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-6">
               <span className="text-xs text-[#f3e5ab] font-mono bg-black/60 px-3 py-1 rounded-full border border-white/20">
-                Nsugbe Private Pool Oasis
+                Nsugbe Private Pool & Lounge Oasis
               </span>
             </div>
           </div>
@@ -103,12 +106,15 @@ export default function AmenitiesPage({ onNavigate, onOpenBooking }) {
           <div className="rounded-3xl overflow-hidden border border-[#d4af37]/30 bg-[#1c040e]/80 shadow-xl flex flex-col justify-between group">
             <div className="h-52 overflow-hidden bg-black relative">
               <img
-                src="https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=600&q=80"
-                alt="Royal Moroccan Spa"
+                src="/rooms/suite-royal-penthouse.jpg"
+                alt="Royal Moroccan Spa & Sanctuary"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
               <div className="absolute top-3 left-3 bg-[#5c0725] text-[#f3e5ab] text-[10px] font-bold px-2.5 py-1 rounded-full uppercase">
                 Wellness
+              </div>
+              <div className="absolute top-3 right-3 bg-black/75 border border-[#d4af37]/40 text-[#f3e5ab] text-[9px] font-mono px-2 py-0.5 rounded-full">
+                VIVID HDR
               </div>
             </div>
             <div className="p-6 space-y-3">
@@ -123,18 +129,21 @@ export default function AmenitiesPage({ onNavigate, onOpenBooking }) {
           <div className="rounded-3xl overflow-hidden border border-[#d4af37]/30 bg-[#1c040e]/80 shadow-xl flex flex-col justify-between group">
             <div className="h-52 overflow-hidden bg-black relative">
               <img
-                src="https://images.unsplash.com/photo-1517502884422-41eaead166d4?auto=format&fit=crop&w=600&q=80"
-                alt="Executive Boardroom"
+                src="/rooms/al-sultan-dining-hall.jpg"
+                alt="Executive Boardroom & Banquet Hall"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
               <div className="absolute top-3 left-3 bg-[#5c0725] text-[#f3e5ab] text-[10px] font-bold px-2.5 py-1 rounded-full uppercase">
                 Business
               </div>
+              <div className="absolute top-3 right-3 bg-black/75 border border-[#d4af37]/40 text-[#f3e5ab] text-[9px] font-mono px-2 py-0.5 rounded-full">
+                VIVID HDR
+              </div>
             </div>
             <div className="p-6 space-y-3">
               <h3 className="font-cinzel text-lg font-bold text-white">Diplomatic Majlis & Boardroom</h3>
               <p className="text-xs text-gray-300 leading-relaxed">
-                Soundproof executive boardroom equipped with an 85-inch 4K wireless presentation display, high-speed fiber internet, and executive catering.
+                Soundproof executive boardroom and banquet hall equipped with wireless presentation displays, high-speed fiber internet, and executive catering.
               </p>
             </div>
           </div>
@@ -143,12 +152,15 @@ export default function AmenitiesPage({ onNavigate, onOpenBooking }) {
           <div className="rounded-3xl overflow-hidden border border-[#d4af37]/30 bg-[#1c040e]/80 shadow-xl flex flex-col justify-between group">
             <div className="h-52 overflow-hidden bg-black relative">
               <img
-                src="https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80"
-                alt="Luxury Transit"
+                src="/rooms/arch-gate-exterior.jpg"
+                alt="Luxury Transit & Fortified Gate"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
               <div className="absolute top-3 left-3 bg-[#5c0725] text-[#f3e5ab] text-[10px] font-bold px-2.5 py-1 rounded-full uppercase">
                 Transit
+              </div>
+              <div className="absolute top-3 right-3 bg-black/75 border border-[#d4af37]/40 text-[#f3e5ab] text-[9px] font-mono px-2 py-0.5 rounded-full">
+                VIVID HDR
               </div>
             </div>
             <div className="p-6 space-y-3">

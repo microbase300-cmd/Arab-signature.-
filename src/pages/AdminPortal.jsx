@@ -295,7 +295,7 @@ export default function AdminPortal({ onNavigate }) {
               {occupancyPercent}%
             </div>
             <div className="text-[11px] text-gray-400 mt-2">
-              {totalOccupied} of 12 luxury suites occupied
+              {totalOccupied} of {rooms.length || 34} luxury suites occupied
             </div>
           </div>
 

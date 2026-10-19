@@ -139,12 +139,12 @@ export const hotelAiEngine = {
       isAvailabilityReport: true,
       availableCount: availableRooms.length,
       text: `🏨 **Live Suite Availability (Nsugbe, Onitsha):**\n\n` +
-            `We currently have **${availableRooms.length} luxury suites** ready for immediate check-in:\n\n` +
+            `Out of our **${rooms.length} total luxury rooms & suites**, we currently have **${availableRooms.length} suites** ready for immediate check-in:\n\n` +
             `• **Deluxe Doha Suite:** ${deluxeAvail > 0 ? `${deluxeAvail} available (${deluxeRate}/night)` : 'Fully Booked Tonight'}\n` +
-            `• **Executive Arabian Suite:** ${execAvail > 0 ? `${execAvail} available with private Majlis lounge (${execRate}/night)` : 'Fully Booked Tonight'}\n` +
-            `• **Royal Diplomatic Penthouse:** ${royalAvail > 0 ? `${royalAvail} available on top floor (${royalRate}/night)` : 'Fully Booked Tonight'}\n` +
-            `• **Standard Classic Suite:** ${stdAvail > 0 ? `${stdAvail} available (${stdRate}/night)` : 'Fully Booked Tonight'}\n\n` +
-            `All bookings include complimentary gourmet breakfast, Olympic pool access, and 24/7 solar/CAT power guarantee. Would you like to reserve one right now?`,
+            `• **Executive Arabian Suite:** ${execAvail > 0 ? `${execAvail} available (${execRate}/night)` : 'Fully Booked Tonight'}\n` +
+            `• **Royal Diplomatic Penthouse:** ${royalAvail > 0 ? `${royalAvail} available (${royalRate}/night)` : 'Fully Booked Tonight'}\n` +
+            `• **Standard Classic Room:** ${stdAvail > 0 ? `${stdAvail} available (${stdRate}/night)` : 'Fully Booked Tonight'}\n\n` +
+            `All bookings include complimentary gourmet breakfast, pool access, and 24/7 solar/CAT power guarantee. Would you like to reserve one right now?`,
       suggestions: ["Reserve Deluxe Suite", "Reserve Executive Suite", "Reserve Penthouse", "Track My Booking"]
     };
   },

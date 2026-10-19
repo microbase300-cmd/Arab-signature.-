@@ -6,26 +6,55 @@ const STORAGE_KEYS = {
   USERS: 'ash_portal_staff_users',
   LOGIN_LOGS: 'ash_portal_login_attempts',
   BOOKINGS: 'ash_portal_bookings',
-  ROOMS: 'ash_portal_rooms_inventory_v5',
-  ROOM_RATES: 'ash_portal_room_rates',
+  ROOMS: 'ash_portal_rooms_inventory_v6',
+  ROOM_RATES: 'ash_portal_room_rates_v2',
   HOTEL_CONFIG: 'ash_portal_hotel_config',
   ACTIVITY_LOG: 'ash_portal_activity_log',
 };
 
-// 1. Initial Room Inventory (12 Luxury Keys in Nsugbe, Onitsha - 7 Live Available baseline matching Receptionist Portal)
+// 1. Initial Room Inventory (34 Luxury Rooms & Suites in Nsugbe, Onitsha)
 const INITIAL_ROOMS_INVENTORY = [
+  // Floor 1: 10 Deluxe Doha Suites (101 - 110)
   { roomNumber: "101", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "occupied", currentGuest: "Dr. Ngozi Adeleke", checkOut: "2026-10-22", price: 45000 },
   { roomNumber: "102", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "occupied", currentGuest: "Walk-In Guest", checkOut: "2026-10-20", price: 45000 },
   { roomNumber: "103", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "reserved", currentGuest: "Alhaji Ibrahim Musa", checkOut: "2026-10-23", price: 45000 },
+  { roomNumber: "104", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
+  { roomNumber: "105", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
+  { roomNumber: "106", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
+  { roomNumber: "107", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
+  { roomNumber: "108", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
+  { roomNumber: "109", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
+  { roomNumber: "110", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
+
+  // Floor 2: 10 Executive Arabian Suites (201 - 210)
   { roomNumber: "201", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
   { roomNumber: "202", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "occupied", currentGuest: "Senator Chuka Nwosu", checkOut: "2026-10-21", price: 65000 },
   { roomNumber: "203", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
-  { roomNumber: "301", type: "royal", name: "Royal Diplomatic Penthouse", floor: "Penthouse", status: "available", currentGuest: null, checkOut: null, price: 120000 },
+  { roomNumber: "204", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
+  { roomNumber: "205", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
+  { roomNumber: "206", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
+  { roomNumber: "207", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
+  { roomNumber: "208", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
+  { roomNumber: "209", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
+  { roomNumber: "210", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
+
+  // Penthouse Wing: 4 Royal Diplomatic Penthouses (301 - 304)
+  { roomNumber: "301", type: "royal", name: "Royal Diplomatic Penthouse", floor: "Penthouse", status: "occupied", currentGuest: "Chief Emeka Obi", checkOut: "2026-10-22", price: 120000 },
   { roomNumber: "302", type: "royal", name: "Royal Diplomatic Penthouse", floor: "Penthouse", status: "available", currentGuest: null, checkOut: null, price: 120000 },
+  { roomNumber: "303", type: "royal", name: "Royal Diplomatic Penthouse", floor: "Penthouse", status: "available", currentGuest: null, checkOut: null, price: 120000 },
+  { roomNumber: "304", type: "royal", name: "Royal Diplomatic Penthouse", floor: "Penthouse", status: "available", currentGuest: null, checkOut: null, price: 120000 },
+
+  // Floor 4: 10 Standard Classic Rooms (401 - 410)
   { roomNumber: "401", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
   { roomNumber: "402", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
   { roomNumber: "403", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "occupied", currentGuest: "Engr. Tunde Bakare", checkOut: "2026-10-20", price: 35000 },
   { roomNumber: "404", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
+  { roomNumber: "405", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
+  { roomNumber: "406", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
+  { roomNumber: "407", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
+  { roomNumber: "408", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
+  { roomNumber: "409", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
+  { roomNumber: "410", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
 ];
 
 // 2. Pre-Seeded Real Bookings with Backend Confirmation status
@@ -470,24 +499,23 @@ export const portalStore = {
 
   // --- ROOMS INVENTORY ---
   getRooms() {
-    // One-time migration to v5 (baseline: 7 live available rooms matching Receptionist Portal)
+    // One-time migration to v6 (34 total luxury rooms & suites in Nsugbe, Onitsha)
     if (typeof localStorage !== 'undefined') {
       try {
-        if (!localStorage.getItem('ash_portal_rooms_v5_migrated')) {
+        if (!localStorage.getItem('ash_portal_rooms_v6_migrated')) {
           localStorage.removeItem('ash_portal_rooms_inventory');
           localStorage.removeItem('ash_portal_rooms_inventory_v2');
           localStorage.removeItem('ash_portal_rooms_inventory_v3');
           localStorage.removeItem('ash_portal_rooms_inventory_v4');
-          localStorage.setItem('ash_portal_rooms_v5_migrated', 'true');
+          localStorage.removeItem('ash_portal_rooms_inventory_v5');
+          localStorage.setItem('ash_portal_rooms_v6_migrated', 'true');
         }
       } catch (e) {
         // ignore
       }
     }
-    const v5Rooms = getLocalItem(STORAGE_KEYS.ROOMS, null);
-    if (v5Rooms && Array.isArray(v5Rooms)) return v5Rooms;
-    const legacyRooms = getLocalItem('ash_portal_rooms_inventory', null);
-    if (legacyRooms && Array.isArray(legacyRooms)) return legacyRooms;
+    const v6Rooms = getLocalItem(STORAGE_KEYS.ROOMS, null);
+    if (v6Rooms && Array.isArray(v6Rooms) && v6Rooms.length === 34) return v6Rooms;
     return INITIAL_ROOMS_INVENTORY;
   },
 
@@ -537,7 +565,7 @@ export const portalStore = {
       const payload = JSON.stringify({ rooms: updated, updatedAt: Date.now() });
       
       // Direct Primary: MantleDB (100% Client-side, 0 Vercel Serverless Function calls)
-      fetch('https://mantledb.sh/v2/arab-signature-hotel-2026/inventory', {
+      fetch('https://mantledb.sh/v2/arab-signature-hotel-34rooms/inventory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: payload
@@ -562,7 +590,7 @@ export const portalStore = {
     if (typeof window === 'undefined') return this.getRooms();
 
     const applyCloudRooms = (newRooms) => {
-      if (!newRooms || !Array.isArray(newRooms) || newRooms.length === 0) return null;
+      if (!newRooms || !Array.isArray(newRooms) || newRooms.length !== 34) return null;
       const currentRooms = this.getRooms();
       const cloudAvail = newRooms.filter(r => r.status === 'available').length;
       const localAvail = currentRooms.filter(r => r.status === 'available').length;
@@ -581,7 +609,7 @@ export const portalStore = {
       const ctrl = new AbortController();
       const timeoutId = setTimeout(() => ctrl.abort(), 1500);
 
-      const res = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-2026/inventory?_t=${Date.now()}`, {
+      const res = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-34rooms/inventory?_t=${Date.now()}`, {
         cache: 'no-store',
         signal: ctrl.signal
       });
@@ -589,7 +617,7 @@ export const portalStore = {
 
       if (res.ok) {
         const data = await res.json();
-        if (data && data.rooms && Array.isArray(data.rooms) && data.rooms.length > 0) {
+        if (data && data.rooms && Array.isArray(data.rooms) && data.rooms.length === 34) {
           const applied = applyCloudRooms(data.rooms);
           if (applied) return applied;
         }
@@ -611,7 +639,7 @@ export const portalStore = {
 
       if (res2.ok) {
         const data2 = await res2.json();
-        if (data2 && data2.rooms && Array.isArray(data2.rooms) && data2.rooms.length > 0) {
+        if (data2 && data2.rooms && Array.isArray(data2.rooms) && data2.rooms.length === 34) {
           const applied = applyCloudRooms(data2.rooms);
           if (applied) return applied;
         }
@@ -675,7 +703,20 @@ export const portalStore = {
 
   // --- ROOM RATES (ADMIN CONTROLS & LIVE WEBSITE SYNCHRONIZATION) ---
   getRoomRates() {
-    return getLocalItem(STORAGE_KEYS.ROOM_RATES, DEFAULT_ROOMS);
+    const stored = getLocalItem(STORAGE_KEYS.ROOM_RATES, DEFAULT_ROOMS);
+    if (!Array.isArray(stored)) return DEFAULT_ROOMS;
+    // Always sync latest Vivid HDR images, thumbs, gallery, and descriptions from DEFAULT_ROOMS
+    return DEFAULT_ROOMS.map(defRoom => {
+      const match = stored.find(r => r.id === defRoom.id);
+      if (match && typeof match.price === 'number') {
+        return {
+          ...defRoom,
+          price: match.price,
+          priceFormatted: match.priceFormatted || `₦${match.price.toLocaleString()}`
+        };
+      }
+      return defRoom;
+    });
   },
 
   updateRoomRate(roomId, newPrice) {
@@ -727,7 +768,7 @@ export const portalStore = {
   // --- ACTIVITY LOGS ---
   getActivityLogs() {
     return getLocalItem(STORAGE_KEYS.ACTIVITY_LOG, [
-      `System initialized with 12 luxury suites in Nsugbe, Onitsha.`,
+      `System initialized with 34 luxury rooms & suites in Nsugbe, Onitsha.`,
       `Reception portal ready for check-ins.`
     ]);
   },
