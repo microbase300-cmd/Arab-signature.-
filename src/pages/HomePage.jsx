@@ -212,7 +212,7 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
               <span className="text-xs uppercase font-mono tracking-widest text-[#d4af37] block font-semibold">
-                HANDCRAFTED ACCOMMODATIONS
+                5-STAR LUXURY ACCOMMODATIONS
               </span>
               <h2 className="font-cinzel text-3xl sm:text-4xl font-extrabold tracking-wide mt-1">
                 Signature Doha Suites & Penthouses
@@ -278,13 +278,13 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
       <section className="py-20 px-6 max-w-7xl mx-auto space-y-12">
         <div className="text-center space-y-3 max-w-2xl mx-auto">
           <span className="text-xs uppercase font-mono tracking-widest text-[#d4af37] font-semibold">
-            RECREATION & GASTRONOMY
+            LEISURE, VIP LOUNGE & FINE DINING
           </span>
           <h2 className="font-cinzel text-3xl sm:text-4xl font-extrabold tracking-wide">
             Poolside Cabanas & Gourmet Dining
           </h2>
           <p className="text-sm text-gray-400">
-            Enjoy exclusive recreational facilities and authentic Middle Eastern cuisine in Nsugbe, Onitsha.
+            Enjoy exclusive poolside relaxation, vibrant VIP lounge experiences, and authentic Middle Eastern & continental cuisine in Nsugbe, Onitsha.
           </p>
         </div>
 
