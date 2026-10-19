@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { HOTEL_INFO } from '../data/hotelData';
 import {
   MapPin, Navigation, Compass, Car, Clock, Sparkles, ExternalLink,
@@ -67,10 +67,8 @@ function calculateRouteMetrics(originCoords, destCoords) {
 }
 
 export default function HotelGoogleMap() {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
   const hotelCoords = HOTEL_INFO.coordinates || { lat: 6.2458, lng: 6.8142 };
-  const hotelDestinationQuery =
-    'Arab Signature Hotel and Suites, College Area, By Somadina Ifinta Street, No. 6 Road, Nsugbe, Onitsha, Anambra State, Nigeria';
+  const hotelAddress = HOTEL_INFO.address || 'Arab Signature Hotel and Suites, College Area, By Somadina Ifinta Street, No. 6 Road, Nsugbe, Onitsha, Anambra State, Nigeria';
 
   const [mapMode, setMapMode] = useState('place'); // 'place' | 'directions'
   const [mapLayer, setMapLayer] = useState('m'); // 'm' = Standard Road Map, 'k' = Satellite Hybrid
@@ -80,98 +78,6 @@ export default function HotelGoogleMap() {
   const [isLocatingGps, setIsLocatingGps] = useState(false);
   const [gpsError, setGpsError] = useState('');
   const [copiedAddress, setCopiedAddress] = useState(false);
-
-  // Ref for optional Google Maps JS SDK container when API key is configured
-  const jsMapRef = useRef(null);
-  const [jsSdkReady, setJsSdkReady] = useState(false);
-
-  // Initialize official Google Maps JavaScript API + AdvancedMarkerElement + Routes API if API key is present
-  useEffect(() => {
-    if (!apiKey || !jsMapRef.current) return;
-
-    let isCancelled = false;
-
-    const loadGoogleMapsSdk = async () => {
-      try {
-        if (!window.google || !window.google.maps) {
-          await new Promise((resolve, reject) => {
-            const existingScript = document.getElementById('gmp-js-sdk');
-            if (existingScript) {
-              existingScript.addEventListener('load', resolve);
-              return;
-            }
-            const script = document.createElement('script');
-            script.id = 'gmp-js-sdk';
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(
-              apiKey
-            )}&v=beta&libraries=maps,marker,routes`;
-            script.async = true;
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-          });
-        }
-
-        if (isCancelled || !window.google?.maps?.importLibrary) return;
-
-        const { Map } = await window.google.maps.importLibrary('maps');
-        const { AdvancedMarkerElement, PinElement } =
-          await window.google.maps.importLibrary('marker');
-
-        const mapInstance = new Map(jsMapRef.current, {
-          center: hotelCoords,
-          zoom: 16,
-          mapId: 'DEMO_MAP_ID',
-          mapTypeId: mapLayer === 'k' ? 'hybrid' : 'roadmap',
-          // Mandatory Google Maps Platform attribution ID
-          internalUsageAttributionIds: ['gmp_git_agentskills_v1'],
-        });
-
-        const pin = new PinElement({
-          background: '#5c0725',
-          borderColor: '#d4af37',
-          glyphColor: '#f3e5ab',
-          scale: 1.25,
-        });
-
-        const marker = new AdvancedMarkerElement({
-          map: mapInstance,
-          position: hotelCoords,
-          title: 'Arab Signature Hotel & Suites — Nsugbe, Onitsha',
-        });
-        marker.append(pin);
-
-        // If directions mode is active and Route class is available, compute route via modern Routes API
-        if (mapMode === 'directions' && activeOrigin) {
-          const routesLib = await window.google.maps.importLibrary('routes');
-          if (routesLib?.Route?.computeRoutes) {
-            const { routes } = await routesLib.Route.computeRoutes({
-              origin: activeOrigin,
-              destination: hotelCoords,
-              travelMode: 'DRIVING',
-              fields: ['path', 'distanceMeters', 'durationMillis', 'viewport'],
-            });
-            if (routes && routes[0]) {
-              routes[0].createPolylines({ map: mapInstance });
-              if (routes[0].viewport) {
-                mapInstance.fitBounds(routes[0].viewport);
-              }
-            }
-          }
-        }
-
-        setJsSdkReady(true);
-      } catch {
-        setJsSdkReady(false);
-      }
-    };
-
-    loadGoogleMapsSdk();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [apiKey, mapLayer, mapMode, activeOrigin]);
 
   // Handle "Use My Current GPS Location"
   const handleUseMyGps = () => {
@@ -238,40 +144,18 @@ export default function HotelGoogleMap() {
     setMapMode('directions');
   };
 
-  // Construct Official Maps Embed API URL (when API key is provided) or Interactive Google Maps Embed URL
+  // 100% Free Zero-Cost Interactive Google Maps Embed with Live Directions support
   const getEmbedMapUrl = () => {
-    if (apiKey) {
-      if (mapMode === 'directions' && activeOrigin) {
-        return `https://www.google.com/maps/embed/v1/directions?key=${encodeURIComponent(
-          apiKey
-        )}&origin=${encodeURIComponent(
-          activeOrigin
-        )}&destination=${encodeURIComponent(
-          hotelDestinationQuery
-        )}&mode=driving&maptype=${
-          mapLayer === 'k' ? 'satellite' : 'roadmap'
-        }&solution_id=gmp_git_agentskills_v1`;
-      }
-      return `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(
-        apiKey
-      )}&q=${encodeURIComponent(
-        hotelDestinationQuery
-      )}&zoom=16&maptype=${
-        mapLayer === 'k' ? 'satellite' : 'roadmap'
-      }&solution_id=gmp_git_agentskills_v1`;
-    }
-
-    // Immediate zero-config Google Maps interactive embed with live route support
     if (mapMode === 'directions' && activeOrigin) {
       return `https://maps.google.com/maps?saddr=${encodeURIComponent(
         activeOrigin
       )}&daddr=${encodeURIComponent(
-        'Arab Signature Hotel and Suites, Nsugbe, Onitsha, Anambra, Nigeria'
-      )}&t=${mapLayer}&z=13&ie=UTF8&iwloc=&output=embed`;
+        hotelAddress
+      )}&t=${mapLayer}&z=14&ie=UTF8&iwloc=&output=embed`;
     }
 
     return `https://maps.google.com/maps?q=${encodeURIComponent(
-      'Arab Signature Hotel and Suites, College Area, Somadina Ifinta Street, No 6 Road, Nsugbe, Onitsha, Anambra, Nigeria'
+      hotelAddress
     )}&t=${mapLayer}&z=16&ie=UTF8&iwloc=&output=embed`;
   };
 
@@ -491,28 +375,17 @@ export default function HotelGoogleMap() {
           </div>
         </div>
 
-        {/* Right Column: Live Embedded Interactive Google Map (Height explicitly set to prevent CF2 Map Height Collapse) */}
+        {/* Right Column: Live Embedded Interactive Google Map */}
         <div className="lg:col-span-7 relative min-h-[420px] sm:min-h-[540px] h-full w-full bg-[#0b0105]">
-          {/* Optional JS SDK container if VITE_GOOGLE_MAPS_API_KEY is configured and active */}
-          {apiKey && (
-            <div
-              ref={jsMapRef}
-              className={`w-full h-[420px] sm:h-[580px] ${jsSdkReady ? 'block' : 'hidden'}`}
-            />
-          )}
-
-          {/* Live Google Maps Interactive Iframe (Always works immediately & supports Directions + Satellite) */}
-          {(!apiKey || !jsSdkReady) && (
-            <iframe
-              key={`${mapMode}-${mapLayer}-${activeOrigin}`}
-              title="Arab Signature Hotel and Suites Nsugbe Live Google Map"
-              src={getEmbedMapUrl()}
-              className="w-full h-[420px] sm:h-[580px] border-0"
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-          )}
+          <iframe
+            key={`${mapMode}-${mapLayer}-${activeOrigin}`}
+            title="Arab Signature Hotel and Suites Nsugbe Live Google Map"
+            src={getEmbedMapUrl()}
+            className="w-full h-[420px] sm:h-[580px] border-0"
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
 
           {/* Floating Hotel Verification Badge Over Bottom of Map */}
           <div className="absolute bottom-4 left-4 right-4 sm:right-auto sm:max-w-sm p-4 rounded-2xl bg-[#120208]/95 backdrop-blur-xl border border-[#d4af37]/50 shadow-2xl flex items-start gap-3 pointer-events-auto">
