@@ -61,19 +61,6 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
     groupedCategories[cat].push(item);
   });
 
-  // Direct WhatsApp In-Suite / Cabana Room Service ordering
-  const handleOrderWhatsApp = (item) => {
-    const message = encodeURIComponent(
-      `Hello Al-Sultan Restaurant & Bar at Arab Signature Hotel,\n\n` +
-      `I would like to order:\n` +
-      `• Item: ${item.name} (${item.categoryLabel})\n` +
-      `• Price: ₦${Number(item.price).toLocaleString()}\n\n` +
-      `Please deliver to my Suite / Cabana:\n` +
-      `[Please provide Room Number or Pool Cabana Name]`
-    );
-    window.open(`https://wa.me/2348125786875?text=${message}`, '_blank');
-  };
-
   return (
     <div className="bg-[#120208] text-gray-100 min-h-screen">
       
@@ -143,14 +130,14 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
             </h2>
 
             <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
-              At Al-Sultan Restaurant & Bar, master chefs source fresh organic produce, prime cuts of meat, and authentic imported Middle Eastern spices alongside top-shelf international champagnes and tequilas. Whether in our ambient dining hall, your private curtained poolside cabana, or your suite, every order is served to perfection.
+              At Al-Sultan Restaurant & Bar, master chefs source fresh organic produce, prime cuts of meat, and authentic imported Middle Eastern spices alongside top-shelf international champagnes and tequilas. Whether in our ambient dining hall or your private poolside cabana, every dish and drink is prepared to perfection.
             </p>
 
             <div className="grid grid-cols-2 gap-3 text-xs pt-2">
               <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
-                <Clock size={16} className="text-[#d4af37] mb-1.5" />
-                <div className="font-bold text-white">24/7 Room Dining</div>
-                <p className="text-[10px] text-gray-400">Delivered directly to your suite door</p>
+                <Utensils size={16} className="text-[#d4af37] mb-1.5" />
+                <div className="font-bold text-white">Al-Sultan Dining Hall</div>
+                <p className="text-[10px] text-gray-400">Atmospheric indoor & open-air terrace dining</p>
               </div>
               <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
                 <Wine size={16} className="text-[#d4af37] mb-1.5" />
@@ -176,7 +163,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
               Food & Drinks <span className="gold-text-gradient">Price Catalog</span>
             </h2>
             <p className="text-xs sm:text-sm text-gray-300">
-              Live pricing managed directly by the General Manager. Order via WhatsApp Concierge or direct in-room dining.
+              Live pricing managed directly by hotel management. Available at Al-Sultan Restaurant & VIP Lounge.
             </p>
           </div>
 
@@ -296,21 +283,16 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                         </p>
                       </div>
 
-                      {/* Action Bar */}
+                      {/* Item Availability Footer */}
                       <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs">
-                        <span className="text-[11px] text-emerald-400 flex items-center gap-1 font-mono">
+                        <span className="text-[11px] text-emerald-400 flex items-center gap-1.5 font-mono">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          Available Fresh
+                          Available Daily
                         </span>
 
-                        <button
-                          onClick={() => handleOrderWhatsApp(item)}
-                          className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-[#5c0725] text-gray-200 hover:text-[#f3e5ab] border border-white/10 hover:border-[#d4af37]/40 flex items-center gap-1.5 font-semibold text-[11px] transition-all"
-                          title="Send order directly to hotel restaurant team via WhatsApp"
-                        >
-                          <MessageSquare size={13} className="text-[#d4af37]" />
-                          <span>Order to Room</span>
-                        </button>
+                        <span className="text-[10px] text-[#f3e5ab]/70 font-mono tracking-wider">
+                          Al-Sultan Gourmet
+                        </span>
                       </div>
                     </div>
                   ))}
