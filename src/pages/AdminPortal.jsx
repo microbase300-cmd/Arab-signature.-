@@ -5,12 +5,13 @@ import {
   FileText, Activity, Save, ArrowLeft, LogOut, CheckCircle2, 
   AlertTriangle, Lock, Users, Phone, MapPin, Printer, RefreshCw, 
   Sparkles, KeyRound, Clock, Edit3, ChevronRight, UserCheck, 
-  AlertCircle, ShieldAlert, Key, Check, Eye, EyeOff
+  AlertCircle, ShieldAlert, Key, Check, Eye, EyeOff, Utensils,
+  Wine, Plus, Trash2, Search, X, Flame, GlassWater, Beer
 } from 'lucide-react';
 
 export default function AdminPortal({ onNavigate }) {
   const [currentUser, setCurrentUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('rates'); // 'rates' | 'ledger' | 'receptionist' | 'logins' | 'settings' | 'logs'
+  const [activeTab, setActiveTab] = useState('rates'); // 'rates' | 'dining' | 'ledger' | 'receptionist' | 'logins' | 'settings' | 'logs'
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [rates, setRates] = useState([]);
@@ -22,6 +23,22 @@ export default function AdminPortal({ onNavigate }) {
 
   // Editable Rates State
   const [rateEdits, setRateEdits] = useState({});
+
+  // Editable Dining & Drinks Menu State (ADMIN EXCLUSIVE CONTROL)
+  const [diningMenu, setDiningMenu] = useState([]);
+  const [diningEdits, setDiningEdits] = useState({});
+  const [diningCategoryFilter, setDiningCategoryFilter] = useState('all');
+  const [diningSearchQuery, setDiningSearchQuery] = useState('');
+  const [isAddMenuItemOpen, setIsAddMenuItemOpen] = useState(false);
+  const [newItemForm, setNewItemForm] = useState({
+    name: '',
+    category: 'arabian',
+    categoryLabel: 'Arabian Specialties',
+    type: 'food',
+    desc: '',
+    price: '',
+    isSignature: false
+  });
 
   // Editable Receptionist Credentials
   const [receptionForm, setReceptionForm] = useState({
@@ -51,6 +68,7 @@ export default function AdminPortal({ onNavigate }) {
     const currentLogs = portalStore.getActivityLogs();
     const currentLoginAttempts = portalStore.getLoginAttempts();
     const currentReception = portalStore.getReceptionistUser();
+    const currentDining = portalStore.getDiningMenu();
 
     setRooms(currentRooms);
     setBookings(currentBookings);
@@ -59,6 +77,7 @@ export default function AdminPortal({ onNavigate }) {
     setActivityLogs(currentLogs);
     setLoginAttempts(currentLoginAttempts);
     setReceptionUser(currentReception);
+    setDiningMenu(currentDining);
 
     // Initialize rate edit fields
     const initialRates = {};
@@ -66,6 +85,13 @@ export default function AdminPortal({ onNavigate }) {
       initialRates[r.id] = r.price;
     });
     setRateEdits(initialRates);
+
+    // Initialize dining menu edit fields
+    const initialDining = {};
+    currentDining.forEach(item => {
+      initialDining[item.id] = item.price;
+    });
+    setDiningEdits(initialDining);
 
     // Initialize reception credentials form
     if (currentReception) {
@@ -101,13 +127,17 @@ export default function AdminPortal({ onNavigate }) {
     window.addEventListener('ash_bookings_updated', handleLiveSync);
     window.addEventListener('ash_rates_updated', handleLiveSync);
     window.addEventListener('ash_rooms_updated', handleLiveSync);
+    window.addEventListener('ash_menu_updated', handleLiveSync);
     const unsubscribeRooms = portalStore.subscribeRooms(() => refreshData());
+    const unsubscribeDining = portalStore.subscribeDiningMenu(() => refreshData());
 
     return () => {
       window.removeEventListener('ash_bookings_updated', handleLiveSync);
       window.removeEventListener('ash_rates_updated', handleLiveSync);
       window.removeEventListener('ash_rooms_updated', handleLiveSync);
+      window.removeEventListener('ash_menu_updated', handleLiveSync);
       unsubscribeRooms();
+      unsubscribeDining();
     };
   }, []);
 
@@ -141,6 +171,73 @@ export default function AdminPortal({ onNavigate }) {
     });
     refreshData();
     showToast("All suite rates updated live across the hotel website & booking engine!");
+  };
+
+  // 1.1 Food & Drinks Menu Price Adjustment (ADMIN EXCLUSIVE CONTROL)
+  const handleSaveMenuItemPrice = (itemId) => {
+    const newPrice = diningEdits[itemId];
+    if (newPrice === undefined || isNaN(newPrice) || Number(newPrice) < 0) {
+      alert("Please provide a valid price in Naira.");
+      return;
+    }
+    portalStore.updateMenuItemPrice(itemId, newPrice);
+    refreshData();
+    const item = diningMenu.find(i => i.id === itemId);
+    showToast(`Price updated for ${item?.name || itemId} to ₦${Number(newPrice).toLocaleString()}`);
+  };
+
+  const handleSaveAllDiningPrices = () => {
+    portalStore.updateAllMenuPrices(diningEdits);
+    refreshData();
+    showToast("All Al-Sultan food & drinks prices updated live across the hotel website!");
+  };
+
+  const handleCreateMenuItem = (e) => {
+    e.preventDefault();
+    if (!newItemForm.name || !newItemForm.price) {
+      alert("Please provide item name and price.");
+      return;
+    }
+
+    const categoryMap = {
+      arabian: "Arabian Specialties",
+      continental: "Continental & Local Delicacies",
+      spirits: "Champagne & VIP Spirits",
+      cocktails: "Signature Cocktails & Mocktails",
+      beers: "Beer, Wine & Refreshments"
+    };
+
+    portalStore.addMenuItem({
+      name: newItemForm.name,
+      category: newItemForm.category,
+      categoryLabel: categoryMap[newItemForm.category] || "Specialties",
+      type: newItemForm.type,
+      desc: newItemForm.desc,
+      price: Number(newItemForm.price),
+      isSignature: newItemForm.isSignature
+    });
+
+    const addedName = newItemForm.name;
+    refreshData();
+    setIsAddMenuItemOpen(false);
+    setNewItemForm({
+      name: '',
+      category: 'arabian',
+      categoryLabel: 'Arabian Specialties',
+      type: 'food',
+      desc: '',
+      price: '',
+      isSignature: false
+    });
+    showToast(`New item '${addedName}' added to Al-Sultan Menu.`);
+  };
+
+  const handleDeleteMenuItem = (itemId, itemName) => {
+    if (window.confirm(`Are you sure you want to remove '${itemName}' from the Al-Sultan menu?`)) {
+      portalStore.deleteMenuItem(itemId);
+      refreshData();
+      showToast(`Item '${itemName}' removed from menu.`);
+    }
   };
 
   // 2. Save Updated Receptionist Credentials (ADMIN CONTROL)
@@ -362,6 +459,18 @@ export default function AdminPortal({ onNavigate }) {
           </button>
 
           <button
+            onClick={() => setActiveTab('dining')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+              activeTab === 'dining'
+                ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black shadow-lg shadow-[#d4af37]/20'
+                : 'bg-[#16030c] text-gray-400 hover:text-white border border-white/10'
+            }`}
+          >
+            <Utensils size={14} />
+            <span>Al-Sultan Food & Drinks Menu ({diningMenu.length})</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('ledger')}
             className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
               activeTab === 'ledger'
@@ -505,6 +614,177 @@ export default function AdminPortal({ onNavigate }) {
                   </div>
                 );
               })}
+            </div>
+
+          </div>
+        )}
+
+        {/* ======================================================== */}
+        {/* TAB CONTENT: AL-SULTAN FOOD & DRINKS MENU MANAGER (ADMIN EXCLUSIVE) */}
+        {/* ======================================================== */}
+        {activeTab === 'dining' && (
+          <div className="space-y-6">
+            
+            {/* Top Toolbar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-[#16030c] border border-[#d4af37]/35 shadow-xl">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-cinzel font-bold text-base sm:text-lg text-white">
+                    Al-Sultan Food & Drinks Menu Manager
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#5c0725] border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] font-mono uppercase tracking-wider font-bold">
+                    Admin Exclusive Control
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1 max-w-2xl leading-relaxed">
+                  Adjust live pricing in Naira for all gourmet dishes, VIP champagnes, Don Julio 1942, spirits, cocktails, and wines. Receptionists have view-only access and cannot alter menu prices.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+                <button
+                  onClick={() => setIsAddMenuItemOpen(true)}
+                  className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs flex items-center gap-1.5 border border-white/15 transition-all shadow-md"
+                >
+                  <Plus size={14} />
+                  <span>Add New Item</span>
+                </button>
+
+                <button
+                  onClick={handleSaveAllDiningPrices}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold text-xs flex items-center gap-2 shadow-lg shadow-[#d4af37]/20 hover:scale-102 transition-all"
+                >
+                  <Save size={15} />
+                  <span>Save All Prices Live</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Filter & Search Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#120208] p-3 rounded-2xl border border-white/10">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                {[
+                  { id: 'all', label: 'All Items' },
+                  { id: 'food', label: 'Food Only' },
+                  { id: 'drinks', label: 'Drinks Only' },
+                  { id: 'arabian', label: 'Arabian' },
+                  { id: 'continental', label: 'Continental/Local' },
+                  { id: 'spirits', label: 'Champagne & Spirits' },
+                  { id: 'cocktails', label: 'Cocktails' },
+                  { id: 'beers', label: 'Beer & Wine' },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setDiningCategoryFilter(cat.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                      diningCategoryFilter === cat.id
+                        ? 'bg-[#d4af37] text-black font-bold shadow-md'
+                        : 'bg-[#16030c] text-gray-400 hover:text-white border border-white/10'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative sm:w-64">
+                <input
+                  type="text"
+                  placeholder="Filter menu items..."
+                  value={diningSearchQuery}
+                  onChange={(e) => setDiningSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-black/60 border border-white/15 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
+                />
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              </div>
+            </div>
+
+            {/* Menu Items Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {diningMenu
+                .filter((item) => {
+                  const matchCat =
+                    diningCategoryFilter === 'all'
+                      ? true
+                      : diningCategoryFilter === 'food'
+                      ? item.type === 'food'
+                      : diningCategoryFilter === 'drinks'
+                      ? item.type === 'drinks'
+                      : item.category === diningCategoryFilter;
+
+                  const matchSearch =
+                    !diningSearchQuery.trim() ||
+                    item.name.toLowerCase().includes(diningSearchQuery.toLowerCase()) ||
+                    item.desc.toLowerCase().includes(diningSearchQuery.toLowerCase()) ||
+                    item.categoryLabel.toLowerCase().includes(diningSearchQuery.toLowerCase());
+
+                  return matchCat && matchSearch;
+                })
+                .map((item) => {
+                  const currentPrice = diningEdits[item.id] !== undefined ? diningEdits[item.id] : item.price;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-4 sm:p-5 rounded-2xl bg-[#16030c] border border-white/10 hover:border-[#d4af37]/40 transition-all flex flex-col justify-between space-y-3.5 shadow-lg"
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] font-mono uppercase tracking-wider text-[#d4af37]">
+                              {item.categoryLabel}
+                            </span>
+                            <h4 className="font-bold text-sm text-white line-clamp-1">
+                              {item.name}
+                            </h4>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full uppercase font-bold ${item.type === 'drinks' ? 'bg-purple-950/70 text-purple-300 border border-purple-500/30' : 'bg-amber-950/70 text-amber-300 border border-amber-500/30'}`}>
+                              {item.type}
+                            </span>
+                            <button
+                              onClick={() => handleDeleteMenuItem(item.id, item.name)}
+                              className="p-1 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-950/40 transition-all"
+                              title="Delete Item"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                          {item.desc}
+                        </p>
+                      </div>
+
+                      {/* Price Edit Control */}
+                      <div className="pt-2.5 border-t border-white/10 flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#d4af37]">
+                            ₦
+                          </span>
+                          <input
+                            type="number"
+                            step="500"
+                            min="0"
+                            value={currentPrice}
+                            onChange={(e) => setDiningEdits({ ...diningEdits, [item.id]: e.target.value })}
+                            className="w-full pl-7 pr-2 py-1.5 rounded-xl bg-black/60 border border-white/15 text-white font-mono text-xs focus:outline-none focus:border-[#d4af37]"
+                          />
+                        </div>
+
+                        <button
+                          onClick={() => handleSaveMenuItemPrice(item.id)}
+                          className="px-3.5 py-1.5 rounded-xl bg-[#5c0725] hover:bg-[#770a31] text-[#f3e5ab] text-[11px] font-semibold border border-[#d4af37]/40 flex items-center gap-1 transition-all"
+                        >
+                          <Save size={12} />
+                          <span>Update</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
 
           </div>
@@ -965,6 +1245,125 @@ export default function AdminPortal({ onNavigate }) {
         )}
 
       </div>
+
+      {/* Modal: Add New Menu Item */}
+      {isAddMenuItemOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-lg rounded-3xl bg-[#16030c] border border-[#d4af37]/40 shadow-2xl p-6 sm:p-8 space-y-5">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-2">
+                <Utensils size={18} className="text-[#d4af37]" />
+                <h3 className="font-cinzel text-lg font-bold text-white">
+                  Add Item to Al-Sultan Menu
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsAddMenuItemOpen(false)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateMenuItem} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-gray-300 font-medium">Item Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Clase Azul Ultra, Arabian Spiced Fish"
+                  value={newItemForm.name}
+                  onChange={(e) => setNewItemForm({ ...newItemForm, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white focus:outline-none focus:border-[#d4af37]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-gray-300 font-medium">Type *</label>
+                  <select
+                    value={newItemForm.type}
+                    onChange={(e) => setNewItemForm({ ...newItemForm, type: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white focus:outline-none focus:border-[#d4af37]"
+                  >
+                    <option value="food">Kitchen Food</option>
+                    <option value="drinks">Bar Beverage / Drink</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-gray-300 font-medium">Category *</label>
+                  <select
+                    value={newItemForm.category}
+                    onChange={(e) => setNewItemForm({ ...newItemForm, category: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white focus:outline-none focus:border-[#d4af37]"
+                  >
+                    <option value="arabian">Arabian Specialties</option>
+                    <option value="continental">Continental & Local Delicacies</option>
+                    <option value="spirits">Champagne & VIP Spirits</option>
+                    <option value="cocktails">Signature Cocktails & Mocktails</option>
+                    <option value="beers">Beer, Wine & Refreshments</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-gray-300 font-medium">Price in Naira (₦) *</label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step="500"
+                  placeholder="e.g. 25000"
+                  value={newItemForm.price}
+                  onChange={(e) => setNewItemForm({ ...newItemForm, price: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white font-mono focus:outline-none focus:border-[#d4af37]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-gray-300 font-medium">Description / Ingredients</label>
+                <textarea
+                  rows="3"
+                  placeholder="Ingredients, preparation style, vintage year..."
+                  value={newItemForm.desc}
+                  onChange={(e) => setNewItemForm({ ...newItemForm, desc: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white focus:outline-none focus:border-[#d4af37] resize-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="isSignature"
+                  checked={newItemForm.isSignature}
+                  onChange={(e) => setNewItemForm({ ...newItemForm, isSignature: e.target.checked })}
+                  className="w-4 h-4 rounded bg-black/60 border-white/20 text-[#d4af37] focus:ring-0"
+                />
+                <label htmlFor="isSignature" className="text-xs text-gray-300">
+                  Mark as Chef's Signature / VIP Highlight
+                </label>
+              </div>
+
+              <div className="pt-3 border-t border-white/10 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAddMenuItemOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold shadow-md hover:scale-102 transition-all"
+                >
+                  Add Item
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

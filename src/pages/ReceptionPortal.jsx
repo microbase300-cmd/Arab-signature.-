@@ -4,7 +4,7 @@ import {
   Building2, BedDouble, Calendar, User, Phone, CheckCircle2, Clock, 
   Search, Filter, Plus, Printer, MessageSquare, LogOut, ArrowLeft, 
   Sparkles, RefreshCw, Key, ShieldCheck, Check, AlertCircle, X, ChevronRight,
-  TrendingUp, DoorOpen, Sparkle
+  TrendingUp, DoorOpen, Sparkle, Utensils, Lock, Wine
 } from 'lucide-react';
 
 export default function ReceptionPortal({ onNavigate }) {
@@ -12,6 +12,9 @@ export default function ReceptionPortal({ onNavigate }) {
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [rates, setRates] = useState([]);
+  const [diningMenu, setDiningMenu] = useState([]);
+  const [isDiningMenuOpen, setIsDiningMenuOpen] = useState(false);
+  const [diningSearchQuery, setDiningSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('rooms'); // 'rooms' | 'ledger'
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -43,6 +46,7 @@ export default function ReceptionPortal({ onNavigate }) {
     setRooms(portalStore.getRooms());
     setBookings(portalStore.getBookings());
     setRates(portalStore.getRoomRates());
+    setDiningMenu(portalStore.getDiningMenu());
   };
 
   useEffect(() => {
@@ -70,14 +74,18 @@ export default function ReceptionPortal({ onNavigate }) {
     window.addEventListener('ash_bookings_updated', handleLiveSync);
     window.addEventListener('ash_rates_updated', handleLiveSync);
     window.addEventListener('ash_rooms_updated', handleLiveSync);
+    window.addEventListener('ash_menu_updated', handleLiveSync);
     const unsubscribeRooms = portalStore.subscribeRooms(() => refreshData());
+    const unsubscribeDining = portalStore.subscribeDiningMenu(() => refreshData());
 
     return () => {
       clearInterval(timer);
       window.removeEventListener('ash_bookings_updated', handleLiveSync);
       window.removeEventListener('ash_rates_updated', handleLiveSync);
       window.removeEventListener('ash_rooms_updated', handleLiveSync);
+      window.removeEventListener('ash_menu_updated', handleLiveSync);
       unsubscribeRooms();
+      unsubscribeDining();
     };
   }, []);
 
@@ -296,6 +304,16 @@ export default function ReceptionPortal({ onNavigate }) {
             >
               <Plus size={15} className="stroke-[2.5]" />
               <span>New Walk-In</span>
+            </button>
+
+            {/* View Dining Menu Prices (Read-Only Front Desk) */}
+            <button
+              onClick={() => setIsDiningMenuOpen(true)}
+              className="p-2 sm:px-3 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-medium border border-white/10 flex items-center gap-1.5 transition-all"
+              title="View Al-Sultan Food & Drinks Current Prices (Read-Only)"
+            >
+              <Utensils size={14} className="text-[#d4af37]" />
+              <span className="hidden sm:inline">Menu Prices</span>
             </button>
 
             {/* Back to Guest Website */}
@@ -1171,6 +1189,112 @@ export default function ReceptionPortal({ onNavigate }) {
                 </p>
               </div>
 
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Read-Only Dining & Bar Menu Lookup for Front Desk */}
+      {isDiningMenuOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-4xl max-h-[90vh] rounded-3xl bg-[#16030c] border border-[#d4af37]/40 shadow-2xl p-6 sm:p-8 flex flex-col space-y-5 overflow-hidden">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-4 flex-shrink-0">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Utensils size={18} className="text-[#d4af37]" />
+                  <h3 className="font-cinzel text-lg sm:text-xl font-bold text-white">
+                    Al-Sultan Food & Drinks Price Sheet
+                  </h3>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-950/70 border border-amber-500/40 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider">
+                    <Lock size={10} />
+                    Read-Only (Admin Restricted)
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400">
+                  Menu prices are controlled exclusively by the Executive General Manager in the Admin Portal.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsDiningMenuOpen(false)}
+                className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Search filter */}
+            <div className="relative flex-shrink-0">
+              <input
+                type="text"
+                placeholder="Search dish, champagne, Don Julio 1942, beer, cocktail..."
+                value={diningSearchQuery}
+                onChange={(e) => setDiningSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-black/60 border border-white/15 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
+              />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            </div>
+
+            {/* Items List (Scrollable & Read-Only) */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {diningMenu
+                  .filter((item) => {
+                    if (!diningSearchQuery.trim()) return true;
+                    return (
+                      item.name.toLowerCase().includes(diningSearchQuery.toLowerCase()) ||
+                      item.desc.toLowerCase().includes(diningSearchQuery.toLowerCase()) ||
+                      item.categoryLabel.toLowerCase().includes(diningSearchQuery.toLowerCase())
+                    );
+                  })
+                  .map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-3.5 rounded-xl bg-black/50 border border-white/10 flex items-start justify-between gap-3"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-white">
+                            {item.name}
+                          </span>
+                          <span className={`text-[8px] font-mono px-1.5 py-0.2 rounded-full uppercase ${item.type === 'drinks' ? 'bg-purple-950/70 text-purple-300' : 'bg-amber-950/70 text-amber-300'}`}>
+                            {item.type}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-gray-400 font-mono block">
+                          {item.categoryLabel}
+                        </span>
+                        <p className="text-[11px] text-gray-400 line-clamp-2">
+                          {item.desc}
+                        </p>
+                      </div>
+
+                      <div className="text-right flex-shrink-0">
+                        <span className="font-mono text-sm font-bold text-[#d4af37]">
+                          ₦{Number(item.price).toLocaleString()}
+                        </span>
+                        <span className="text-[9px] text-gray-500 block">Current Price</span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="pt-3 border-t border-white/10 flex items-center justify-between text-xs text-gray-400 flex-shrink-0">
+              <span className="text-[11px] flex items-center gap-1.5">
+                <ShieldCheck size={13} className="text-emerald-400" />
+                <span>Authorized Front Desk Information Terminal</span>
+              </span>
+              <button
+                onClick={() => setIsDiningMenuOpen(false)}
+                className="px-4 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium text-xs"
+              >
+                Close Price Sheet
+              </button>
             </div>
 
           </div>

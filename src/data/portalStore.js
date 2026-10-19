@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
   BOOKINGS: 'ash_portal_bookings',
   ROOMS: 'ash_portal_rooms_inventory_v6',
   ROOM_RATES: 'ash_portal_room_rates_v2',
+  DINING_MENU: 'ash_portal_dining_menu_v1',
   HOTEL_CONFIG: 'ash_portal_hotel_config',
   ACTIVITY_LOG: 'ash_portal_activity_log',
 };
@@ -216,6 +217,349 @@ const INITIAL_LOGIN_LOGS = [
     reason: "Invalid password attempt",
     ip: "102.89.41.98 (Enugu, NG)",
     device: "Safari / iOS"
+  }
+];
+
+// 4. Initial Al-Sultan Gourmet Dining & Bar Drinks Menu
+export const INITIAL_DINING_MENU = [
+  // --- FOOD: ARABIAN SPECIALTIES ---
+  {
+    id: "food-mandi",
+    name: "Royal Lamb Mandi",
+    category: "arabian",
+    categoryLabel: "Arabian Specialties",
+    type: "food",
+    desc: "Slow-roasted tender lamb infused with Yemeni spices, served over fragrant basmati rice with grilled peppers and spicy tomato dakous sauce",
+    price: 14500,
+    isSignature: true,
+  },
+  {
+    id: "food-grill",
+    name: "Al-Sultan Mixed Grill",
+    category: "arabian",
+    categoryLabel: "Arabian Specialties",
+    type: "food",
+    desc: "Shish tawook chicken skewers, spiced lamb kofta, beef kebabs, grilled vine tomatoes, sumac onions, and freshly baked Lebanese flatbread",
+    price: 18000,
+    isSignature: true,
+  },
+  {
+    id: "food-mezze",
+    name: "Beirut Mezze Platter",
+    category: "arabian",
+    categoryLabel: "Arabian Specialties",
+    type: "food",
+    desc: "Creamy house hummus, smoky mutabbal eggplant dip, fresh parsley tabbouleh salad, crispy golden falafel, and toasted garlic pita chips",
+    price: 9500,
+    isSignature: false,
+  },
+  {
+    id: "food-shawarma",
+    name: "Gourmet Arabian Shawarma",
+    category: "arabian",
+    categoryLabel: "Arabian Specialties",
+    type: "food",
+    desc: "Slow-carved spiced beef or chicken with Lebanese garlic toum sauce, pickled wild cucumber, and French fries wrapped in toasted flatbread",
+    price: 4500,
+    isSignature: false,
+  },
+  {
+    id: "food-lamb-chops",
+    name: "Charbroiled Royal Lamb Chops",
+    category: "arabian",
+    categoryLabel: "Arabian Specialties",
+    type: "food",
+    desc: "Prime New Zealand lamb chops glazed with pomegranate molasses, rosemary, crushed garlic, and saffron mashed potatoes",
+    price: 17500,
+    isSignature: true,
+  },
+
+  // --- FOOD: CONTINENTAL & NIGERIAN SPECIALTIES ---
+  {
+    id: "food-prawns",
+    name: "Grilled Jumbo Atlantic Prawns",
+    category: "continental",
+    categoryLabel: "Continental & Local Delicacies",
+    type: "food",
+    desc: "Giant ocean prawns charbroiled with herb garlic lemon butter, steamed broccoli florets, and fragrant basmati jollof rice",
+    price: 19500,
+    isSignature: true,
+  },
+  {
+    id: "food-ribeye",
+    name: "Prime Aged Ribeye Steak (350g)",
+    category: "continental",
+    categoryLabel: "Continental & Local Delicacies",
+    type: "food",
+    desc: "Grass-fed grain-finished prime ribeye steak grilled with peppercorn reduction, asparagus spears, and roasted garlic herb potatoes",
+    price: 22000,
+    isSignature: true,
+  },
+  {
+    id: "food-catfish-soup",
+    name: "Catfish Point & Kill Pepper Soup",
+    category: "continental",
+    categoryLabel: "Continental & Local Delicacies",
+    type: "food",
+    desc: "Live fresh catfish caught and slow-simmered in indigenous aromatic herbs, uda spices, and hot yellow peppers",
+    price: 12000,
+    isSignature: false,
+  },
+  {
+    id: "food-oha-soup",
+    name: "Executive Oha & Goat Meat Soup",
+    category: "continental",
+    categoryLabel: "Continental & Local Delicacies",
+    type: "food",
+    desc: "Traditional Anambra oha soup slow-cooked with tender cuts of goat meat, stockfish, dried prawns, and your choice of pounded yam or semo",
+    price: 11000,
+    isSignature: false,
+  },
+  {
+    id: "food-seafood-jollof",
+    name: "Signature Firewood Seafood Jollof",
+    category: "continental",
+    categoryLabel: "Continental & Local Delicacies",
+    type: "food",
+    desc: "Smoky firewood party jollof rice tossed with Atlantic calamari rings, tiger prawns, fried plantain cubes, and grilled croaker fillet",
+    price: 10500,
+    isSignature: true,
+  },
+  {
+    id: "food-croaker-fish",
+    name: "Crispy Whole Spiced Croaker Fish",
+    category: "continental",
+    categoryLabel: "Continental & Local Delicacies",
+    type: "food",
+    desc: "Fresh whole croaker fish deep-fried to golden perfection, served with sweet fried dodo (plantain), tartar sauce, and scotch bonnet dip",
+    price: 13000,
+    isSignature: false,
+  },
+
+  // --- DRINKS: CHAMPAGNE & VIP SPIRITS (VIP BOTTLE SERVICE) ---
+  {
+    id: "drink-don-julio-1942",
+    name: "Don Julio 1942 Tequila (750ml)",
+    category: "spirits",
+    categoryLabel: "Champagne & VIP Spirits",
+    type: "drinks",
+    desc: "Legendary handcrafted añejo tequila aged in American white oak barrels with notes of rich caramel and toasted vanilla. Served with LED baton sparklers & VIP ice bucket",
+    price: 750000,
+    isSignature: true,
+  },
+  {
+    id: "drink-dom-perignon",
+    name: "Dom Pérignon Vintage Brut Champagne",
+    category: "spirits",
+    categoryLabel: "Champagne & VIP Spirits",
+    type: "drinks",
+    desc: "Iconic prestige French champagne with exquisite effervescence, ripe peach, brioche, and toasted hazelnut finish",
+    price: 620000,
+    isSignature: true,
+  },
+  {
+    id: "drink-azul-reposado",
+    name: "Clase Azul Reposado Tequila (750ml)",
+    category: "spirits",
+    categoryLabel: "Champagne & VIP Spirits",
+    type: "drinks",
+    desc: "Ultra-premium 100% blue agave tequila aged in oak, presented in the iconic cobalt blue handcrafted ceramic decanter",
+    price: 580000,
+    isSignature: true,
+  },
+  {
+    id: "drink-hennessy-xo",
+    name: "Hennessy XO Extra Old Cognac (700ml)",
+    category: "spirits",
+    categoryLabel: "Champagne & VIP Spirits",
+    type: "drinks",
+    desc: "Robust deep amber French cognac blending 100 rare eaux-de-vie with rich candied fruits, spicy cinnamon, and wild dark chocolate",
+    price: 450000,
+    isSignature: true,
+  },
+  {
+    id: "drink-jw-blue",
+    name: "Johnnie Walker Blue Label Blended Scotch",
+    category: "spirits",
+    categoryLabel: "Champagne & VIP Spirits",
+    type: "drinks",
+    desc: "Rare hand-selected Scotch casks offering velvety honey, dry fruit sweetness, and lingering peat smoke finish",
+    price: 480000,
+    isSignature: false,
+  },
+  {
+    id: "drink-moet-imperial",
+    name: "Moët & Chandon Impérial Brut Champagne",
+    category: "spirits",
+    categoryLabel: "Champagne & VIP Spirits",
+    type: "drinks",
+    desc: "The world’s most celebrated champagne with crisp green apple, white floral notes, and elegant fine bubbles",
+    price: 220000,
+    isSignature: false,
+  },
+  {
+    id: "drink-glenfiddich-18",
+    name: "Glenfiddich 18-Year Single Malt Whisky",
+    category: "spirits",
+    categoryLabel: "Champagne & VIP Spirits",
+    type: "drinks",
+    desc: "Matured in Spanish Oloroso wood and American oak for an exceptionally rich, warm spiced apple and dried fruit flavor",
+    price: 210000,
+    isSignature: false,
+  },
+  {
+    id: "drink-casamigos",
+    name: "Casamigos Reposado Tequila (750ml)",
+    category: "spirits",
+    categoryLabel: "Champagne & VIP Spirits",
+    type: "drinks",
+    desc: "Small-batch smooth tequila aged 7 months in premium white oak barrels with hints of caramel and silky cocoa",
+    price: 180000,
+    isSignature: false,
+  },
+
+  // --- DRINKS: SIGNATURE COCKTAILS & MOCKTAILS ---
+  {
+    id: "drink-arabian-night-cocktail",
+    name: "Arabian Night Sky Cocktail",
+    category: "cocktails",
+    categoryLabel: "Signature Cocktails & Mocktails",
+    type: "drinks",
+    desc: "Blue Curaçao, premium French vodka, wild blackberry liqueur, splash of citrus tonic, and edible gold shimmer dust",
+    price: 9500,
+    isSignature: true,
+  },
+  {
+    id: "drink-doha-gold-martini",
+    name: "Doha Gold Leaf Martini",
+    category: "cocktails",
+    categoryLabel: "Signature Cocktails & Mocktails",
+    type: "drinks",
+    desc: "London dry gin, St. Germain elderflower liqueur, dry vermouth, twist of Meyer lemon, garnished with genuine 24-karat gold leaf",
+    price: 12000,
+    isSignature: true,
+  },
+  {
+    id: "drink-onitsha-sunset",
+    name: "Onitsha Sunset Rum Punch",
+    category: "cocktails",
+    categoryLabel: "Signature Cocktails & Mocktails",
+    type: "drinks",
+    desc: "Aged dark rum, fresh passion fruit nectar, lime juice, dash of Angostura bitters, layered over pomegranate syrup",
+    price: 8500,
+    isSignature: false,
+  },
+  {
+    id: "drink-long-island",
+    name: "Al-Sultan Classic Long Island",
+    category: "cocktails",
+    categoryLabel: "Signature Cocktails & Mocktails",
+    type: "drinks",
+    desc: "Tequila, vodka, white rum, triple sec, gin, fresh sweet-and-sour citrus mix, finished with chilled cola over crushed ice",
+    price: 9000,
+    isSignature: false,
+  },
+  {
+    id: "drink-dubai-oasis-mocktail",
+    name: "Virgin Dubai Oasis Mocktail",
+    category: "cocktails",
+    categoryLabel: "Signature Cocktails & Mocktails",
+    type: "drinks",
+    desc: "Fresh garden spearmint muddled with Key lime, organic agave, pomegranate arils, and sparkling San Pellegrino",
+    price: 6500,
+    isSignature: false,
+  },
+  {
+    id: "drink-zobo-royal-fizz",
+    name: "Royal Zobo Hibiscus Fizz (Mocktail)",
+    category: "cocktails",
+    categoryLabel: "Signature Cocktails & Mocktails",
+    type: "drinks",
+    desc: "Artisanal slow-brewed hibiscus flower infusion with ginger, cloves, citrus peel, and sparkling mineral water",
+    price: 5500,
+    isSignature: false,
+  },
+
+  // --- DRINKS: BEERS, WINES & REFRESHMENTS ---
+  {
+    id: "drink-heineken",
+    name: "Heineken / Corona Extra (Chilled Bottle)",
+    category: "beers",
+    categoryLabel: "Beer, Wine & Refreshments",
+    type: "drinks",
+    desc: "Sub-zero chilled bottle served in an ice bucket with fresh lime wedge",
+    price: 3500,
+    isSignature: false,
+  },
+  {
+    id: "drink-guinness-stout",
+    name: "Guinness Foreign Extra Stout (Cold)",
+    category: "beers",
+    categoryLabel: "Beer, Wine & Refreshments",
+    type: "drinks",
+    desc: "Rich, bold roasted malt Nigerian classic served extra chilled",
+    price: 3000,
+    isSignature: false,
+  },
+  {
+    id: "drink-cabernet-sauvignon",
+    name: "Chilean Reserva Cabernet Sauvignon (Bottle)",
+    category: "beers",
+    categoryLabel: "Beer, Wine & Refreshments",
+    type: "drinks",
+    desc: "Full-bodied red wine with deep blackberry notes, subtle oak, and velvet tannins",
+    price: 45000,
+    isSignature: false,
+  },
+  {
+    id: "drink-pinot-grigio",
+    name: "Italian D.O.C. Pinot Grigio (Bottle)",
+    category: "beers",
+    categoryLabel: "Beer, Wine & Refreshments",
+    type: "drinks",
+    desc: "Crisp, zesty, chilled dry white wine with delicate aromas of green apple and acacia blossom",
+    price: 42000,
+    isSignature: false,
+  },
+  {
+    id: "drink-moroccan-tea",
+    name: "Authentic Moroccan Mint Tea (Pot for 2)",
+    category: "beers",
+    categoryLabel: "Beer, Wine & Refreshments",
+    type: "drinks",
+    desc: "Traditional ceremonial tea brewed with fresh spearmint leaves, green gunpowder tea, and sweet brown sugar cubes in an engraved silver teapot",
+    price: 6000,
+    isSignature: true,
+  },
+  {
+    id: "drink-turkish-coffee",
+    name: "Turkish Cardamom Coffee",
+    category: "beers",
+    categoryLabel: "Beer, Wine & Refreshments",
+    type: "drinks",
+    desc: "Dark roasted fine grind coffee slow-boiled with cracked green cardamom pods in a copper cezve, served with Turkish delight",
+    price: 4500,
+    isSignature: false,
+  },
+  {
+    id: "drink-sparkling-water",
+    name: "San Pellegrino Sparkling Mineral Water (750ml)",
+    category: "beers",
+    categoryLabel: "Beer, Wine & Refreshments",
+    type: "drinks",
+    desc: "Imported Italian natural sparkling mineral water served chilled with lemon slices",
+    price: 5000,
+    isSignature: false,
+  },
+  {
+    id: "drink-coconut-water",
+    name: "Fresh Whole Coconut Water (Chilled)",
+    category: "beers",
+    categoryLabel: "Beer, Wine & Refreshments",
+    type: "drinks",
+    desc: "Natural whole coconut served fresh with biodegradable straw and spoon for coconut meat",
+    price: 3500,
+    isSignature: false,
   }
 ];
 
@@ -771,6 +1115,99 @@ export const portalStore = {
       `System initialized with 34 luxury rooms & suites in Nsugbe, Onitsha.`,
       `Reception portal ready for check-ins.`
     ]);
+  },
+
+  // --- AL-SULTAN DINING & DRINKS MENU (ADMIN CONTROLS & LIVE GUEST UPDATES) ---
+  getDiningMenu() {
+    const stored = getLocalItem(STORAGE_KEYS.DINING_MENU, null);
+    if (stored && Array.isArray(stored) && stored.length > 0) {
+      return stored;
+    }
+    return INITIAL_DINING_MENU;
+  },
+
+  updateMenuItemPrice(itemId, newPrice) {
+    const menu = this.getDiningMenu();
+    const numPrice = Number(newPrice);
+    const updated = menu.map(item => {
+      if (item.id === itemId) {
+        return {
+          ...item,
+          price: numPrice
+        };
+      }
+      return item;
+    });
+
+    setLocalItem(STORAGE_KEYS.DINING_MENU, updated);
+    const itemObj = menu.find(i => i.id === itemId);
+    this.logActivity(`Admin updated price for '${itemObj?.name || itemId}' to ₦${numPrice.toLocaleString()}`);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_menu_updated', { detail: updated }));
+    }
+    return updated;
+  },
+
+  updateAllMenuPrices(priceMap) {
+    const menu = this.getDiningMenu();
+    const updated = menu.map(item => {
+      if (priceMap[item.id] !== undefined && !isNaN(priceMap[item.id])) {
+        return {
+          ...item,
+          price: Number(priceMap[item.id])
+        };
+      }
+      return item;
+    });
+
+    setLocalItem(STORAGE_KEYS.DINING_MENU, updated);
+    this.logActivity(`Admin updated dining & drinks menu prices in bulk.`);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_menu_updated', { detail: updated }));
+    }
+    return updated;
+  },
+
+  addMenuItem(newItem) {
+    const menu = this.getDiningMenu();
+    const id = newItem.id || `menu-${Date.now()}`;
+    const itemToAdd = {
+      ...newItem,
+      id,
+      price: Number(newItem.price) || 0
+    };
+    const updated = [itemToAdd, ...menu];
+    setLocalItem(STORAGE_KEYS.DINING_MENU, updated);
+    this.logActivity(`Admin added new menu item '${itemToAdd.name}' at ₦${itemToAdd.price.toLocaleString()}`);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_menu_updated', { detail: updated }));
+    }
+    return updated;
+  },
+
+  deleteMenuItem(itemId) {
+    const menu = this.getDiningMenu();
+    const itemObj = menu.find(i => i.id === itemId);
+    const updated = menu.filter(i => i.id !== itemId);
+    setLocalItem(STORAGE_KEYS.DINING_MENU, updated);
+    this.logActivity(`Admin removed menu item '${itemObj?.name || itemId}'`);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_menu_updated', { detail: updated }));
+    }
+    return updated;
+  },
+
+  subscribeDiningMenu(callback) {
+    if (typeof window === 'undefined') return () => {};
+    const handler = (e) => {
+      callback(e.detail || this.getDiningMenu());
+    };
+    window.addEventListener('ash_menu_updated', handler);
+    return () => window.removeEventListener('ash_menu_updated', handler);
   },
 
   logActivity(msg) {
