@@ -33,7 +33,7 @@ export default function GalleryPage({ onNavigate, onOpenBooking }) {
 
           <div className="flex flex-wrap items-center justify-center gap-4 pt-2 text-[11px] font-mono text-[#f3e5ab]">
             <span className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 flex items-center gap-1.5">
-              <Camera size={13} className="text-[#d4af37]" /> 26 Curated DSLR Captures
+              <Camera size={13} className="text-[#d4af37]" /> Curated DSLR Captures
             </span>
             <span className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 flex items-center gap-1.5">
               <Sparkles size={13} className="text-[#d4af37]" /> Optical 4K Clarity Engine

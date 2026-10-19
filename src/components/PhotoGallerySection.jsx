@@ -447,7 +447,7 @@ export default function PhotoGallerySection({
             <h3 className="font-cinzel text-xl sm:text-2xl font-extrabold text-white">
               {isFullPage
                 ? 'Ready to Experience Arab Signature Nightlife & Suites?'
-                : 'Explore All 26 Ultra-HD Moments in Our Cinema Archive'}
+                : 'Explore Ultra-HD Moments in Our Cinema Archive'}
             </h3>
             <p className="text-xs sm:text-sm text-gray-300">
               Reserve your luxury Doha Suite or VIP Lounge table with instant confirmation.
@@ -461,7 +461,7 @@ export default function PhotoGallerySection({
                 className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-extrabold text-xs uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-2"
               >
                 <Eye size={15} />
-                <span>Open Full 26-Photo HD Gallery</span>
+                <span>Open Full Photo HD Gallery</span>
                 <ArrowRight size={15} />
               </button>
             )}
