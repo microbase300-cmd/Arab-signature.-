@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { HOTEL_INFO } from '../data/hotelData';
 import { portalStore } from '../data/portalStore';
+import HotelGoogleMap from '../components/HotelGoogleMap';
 import { 
   MapPin, Phone, Mail, Clock, ShieldCheck, Car, 
-  Plane, Sparkles, Send, CheckCircle2, MessageSquare, ArrowRight 
+  Plane, Sparkles, Send, CheckCircle2, MessageSquare, ArrowRight, Navigation 
 } from 'lucide-react';
 
 export default function ContactPage({ onNavigate, onOpenBooking }) {
@@ -41,28 +42,33 @@ export default function ContactPage({ onNavigate, onOpenBooking }) {
     <div className="bg-[#120208] text-gray-100 min-h-screen">
       
       {/* 1. HERO BANNER */}
-      <section className="relative py-24 px-6 text-center border-b border-[#d4af37]/30 bg-gradient-to-b from-[#250210] to-[#120208] overflow-hidden">
+      <section className="relative py-20 px-6 text-center border-b border-[#d4af37]/30 bg-gradient-to-b from-[#250210] to-[#120208] overflow-hidden">
         <div className="absolute inset-0 arabesque-pattern opacity-20 pointer-events-none" />
         
         <div className="relative z-10 max-w-4xl mx-auto space-y-4">
           <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-[#5c0725]/50 border border-[#d4af37]/40 text-[#f3e5ab] text-xs font-mono tracking-widest">
             <MapPin size={14} className="text-[#d4af37]" />
-            <span>24/7 GUEST CONCIERGE & RECEPTION</span>
+            <span>LIVE GOOGLE MAPS & 24/7 CONCIERGE</span>
           </div>
 
           <h1 className="font-cinzel text-4xl sm:text-5xl font-extrabold text-white tracking-wide">
-            Location & <br />
-            <span className="gold-text-gradient">Guest Services</span>
+            Location, Live Map & <br />
+            <span className="gold-text-gradient">Driving Directions</span>
           </h1>
 
           <p className="text-sm sm:text-base text-gray-300 max-w-2xl mx-auto leading-relaxed">
-            Conveniently positioned in peaceful, prestigious Nsugbe, Onitsha — <strong className="text-white font-semibold">the only verified Signature in Nsugbe</strong>, offering supreme privacy, 24/7 security, and palatial hospitality.
+            Conveniently positioned at <strong className="text-[#f3e5ab] font-semibold">{HOTEL_INFO.address}</strong> — <strong className="text-white font-semibold">the only verified Signature in Nsugbe</strong>, offering supreme privacy, 24/7 security, and palatial hospitality.
           </p>
         </div>
       </section>
 
-      {/* 2. THREE KEY CONTACT PILLARS */}
-      <section className="py-16 px-6 max-w-7xl mx-auto">
+      {/* 2. INTERACTIVE GOOGLE MAPS & LIVE DRIVING DIRECTIONS */}
+      <section id="google-map-section" className="pt-12 pb-6 px-4 sm:px-6 max-w-7xl mx-auto">
+        <HotelGoogleMap />
+      </section>
+
+      {/* 3. THREE KEY CONTACT PILLARS */}
+      <section className="py-12 px-6 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
           {/* Card 1: Address & Physical Location */}
@@ -70,9 +76,9 @@ export default function ContactPage({ onNavigate, onOpenBooking }) {
             <div className="w-12 h-12 rounded-2xl bg-[#5c0725] border border-[#d4af37]/40 flex items-center justify-center text-[#d4af37]">
               <MapPin size={24} />
             </div>
-            <h3 className="font-cinzel font-bold text-lg text-white">Palatial Address</h3>
-            <p className="text-sm text-gray-300 leading-relaxed">
-              Nsugbe, Onitsha, Anambra State, Nigeria.
+            <h3 className="font-cinzel font-bold text-lg text-white">Verified Google Business Address</h3>
+            <p className="text-sm text-gray-200 leading-relaxed font-medium">
+              {HOTEL_INFO.address}
             </p>
             <div className="pt-2 text-xs text-gray-400 space-y-1">
               <p>• Secured private estate perimeter</p>
@@ -317,18 +323,29 @@ export default function ContactPage({ onNavigate, onOpenBooking }) {
           <div className="space-y-2">
             <h3 className="font-cinzel text-xl font-bold text-white">Need Turn-by-Turn Driving Directions?</h3>
             <p className="text-xs sm:text-sm text-gray-400">
-              Our front desk concierge will guide your driver directly to our private gates in Nsugbe, Onitsha.
+              Launch direct Google Maps voice navigation to {HOTEL_INFO.address} or request a live WhatsApp pin from our front desk concierge.
             </p>
           </div>
-          <a
-            href={`https://wa.me/${HOTEL_INFO.whatsapp}?text=Hello%20Arab%20Signature%20Hotel,%20please%20send%20me%20your%20exact%20GPS%20location%20and%20driving%20directions%20in%20Nsugbe.`}
-            target="_blank"
-            rel="noreferrer"
-            className={`px-6 py-3 rounded-xl font-extrabold text-xs uppercase tracking-wider ${goldGradient} shadow-md flex items-center gap-2 flex-shrink-0`}
-          >
-            <MapPin size={15} />
-            <span>Get Live GPS Directions</span>
-          </a>
+          <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(HOTEL_INFO.googleMapsQuery)}&travelmode=driving`}
+              target="_blank"
+              rel="noreferrer"
+              className={`px-6 py-3 rounded-xl font-extrabold text-xs uppercase tracking-wider ${goldGradient} shadow-md flex items-center gap-2`}
+            >
+              <Navigation size={15} />
+              <span>Start Google Maps Navigation</span>
+            </a>
+            <a
+              href={`https://wa.me/${HOTEL_INFO.whatsapp}?text=Hello%20Arab%20Signature%20Hotel,%20please%20send%20me%20your%20exact%20GPS%20location%20and%20driving%20directions%20in%20Nsugbe.`}
+              target="_blank"
+              rel="noreferrer"
+              className="px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-wider bg-white/10 hover:bg-white/20 text-white border border-white/15 flex items-center gap-2 transition-colors"
+            >
+              <MessageSquare size={15} className="text-emerald-400" />
+              <span>WhatsApp Escort</span>
+            </a>
+          </div>
         </div>
       </section>
 

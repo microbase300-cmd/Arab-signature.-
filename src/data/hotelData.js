@@ -5,7 +5,9 @@ export const HOTEL_INFO = {
   location: "Nsugbe, Onitsha, Anambra State",
   phone: "0812 578 6875",
   whatsapp: "2348125786875",
-  address: "Nsugbe, Onitsha, Anambra State, Nigeria",
+  address: "College Area, By Somadina Ifinta Street, No. 6 Road, Nsugbe, Onitsha, Anambra State, Nigeria",
+  coordinates: { lat: 6.2458, lng: 6.8142 },
+  googleMapsQuery: "Arab+Signature+Hotel+and+Suites+Nsugbe+Onitsha+Anambra+Nigeria",
   checkInTime: "2:00 PM",
   checkOutTime: "12:00 PM",
   aboutText: "Welcome to Arab Signature Hotel and Suites, a premier luxury destination located in Nsugbe, Onitsha. We pride ourselves on delivering an exceptional blend of world-class comfort, sophisticated design, and unparalleled guest experiences. Whether visiting for business or leisure, our guests enjoy state-of-the-art amenities, elegantly appointed suites, and premium dining options designed to meet the highest standards of excellence. Independently owned and operated by a private investment group, our establishment is dedicated to providing a secure, relaxing, and memorable stay. Experience the ultimate standard of elegance and premium service with us."
