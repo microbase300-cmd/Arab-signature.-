@@ -11,6 +11,7 @@ import AboutPage from './pages/AboutPage';
 import SuitesPage from './pages/SuitesPage';
 import AmenitiesPage from './pages/AmenitiesPage';
 import DiningPage from './pages/DiningPage';
+import GalleryPage from './pages/GalleryPage';
 import ContactPage from './pages/ContactPage';
 
 // Separate Password-Restricted Operations Portals (Zero public links on main site)
@@ -95,7 +96,7 @@ export default function App() {
       }
 
       // Public multi-page views
-      const validPages = ['about', 'suites', 'amenities', 'dining', 'contact'];
+      const validPages = ['about', 'suites', 'amenities', 'dining', 'gallery', 'contact'];
       if (validPages.includes(rawHash)) {
         setCurrentPage(rawHash);
       } else {
@@ -148,6 +149,8 @@ export default function App() {
         return <AmenitiesPage onNavigate={handleNavigate} onOpenBooking={handleOpenBooking} />;
       case 'dining':
         return <DiningPage onNavigate={handleNavigate} onOpenBooking={handleOpenBooking} />;
+      case 'gallery':
+        return <GalleryPage onNavigate={handleNavigate} onOpenBooking={handleOpenBooking} />;
       case 'contact':
         return <ContactPage onNavigate={handleNavigate} onOpenBooking={handleOpenBooking} />;
       case 'home':

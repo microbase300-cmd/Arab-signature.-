@@ -4,8 +4,9 @@ import { portalStore } from '../data/portalStore';
 import { 
   Calendar, Users, ArrowRight, Star, ShieldCheck, Zap, Crown, 
   Car, Sparkles, Utensils, Waves, Phone, MapPin, Check, 
-  ChevronRight, Play, Clock, Share2, Award
+  ChevronRight, Play, Clock, Share2, Award, Camera
 } from 'lucide-react';
+import PhotoGallerySection from '../components/PhotoGallerySection';
 
 export default function HomePage({ onNavigate, onOpenBooking }) {
   const [checkIn, setCheckIn] = useState('2026-10-20');
@@ -79,6 +80,14 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
             >
               <Crown size={15} className="text-[#d4af37]" />
               <span>Royal Penthouse</span>
+            </button>
+
+            <button
+              onClick={() => onNavigate('gallery')}
+              className="px-7 py-4 rounded-2xl bg-[#380214]/80 text-[#f3e5ab] border border-[#d4af37]/50 hover:bg-[#5c0725] backdrop-blur-md font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg"
+            >
+              <Camera size={15} className="text-[#d4af37]" />
+              <span>4K Photo Gallery</span>
             </button>
           </div>
 
@@ -336,7 +345,16 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
         </div>
       </section>
 
-      {/* 5. LOCATION & LUXURY SANCTUARY BANNER */}
+      {/* 5. ULTRA-HD CINEMATIC PHOTO GALLERY SHOWCASE */}
+      <div className="border-t border-[#5c0725]/40">
+        <PhotoGallerySection
+          isFullPage={false}
+          onNavigate={onNavigate}
+          onOpenBooking={onOpenBooking}
+        />
+      </div>
+
+      {/* 6. LOCATION & LUXURY SANCTUARY BANNER */}
       <section className="py-16 px-6 max-w-7xl mx-auto">
         <div className="rounded-3xl p-8 sm:p-12 bg-gradient-to-r from-[#3a0214] via-[#5c0725] to-[#25010c] text-white border border-[#d4af37]/40 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="space-y-3 max-w-xl text-left">

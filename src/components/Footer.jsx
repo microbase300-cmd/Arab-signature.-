@@ -64,6 +64,11 @@ export default function Footer({ onNavigate, onOpenBooking }) {
               </button>
             </li>
             <li>
+              <button onClick={() => handleNav('gallery')} className="hover:text-[#d4af37] transition-colors">
+                4K Cinema Photo Gallery
+              </button>
+            </li>
+            <li>
               <button onClick={() => handleNav('contact')} className="hover:text-[#d4af37] transition-colors">
                 Location & Contact
               </button>
