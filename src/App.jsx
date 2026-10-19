@@ -162,14 +162,14 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#120208] text-gray-100 font-sans selection:bg-[#d4af37] selection:text-black antialiased flex flex-col justify-between">
       
-      {/* Global Site-Wide Vivid HDR & Hyper-Realistic Sharpness Convolution Filter */}
+      {/* Global Site-Wide Natural HDR & Clean Optical Sharpness Filter */}
       <svg className="hidden" aria-hidden="true">
         <defs>
           <filter id="arab-site-vivid-hdr" colorInterpolationFilters="sRGB">
             <feConvolveMatrix
               order="3 3"
               preserveAlpha="true"
-              kernelMatrix="0 -0.18 0 -0.18 1.72 -0.18 0 -0.18 0"
+              kernelMatrix="0 -0.05 0 -0.05 1.20 -0.05 0 -0.05 0"
             />
           </filter>
         </defs>

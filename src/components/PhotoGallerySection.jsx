@@ -99,22 +99,22 @@ export default function PhotoGallerySection({
     touchStartX.current = null;
   };
 
-  // Visual Grade CSS Filter & Texture Classes
+  // Visual Grade CSS Filter & Texture Classes (Balanced for Photorealistic Clarity)
   const getPhotoFilterStyle = () => {
     if (visualGrade === 'hdr') {
       return {
-        filter: 'url(#arab-uhd-clarity) contrast(1.12) saturate(1.18) brightness(1.04)',
+        filter: 'url(#arab-uhd-clarity) contrast(1.04) saturate(1.07) brightness(1.01)',
         imageRendering: 'auto',
       };
     }
     if (visualGrade === 'uhd') {
       return {
-        filter: 'url(#arab-uhd-clarity) contrast(1.06) saturate(1.10) brightness(1.02)',
+        filter: 'url(#arab-uhd-clarity) contrast(1.02) saturate(1.03) brightness(1.01)',
         imageRendering: 'auto',
       };
     }
     return {
-      filter: 'contrast(1.02) saturate(1.04) brightness(1.01)',
+      filter: 'contrast(1.0) saturate(1.0) brightness(1.0)',
       imageRendering: 'auto',
     };
   };
@@ -125,15 +125,15 @@ export default function PhotoGallerySection({
 
   return (
     <section className="relative py-16 sm:py-24 px-4 sm:px-6 overflow-hidden bg-[#120208]">
-      {/* Hidden SVG Hardware-Accelerated Ultra-HD Unsharp Mask & Clarity Filter */}
+      {/* Hidden SVG Hardware-Accelerated Natural Unsharp Mask & Clarity Filter */}
       <svg className="hidden" aria-hidden="true">
         <defs>
           <filter id="arab-uhd-clarity" colorInterpolationFilters="sRGB">
-            {/* Hyper-Realistic Micro-Contrast & Edge Sharpness Convolution Matrix */}
+            {/* Clean, Halo-Free Micro-Contrast & Edge Sharpness Convolution Matrix */}
             <feConvolveMatrix
               order="3 3"
               preserveAlpha="true"
-              kernelMatrix="0 -0.22 0 -0.22 1.88 -0.22 0 -0.22 0"
+              kernelMatrix="0 -0.07 0 -0.07 1.28 -0.07 0 -0.07 0"
             />
           </filter>
         </defs>
