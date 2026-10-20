@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Utensils, Wine, Sparkles, Search, 
-  Flame, GlassWater, Beer, MessageSquare, ChevronRight, AlertCircle, CheckCircle2, Soup, Drumstick, Coffee, ArrowRight
+  GlassWater, Beer, MessageSquare, ChevronRight, AlertCircle, CheckCircle2, Soup, Drumstick, Coffee, ArrowRight, Plus, Minus
 } from 'lucide-react';
 import { portalStore } from '../data/portalStore';
 
@@ -11,10 +11,10 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
   const [menuItems, setMenuItems] = useState([]);
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  // Track selected protein pairing per dish ID for live plate calculator
+  // Track multi-protein selections & quantities per dish ID: { [dishId]: { [protId]: count } }
   const [selectedPairings, setSelectedPairings] = useState({});
-  // Track whether Semo swallow is included for soup items (default true for soups)
-  const [includeSwallow, setIncludeSwallow] = useState({});
+  // Track Semo swallow count for soup items (default 1 wrap for soups)
+  const [swallowCounts, setSwallowCounts] = useState({});
 
   // Load live menu & subscribe to real-time Admin price updates
   useEffect(() => {
@@ -31,23 +31,64 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
   // Extract live protein add-ons and Semo swallow from the menu so Admin price changes reflect in pairings too
   const proteinAddons = menuItems.filter((i) => i.category === 'proteins' && i.isProteinAddon);
   const semoItem = menuItems.find((i) => i.id === 'food-semo') || { name: 'Semo', price: 2000 };
-  const coleslawItem = menuItems.find((i) => i.id === 'food-coleslaw') || { name: 'Coleslaw Salad', price: 2000 };
 
-  const getSelectedProteinForDish = (dish) => {
-    const chosenId = selectedPairings[dish.id];
-    if (chosenId) {
-      const found = proteinAddons.find((p) => p.id === chosenId);
-      if (found) return found;
+  // Get current map of { [protId]: quantity } for a dish (always at least 1 protein for required dishes)
+  const getProteinSelectionMap = (dish) => {
+    const customMap = selectedPairings[dish.id];
+    if (customMap && Object.keys(customMap).length > 0) {
+      const validEntries = Object.entries(customMap).filter(([id, qty]) => qty > 0 && proteinAddons.some((p) => p.id === id));
+      if (validEntries.length > 0) {
+        return Object.fromEntries(validEntries);
+      }
     }
-    // Default recommended protein pairing: Chicken for Rice/Pasta, Goat Meat for Soups
-    if (dish.pairingType === 'soup') {
-      return proteinAddons.find((p) => p.id === 'prot-goatmeat') || proteinAddons[0] || { id: 'prot-chicken', name: 'Chicken', price: 6000 };
-    }
-    return proteinAddons.find((p) => p.id === 'prot-chicken') || proteinAddons[0] || { id: 'prot-chicken', name: 'Chicken', price: 6000 };
+    // Default recommended protein: Goat Meat for Soups, Chicken for Rice/Pasta
+    const defaultProtId = dish.pairingType === 'soup' ? 'prot-goatmeat' : 'prot-chicken';
+    const fallbackId = proteinAddons.find((p) => p.id === defaultProtId)?.id || proteinAddons[0]?.id || 'prot-chicken';
+    return { [fallbackId]: 1 };
   };
 
-  const isSwallowIncluded = (dishId) => {
-    return includeSwallow[dishId] !== undefined ? includeSwallow[dishId] : true;
+  // Toggle or increment/decrement a protein for a dish (allows selecting multiple proteins & quantities)
+  const handleAdjustProtein = (dish, protId, delta) => {
+    setSelectedPairings((prev) => {
+      const currentMap = { ...getProteinSelectionMap(dish) };
+      const currentQty = currentMap[protId] || 0;
+      const nextQty = currentQty + delta;
+
+      if (nextQty <= 0) {
+        // Check total remaining proteins across other selections so at least 1 protein remains
+        const otherTotal = Object.entries(currentMap)
+          .filter(([id]) => id !== protId)
+          .reduce((sum, [, q]) => sum + q, 0);
+
+        if (otherTotal === 0) {
+          // Keep at least 1 protein on dishes that cannot be served alone
+          return prev;
+        }
+        delete currentMap[protId];
+      } else {
+        currentMap[protId] = nextQty;
+      }
+
+      return {
+        ...prev,
+        [dish.id]: currentMap,
+      };
+    });
+  };
+
+  const getSwallowCount = (dishId) => {
+    return swallowCounts[dishId] !== undefined ? swallowCounts[dishId] : 1;
+  };
+
+  const handleAdjustSwallow = (dishId, delta) => {
+    setSwallowCounts((prev) => {
+      const current = getSwallowCount(dishId);
+      const next = Math.max(0, current + delta);
+      return {
+        ...prev,
+        [dishId]: next,
+      };
+    });
   };
 
   const categories = [
@@ -109,7 +150,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
           </h1>
 
           <p className="text-sm sm:text-base text-gray-300 max-w-2xl mx-auto leading-relaxed">
-            Enjoy freshly prepared Nigerian delicacies, smoky Jollof & Fried Rice, rich traditional Soups, peppeered Proteins, and Continental breakfasts alongside VIP bottle service in Nsugbe.
+            Enjoy freshly prepared Nigerian delicacies, smoky Jollof & Fried Rice, rich traditional Soups, peppered Proteins, and Continental breakfasts alongside VIP bottle service in Nsugbe.
           </p>
 
           <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
@@ -227,14 +268,14 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-cinzel text-sm sm:text-base font-bold text-[#f3e5ab]">
-                    Kitchen Serving & Protein Pairing Guide
+                    Kitchen Serving & Multi-Protein Pairing Guide
                   </h3>
                   <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[10px] font-mono uppercase">
                     Important Notice
                   </span>
                 </div>
                 <p className="text-xs text-gray-300 leading-relaxed max-w-3xl">
-                  <strong className="text-white">Rice, Spaghetti & Traditional Soups are base prices only and are not served alone.</strong> Guests ordering any Rice, Spaghetti, or Soup dish must pair it with at least one <strong className="text-[#f3e5ab]">Protein</strong> (Turkey, Chicken, Goat Meat, Beef, or Egg). Soups also pair with <strong className="text-[#f3e5ab]">Semo Swallow (₦{semoItem.price.toLocaleString()})</strong>. Use the interactive protein selector on any Rice or Soup card below to see your complete plate price!
+                  <strong className="text-white">Rice, Spaghetti & Traditional Soups are base prices only and are not served alone.</strong> Guests ordering any Rice, Spaghetti, or Soup dish must pair it with <strong className="text-[#f3e5ab]">1 or more Proteins</strong> (you can combine multiple proteins like <em className="text-gray-200">Turkey + Chicken</em> or <em className="text-gray-200">2x Goat Meat + Beef</em>). Use the interactive <strong className="text-[#f3e5ab]">+ / - protein controls</strong> on any Rice or Soup card below to build your custom plate!
                 </p>
               </div>
             </div>
@@ -317,13 +358,27 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                   {items.map((item) => {
                     const needsProtein = Boolean(item.requiresProtein);
                     const needsSwallow = Boolean(item.requiresSwallow);
-                    const selectedProt = needsProtein ? getSelectedProteinForDish(item) : null;
-                    const withSwallow = needsSwallow ? isSwallowIncluded(item.id) : false;
+                    const selectionMap = needsProtein ? getProteinSelectionMap(item) : {};
+                    const swallowQty = needsSwallow ? getSwallowCount(item.id) : 0;
+
+                    // Calculate total protein cost and build summary breakdown
+                    let proteinsCost = 0;
+                    const chosenProteinLabels = [];
+                    let totalProteinPieces = 0;
+
+                    if (needsProtein) {
+                      Object.entries(selectionMap).forEach(([protId, qty]) => {
+                        const protObj = proteinAddons.find((p) => p.id === protId);
+                        if (protObj && qty > 0) {
+                          proteinsCost += Number(protObj.price) * qty;
+                          totalProteinPieces += qty;
+                          chosenProteinLabels.push(qty > 1 ? `${qty}x ${protObj.name}` : protObj.name);
+                        }
+                      });
+                    }
 
                     const combinedTotal = needsProtein
-                      ? Number(item.price) +
-                        (selectedProt ? Number(selectedProt.price) : 0) +
-                        (withSwallow ? Number(semoItem.price) : 0)
+                      ? Number(item.price) + proteinsCost + swallowQty * Number(semoItem.price)
                       : Number(item.price);
 
                     return (
@@ -435,82 +490,139 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                               </div>
                             )}
 
-                            {/* Interactive Protein Pairing Calculator for Rice & Soup Dishes */}
+                            {/* Interactive Multi-Protein Pairing Calculator for Rice & Soup Dishes */}
                             {needsProtein && proteinAddons.length > 0 && (
-                              <div className="pt-2 space-y-2.5 border-t border-white/10">
+                              <div className="pt-2.5 space-y-2.5 border-t border-white/10">
                                 <div className="flex items-center justify-between">
                                   <span className="text-[10px] font-mono uppercase tracking-wider text-[#f3e5ab] font-bold">
-                                    1. Choose Required Protein:
+                                    1. Add Proteins (Can Select Multiple):
                                   </span>
-                                  <span className="text-[10px] font-mono text-gray-400">
-                                    Tap to pair
+                                  <span className="text-[10px] font-mono text-amber-300">
+                                    {totalProteinPieces} selected
                                   </span>
                                 </div>
 
-                                <div className="flex flex-wrap gap-1.5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                                   {proteinAddons.map((prot) => {
-                                    const isSelected = selectedProt?.id === prot.id;
+                                    const qty = selectionMap[prot.id] || 0;
+                                    const isSelected = qty > 0;
+                                    const isLastRemainingProtein = isSelected && totalProteinPieces === 1;
+
                                     return (
-                                      <button
+                                      <div
                                         key={prot.id}
-                                        type="button"
-                                        onClick={() =>
-                                          setSelectedPairings((prev) => ({
-                                            ...prev,
-                                            [item.id]: prot.id,
-                                          }))
-                                        }
-                                        className={`px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all border ${
+                                        className={`px-2.5 py-1.5 rounded-xl text-[11px] font-mono transition-all border flex items-center justify-between gap-1.5 ${
                                           isSelected
-                                            ? 'bg-[#d4af37] text-black font-bold border-[#f3e5ab] shadow-md'
-                                            : 'bg-black/50 text-gray-300 border-white/15 hover:border-[#d4af37]/50'
+                                            ? 'bg-[#2a0716] text-white border-[#d4af37] shadow-md'
+                                            : 'bg-black/45 text-gray-300 border-white/15 hover:border-[#d4af37]/50'
                                         }`}
                                       >
-                                        + {prot.name} (₦{(Number(prot.price) / 1000).toFixed(0)}k)
-                                      </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleAdjustProtein(item, prot.id, isSelected ? 1 : 1)}
+                                          className="text-left flex-1 truncate"
+                                          title={`Add ${prot.name} (₦${Number(prot.price).toLocaleString()})`}
+                                        >
+                                          <span className={isSelected ? 'font-bold text-[#f3e5ab]' : 'text-gray-300'}>
+                                            {prot.name}
+                                          </span>{' '}
+                                          <span className="text-[10px] text-gray-400">
+                                            ₦{(Number(prot.price) / 1000).toFixed(0)}k
+                                          </span>
+                                        </button>
+
+                                        {isSelected ? (
+                                          <div className="flex items-center gap-1 bg-black/60 rounded-lg px-1 py-0.5 border border-[#d4af37]/40">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleAdjustProtein(item, prot.id, -1)}
+                                              disabled={isLastRemainingProtein}
+                                              title={
+                                                isLastRemainingProtein
+                                                  ? 'At least 1 protein is required with this dish'
+                                                  : 'Remove 1 portion'
+                                              }
+                                              className={`w-5 h-5 rounded flex items-center justify-center transition-colors ${
+                                                isLastRemainingProtein
+                                                  ? 'text-gray-600 cursor-not-allowed'
+                                                  : 'text-gray-200 hover:bg-white/15 hover:text-white'
+                                              }`}
+                                            >
+                                              <Minus size={11} />
+                                            </button>
+                                            <span className="px-1 text-[11px] font-bold text-[#d4af37]">
+                                              {qty}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleAdjustProtein(item, prot.id, 1)}
+                                              title="Add another portion"
+                                              className="w-5 h-5 rounded flex items-center justify-center text-black bg-[#d4af37] hover:bg-[#f3e5ab] transition-colors"
+                                            >
+                                              <Plus size={11} />
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleAdjustProtein(item, prot.id, 1)}
+                                            className="px-2 py-0.5 rounded-md bg-white/10 hover:bg-[#d4af37] hover:text-black text-gray-200 text-[10px] font-bold transition-all flex items-center gap-0.5"
+                                          >
+                                            <Plus size={10} /> Add
+                                          </button>
+                                        )}
+                                      </div>
                                     );
                                   })}
                                 </div>
 
-                                {/* Swallow toggle for Soups */}
+                                {/* Swallow quantity selector for Soups */}
                                 {needsSwallow && (
                                   <div className="flex items-center justify-between pt-1">
                                     <span className="text-[10px] font-mono uppercase tracking-wider text-[#f3e5ab] font-bold">
-                                      2. Swallow Accompaniment:
+                                      2. Semo Swallow (₦{Number(semoItem.price).toLocaleString()}):
                                     </span>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setIncludeSwallow((prev) => ({
-                                          ...prev,
-                                          [item.id]: !withSwallow,
-                                        }))
-                                      }
-                                      className={`px-2.5 py-1 rounded-lg text-[11px] font-mono border transition-all ${
-                                        withSwallow
-                                          ? 'bg-emerald-900/60 border-emerald-400/50 text-emerald-200 font-bold'
-                                          : 'bg-black/40 border-white/15 text-gray-400'
-                                      }`}
-                                    >
-                                      {withSwallow
-                                        ? `✓ + Semo (₦${Number(semoItem.price).toLocaleString()})`
-                                        : `+ Add Semo (₦${Number(semoItem.price).toLocaleString()})`}
-                                    </button>
+                                    <div className="flex items-center gap-1.5 bg-black/50 rounded-lg px-2 py-1 border border-emerald-500/40">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAdjustSwallow(item.id, -1)}
+                                        className="w-5 h-5 rounded flex items-center justify-center text-gray-300 hover:bg-white/15"
+                                        title="Decrease Semo wraps"
+                                      >
+                                        <Minus size={11} />
+                                      </button>
+                                      <span className="text-[11px] font-mono font-bold text-emerald-300 px-1">
+                                        {swallowQty} {swallowQty === 1 ? 'wrap' : 'wraps'}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAdjustSwallow(item.id, 1)}
+                                        className="w-5 h-5 rounded flex items-center justify-center bg-emerald-500 text-black hover:bg-emerald-400"
+                                        title="Add extra Semo wrap"
+                                      >
+                                        <Plus size={11} />
+                                      </button>
+                                    </div>
                                   </div>
                                 )}
 
                                 {/* Combined Plate Total Box */}
-                                <div className="p-2.5 rounded-xl bg-gradient-to-r from-[#2b0514] to-[#16020a] border border-[#d4af37]/40 flex items-center justify-between">
-                                  <div className="text-[11px] text-gray-200 font-mono leading-tight">
-                                    <span className="text-gray-400 block text-[9px] uppercase">
-                                      Complete Paired Plate:
+                                <div className="p-3 rounded-xl bg-gradient-to-r from-[#2b0514] to-[#16020a] border border-[#d4af37]/45 flex items-center justify-between gap-2">
+                                  <div className="text-[11px] text-gray-200 font-mono leading-snug">
+                                    <span className="text-[#d4af37] font-bold block text-[9px] uppercase tracking-wider">
+                                      Complete Paired Plate ({totalProteinPieces} {totalProteinPieces === 1 ? 'Protein' : 'Proteins'}):
                                     </span>
-                                    {item.name} + {selectedProt?.name}
-                                    {withSwallow ? ` + Semo` : ''}
+                                    <span>
+                                      {item.name} + {chosenProteinLabels.join(' + ')}
+                                      {swallowQty > 0 ? ` + ${swallowQty}x Semo` : ''}
+                                    </span>
                                   </div>
-                                  <div className="text-right pl-2">
-                                    <span className="font-mono text-sm sm:text-base font-extrabold text-[#f3e5ab]">
+                                  <div className="text-right pl-2 flex-shrink-0">
+                                    <span className="font-mono text-base sm:text-lg font-extrabold text-[#f3e5ab] block">
                                       ₦{combinedTotal.toLocaleString()}
+                                    </span>
+                                    <span className="text-[9px] text-gray-400 font-mono block">
+                                      total plate
                                     </span>
                                   </div>
                                 </div>
