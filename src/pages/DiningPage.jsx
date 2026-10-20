@@ -127,9 +127,10 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
     { id: 'swallow', label: 'Swallow (Garri & Semo)', icon: CircleDot },
     { id: 'proteins', label: 'Proteins & Pepper Soup', icon: Drumstick },
     { id: 'continental', label: 'Continental & Breakfast', icon: Coffee },
-    { id: 'spirits', label: 'Champagne & VIP Bottles', icon: Wine },
+    { id: 'spirits', label: 'Champagne, Cognac & Whiskey', icon: Wine },
+    { id: 'wines', label: 'Fine Wines & Sparkling', icon: Sparkles },
+    { id: 'beers', label: 'Beers & Refreshments (₦2,000)', icon: Beer },
     { id: 'cocktails', label: 'Cocktails & Mocktails', icon: GlassWater },
-    { id: 'beers', label: 'Beer, Wine & Refreshments', icon: Beer },
   ];
 
   // Filtered menu

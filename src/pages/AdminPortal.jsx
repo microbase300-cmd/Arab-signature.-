@@ -205,9 +205,10 @@ export default function AdminPortal({ onNavigate }) {
       swallow: "Swallow (Garri & Semo)",
       proteins: "Proteins & Pepper Soup",
       continental: "Continental & Breakfast",
-      spirits: "Champagne & VIP Spirits",
-      cocktails: "Signature Cocktails & Mocktails",
-      beers: "Beer, Wine & Refreshments"
+      spirits: "Champagne, Cognac & Whiskey",
+      wines: "Fine Wines & Sparkling",
+      beers: "Beers & Refreshments",
+      cocktails: "Signature Cocktails & Mocktails"
     };
 
     portalStore.addMenuItem({
@@ -668,16 +669,17 @@ export default function AdminPortal({ onNavigate }) {
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
                 {[
                   { id: 'all', label: 'All Items' },
-                  { id: 'food', label: 'All Food' },
+                  { id: 'food', label: 'Food Only' },
+                  { id: 'drinks', label: 'Drinks Only' },
                   { id: 'rice', label: 'Rice & Pasta' },
                   { id: 'soups', label: 'Traditional Soups' },
                   { id: 'swallow', label: 'Swallow (Garri & Semo)' },
                   { id: 'proteins', label: 'Proteins' },
                   { id: 'continental', label: 'Continental' },
-                  { id: 'drinks', label: 'Drinks Only' },
-                  { id: 'spirits', label: 'Champagne & Spirits' },
+                  { id: 'spirits', label: 'Cognac & Whiskey' },
+                  { id: 'wines', label: 'Fine Wines & Champagne' },
+                  { id: 'beers', label: 'Beers (₦2,000)' },
                   { id: 'cocktails', label: 'Cocktails' },
-                  { id: 'beers', label: 'Beer & Wine' },
                 ].map((cat) => (
                   <button
                     key={cat.id}
@@ -1329,9 +1331,10 @@ export default function AdminPortal({ onNavigate }) {
                     <option value="swallow">Swallow (Garri & Semo)</option>
                     <option value="proteins">Proteins & Pepper Soup</option>
                     <option value="continental">Continental & Breakfast</option>
-                    <option value="spirits">Champagne & VIP Spirits</option>
+                    <option value="spirits">Champagne, Cognac & Whiskey</option>
+                    <option value="wines">Fine Wines & Sparkling</option>
+                    <option value="beers">Beers & Refreshments (₦2,000)</option>
                     <option value="cocktails">Signature Cocktails & Mocktails</option>
-                    <option value="beers">Beer, Wine & Refreshments</option>
                   </select>
                 </div>
               </div>
