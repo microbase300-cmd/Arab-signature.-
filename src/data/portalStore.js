@@ -8,7 +8,7 @@ const STORAGE_KEYS = {
   BOOKINGS: 'ash_portal_bookings',
   ROOMS: 'ash_portal_rooms_inventory_v6',
   ROOM_RATES: 'ash_portal_room_rates_v2',
-  DINING_MENU: 'ash_portal_dining_menu_v2',
+  DINING_MENU: 'ash_portal_dining_menu_v3',
   HOTEL_CONFIG: 'ash_portal_hotel_config',
   ACTIVITY_LOG: 'ash_portal_activity_log',
 };
@@ -321,7 +321,7 @@ export const INITIAL_DINING_MENU = [
     requiresProtein: true,
     requiresSwallow: true,
     pairingType: "soup",
-    pairingNote: "Not served alone — must pair with a Protein & Semo",
+    pairingNote: "Not served alone — must pair with a Protein & Swallow (Semo or Garri)",
     isSignature: true,
   },
   {
@@ -336,7 +336,7 @@ export const INITIAL_DINING_MENU = [
     requiresProtein: true,
     requiresSwallow: true,
     pairingType: "soup",
-    pairingNote: "Not served alone — must pair with a Protein & Semo",
+    pairingNote: "Not served alone — must pair with a Protein & Swallow (Semo or Garri)",
     isSignature: true,
   },
   {
@@ -351,7 +351,7 @@ export const INITIAL_DINING_MENU = [
     requiresProtein: true,
     requiresSwallow: true,
     pairingType: "soup",
-    pairingNote: "Not served alone — must pair with a Protein & Semo",
+    pairingNote: "Not served alone — must pair with a Protein & Swallow (Semo or Garri)",
     isSignature: false,
   },
   {
@@ -366,7 +366,7 @@ export const INITIAL_DINING_MENU = [
     requiresProtein: true,
     requiresSwallow: true,
     pairingType: "soup",
-    pairingNote: "Not served alone — must pair with a Protein & Semo",
+    pairingNote: "Not served alone — must pair with a Protein & Swallow (Semo or Garri)",
     isSignature: false,
   },
   {
@@ -381,7 +381,7 @@ export const INITIAL_DINING_MENU = [
     requiresProtein: true,
     requiresSwallow: true,
     pairingType: "soup",
-    pairingNote: "Not served alone — must pair with a Protein & Semo",
+    pairingNote: "Not served alone — must pair with a Protein & Swallow (Semo or Garri)",
     isSignature: true,
   },
   {
@@ -396,7 +396,7 @@ export const INITIAL_DINING_MENU = [
     requiresProtein: true,
     requiresSwallow: true,
     pairingType: "soup",
-    pairingNote: "Not served alone — must pair with a Protein & Semo",
+    pairingNote: "Not served alone — must pair with a Protein & Swallow (Semo or Garri)",
     isSignature: false,
   },
   {
@@ -411,7 +411,7 @@ export const INITIAL_DINING_MENU = [
     requiresProtein: true,
     requiresSwallow: true,
     pairingType: "soup",
-    pairingNote: "Not served alone — must pair with a Protein & Semo",
+    pairingNote: "Not served alone — must pair with a Protein & Swallow (Semo or Garri)",
     isSignature: true,
   },
   {
@@ -423,6 +423,20 @@ export const INITIAL_DINING_MENU = [
     desc: "Smooth, hot semovita swallow freshly prepared to accompany any of our traditional Nigerian soups.",
     price: 2000,
     image: "/dining/semo.jpg",
+    requiresProtein: false,
+    isSwallow: true,
+    pairingNote: "Swallow Accompaniment — pairs with any Soup & Protein",
+    isSignature: false,
+  },
+  {
+    id: "food-garri",
+    name: "Garri (Eba Swallow)",
+    category: "soups",
+    categoryLabel: "Soups & Swallow",
+    type: "food",
+    desc: "Smooth, hot yellow garri (eba) swallow freshly turned to accompany any of our traditional Nigerian soups.",
+    price: 2000,
+    image: "/dining/garri.jpg",
     requiresProtein: false,
     isSwallow: true,
     pairingNote: "Swallow Accompaniment — pairs with any Soup & Protein",

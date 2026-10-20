@@ -13,7 +13,8 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
   const [searchQuery, setSearchQuery] = useState('');
   // Track multi-protein selections & quantities per dish ID: { [dishId]: { [protId]: count } }
   const [selectedPairings, setSelectedPairings] = useState({});
-  // Track Semo swallow count for soup items (default 1 wrap for soups)
+  // Track Swallow choice ('semo' | 'garri') and wrap count for soup items
+  const [swallowTypes, setSwallowTypes] = useState({});
   const [swallowCounts, setSwallowCounts] = useState({});
 
   // Load live menu & subscribe to real-time Admin price updates
@@ -28,9 +29,10 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
     return () => unsubscribe();
   }, []);
 
-  // Extract live protein add-ons and Semo swallow from the menu so Admin price changes reflect in pairings too
+  // Extract live protein add-ons and Semo / Garri swallows from the menu so Admin price changes reflect in pairings too
   const proteinAddons = menuItems.filter((i) => i.category === 'proteins' && i.isProteinAddon);
-  const semoItem = menuItems.find((i) => i.id === 'food-semo') || { name: 'Semo', price: 2000 };
+  const semoItem = menuItems.find((i) => i.id === 'food-semo') || { id: 'food-semo', name: 'Semo', price: 2000 };
+  const garriItem = menuItems.find((i) => i.id === 'food-garri') || { id: 'food-garri', name: 'Garri', price: 2000 };
 
   // Get current map of { [protId]: quantity } for a dish (always at least 1 protein for required dishes)
   const getProteinSelectionMap = (dish) => {
@@ -76,6 +78,22 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
     });
   };
 
+  const getSwallowType = (dishId) => {
+    return swallowTypes[dishId] || 'semo';
+  };
+
+  const handleSelectSwallowType = (dishId, type) => {
+    setSwallowTypes((prev) => ({
+      ...prev,
+      [dishId]: type,
+    }));
+    // Ensure at least 1 wrap is active when choosing a swallow type
+    setSwallowCounts((prev) => ({
+      ...prev,
+      [dishId]: (prev[dishId] !== undefined && prev[dishId] > 0) ? prev[dishId] : 1,
+    }));
+  };
+
   const getSwallowCount = (dishId) => {
     return swallowCounts[dishId] !== undefined ? swallowCounts[dishId] : 1;
   };
@@ -83,7 +101,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
   const handleAdjustSwallow = (dishId, delta) => {
     setSwallowCounts((prev) => {
       const current = getSwallowCount(dishId);
-      const next = Math.max(0, current + delta);
+      const next = Math.max(1, current + delta);
       return {
         ...prev,
         [dishId]: next,
@@ -275,7 +293,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                   </span>
                 </div>
                 <p className="text-xs text-gray-300 leading-relaxed max-w-3xl">
-                  <strong className="text-white">Rice, Spaghetti & Traditional Soups are base prices only and are not served alone.</strong> Guests ordering any Rice, Spaghetti, or Soup dish must pair it with <strong className="text-[#f3e5ab]">1 or more Proteins</strong> (you can combine multiple proteins like <em className="text-gray-200">Turkey + Chicken</em> or <em className="text-gray-200">2x Goat Meat + Beef</em>). Use the interactive <strong className="text-[#f3e5ab]">+ / - protein controls</strong> on any Rice or Soup card below to build your custom plate!
+                  <strong className="text-white">Rice, Spaghetti & Traditional Soups are base prices only and are not served alone.</strong> Guests ordering any Rice, Spaghetti, or Soup dish must pair it with <strong className="text-[#f3e5ab]">1 or more Proteins</strong> (you can combine multiple proteins like <em className="text-gray-200">Turkey + Chicken</em> or <em className="text-gray-200">2x Goat Meat + Beef</em>), and for Soups choose either <strong className="text-[#f3e5ab]">Semo or Garri</strong> swallow.
                 </p>
               </div>
             </div>
@@ -360,6 +378,9 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                     const needsSwallow = Boolean(item.requiresSwallow);
                     const selectionMap = needsProtein ? getProteinSelectionMap(item) : {};
                     const swallowQty = needsSwallow ? getSwallowCount(item.id) : 0;
+                    const chosenSwallowKey = needsSwallow ? getSwallowType(item.id) : 'semo';
+                    const activeSwallowObj = chosenSwallowKey === 'garri' ? garriItem : semoItem;
+                    const activeSwallowLabel = chosenSwallowKey === 'garri' ? 'Garri' : 'Semo';
 
                     // Calculate total protein cost and build summary breakdown
                     let proteinsCost = 0;
@@ -378,7 +399,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                     }
 
                     const combinedTotal = needsProtein
-                      ? Number(item.price) + proteinsCost + swallowQty * Number(semoItem.price)
+                      ? Number(item.price) + proteinsCost + swallowQty * Number(activeSwallowObj.price)
                       : Number(item.price);
 
                     return (
@@ -576,32 +597,79 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                                   })}
                                 </div>
 
-                                {/* Swallow quantity selector for Soups */}
+                                {/* Swallow choice (Semo or Garri) & quantity selector for Soups */}
                                 {needsSwallow && (
-                                  <div className="flex items-center justify-between pt-1">
-                                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#f3e5ab] font-bold">
-                                      2. Semo Swallow (₦{Number(semoItem.price).toLocaleString()}):
-                                    </span>
-                                    <div className="flex items-center gap-1.5 bg-black/50 rounded-lg px-2 py-1 border border-emerald-500/40">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleAdjustSwallow(item.id, -1)}
-                                        className="w-5 h-5 rounded flex items-center justify-center text-gray-300 hover:bg-white/15"
-                                        title="Decrease Semo wraps"
-                                      >
-                                        <Minus size={11} />
-                                      </button>
-                                      <span className="text-[11px] font-mono font-bold text-emerald-300 px-1">
-                                        {swallowQty} {swallowQty === 1 ? 'wrap' : 'wraps'}
+                                  <div className="pt-1.5 space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[10px] font-mono uppercase tracking-wider text-[#f3e5ab] font-bold">
+                                        2. Choose Swallow (Semo or Garri):
                                       </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleAdjustSwallow(item.id, 1)}
-                                        className="w-5 h-5 rounded flex items-center justify-center bg-emerald-500 text-black hover:bg-emerald-400"
-                                        title="Add extra Semo wrap"
-                                      >
-                                        <Plus size={11} />
-                                      </button>
+                                      <span className="text-[10px] font-mono text-emerald-300">
+                                        {swallowQty}x {activeSwallowLabel} (₦{(Number(activeSwallowObj.price) * swallowQty).toLocaleString()})
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between gap-2">
+                                      {/* Semo vs Garri Toggle Buttons */}
+                                      <div className="grid grid-cols-2 gap-1.5 flex-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSelectSwallowType(item.id, 'semo')}
+                                          className={`px-2.5 py-1.5 rounded-xl text-[11px] font-mono font-bold transition-all border flex items-center justify-between ${
+                                            chosenSwallowKey === 'semo'
+                                              ? 'bg-emerald-950/80 text-emerald-200 border-emerald-400 shadow-md'
+                                              : 'bg-black/45 text-gray-300 border-white/15 hover:border-emerald-400/50'
+                                          }`}
+                                        >
+                                          <span>Semo</span>
+                                          <span className="text-[10px] text-emerald-300/90">
+                                            ₦{(Number(semoItem.price) / 1000).toFixed(0)}k
+                                          </span>
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSelectSwallowType(item.id, 'garri')}
+                                          className={`px-2.5 py-1.5 rounded-xl text-[11px] font-mono font-bold transition-all border flex items-center justify-between ${
+                                            chosenSwallowKey === 'garri'
+                                              ? 'bg-emerald-950/80 text-emerald-200 border-emerald-400 shadow-md'
+                                              : 'bg-black/45 text-gray-300 border-white/15 hover:border-emerald-400/50'
+                                          }`}
+                                        >
+                                          <span>Garri</span>
+                                          <span className="text-[10px] text-emerald-300/90">
+                                            ₦{(Number(garriItem.price) / 1000).toFixed(0)}k
+                                          </span>
+                                        </button>
+                                      </div>
+
+                                      {/* Wrap Quantity Stepper */}
+                                      <div className="flex items-center gap-1 bg-black/50 rounded-xl px-2 py-1 border border-emerald-500/40">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleAdjustSwallow(item.id, -1)}
+                                          disabled={swallowQty <= 1}
+                                          className={`w-5 h-5 rounded flex items-center justify-center ${
+                                            swallowQty <= 1
+                                              ? 'text-gray-600 cursor-not-allowed'
+                                              : 'text-gray-300 hover:bg-white/15'
+                                          }`}
+                                          title={`Decrease ${activeSwallowLabel} wraps`}
+                                        >
+                                          <Minus size={11} />
+                                        </button>
+                                        <span className="text-[11px] font-mono font-bold text-emerald-300 px-1">
+                                          {swallowQty} {swallowQty === 1 ? 'wrap' : 'wraps'}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleAdjustSwallow(item.id, 1)}
+                                          className="w-5 h-5 rounded flex items-center justify-center bg-emerald-500 text-black hover:bg-emerald-400"
+                                          title={`Add extra ${activeSwallowLabel} wrap`}
+                                        >
+                                          <Plus size={11} />
+                                        </button>
+                                      </div>
                                     </div>
                                   </div>
                                 )}
@@ -614,7 +682,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                                     </span>
                                     <span>
                                       {item.name} + {chosenProteinLabels.join(' + ')}
-                                      {swallowQty > 0 ? ` + ${swallowQty}x Semo` : ''}
+                                      {swallowQty > 0 ? ` + ${swallowQty}x ${activeSwallowLabel}` : ''}
                                     </span>
                                   </div>
                                   <div className="text-right pl-2 flex-shrink-0">
