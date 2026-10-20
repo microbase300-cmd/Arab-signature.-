@@ -877,6 +877,12 @@ export default function ReceptionPortal({ onNavigate }) {
           </div>
         )}
 
+        {/* Front Desk Platform Footer Credit */}
+        <footer className="mt-12 pt-6 pb-2 border-t border-white/10 text-center text-[11px] text-gray-500 space-y-1">
+          <div>Arab Signature Hotel & Suites • Front Desk Reception Terminal</div>
+          <div>Hospitality Software Infrastructure • <span className="text-[#d4af37] font-semibold">Built by Microbase</span></div>
+        </footer>
+
       </div>
 
       {/* ======================================================== */}

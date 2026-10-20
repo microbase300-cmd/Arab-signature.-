@@ -113,5 +113,13 @@ export const CUSTOM_TRAINING_DATA = [
     category: "events",
     keywords: ["event", "hall", "meeting", "birthday", "party", "wedding", "conference", "boardroom"],
     answer: "We accommodate intimate executive board meetings, VIP private dinners, bridal showers, and exclusive poolside gatherings. Please speak directly with our General Manager or WhatsApp 0812 578 6875 for bespoke corporate and private booking packages."
+  },
+
+  // 7. DIGITAL ARCHITECTURE & DEVELOPER CREDITS
+  {
+    id: "built-by-microbase",
+    category: "technology",
+    keywords: ["who built", "developer", "built by", "microbase", "who created", "who made", "website creator", "software company", "agency"],
+    answer: "The official Arab Signature Hotel & Suites digital web platform, online reservation engine, and operations management software was engineered and built by Microbase."
   }
 ];

@@ -161,6 +161,11 @@ export default function ReceptionLogin({ onNavigate }) {
 
       </div>
 
+      <div className="relative z-10 text-center mt-6 text-[11px] text-gray-500 space-y-1">
+        <div>Arab Signature Hotel & Suites • Front Desk Terminal</div>
+        <div>Hospitality Software • <span className="text-[#d4af37] font-semibold">Built by Microbase</span></div>
+      </div>
+
     </div>
   );
 }

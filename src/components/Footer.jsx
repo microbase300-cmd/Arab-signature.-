@@ -30,6 +30,10 @@ export default function Footer({ onNavigate, onOpenBooking }) {
             <ShieldCheck size={14} />
             <span>Independently Owned & Operated</span>
           </div>
+          <div className="pt-2 text-[11px] text-gray-500 border-t border-white/5 flex items-center gap-1.5">
+            <span>Digital Platform:</span>
+            <span className="text-[#f3e5ab] font-medium">Built by <strong className="text-[#d4af37] font-semibold tracking-wide">Microbase</strong></span>
+          </div>
         </div>
 
         {/* Quick Multi-Page Navigation */}
@@ -121,7 +125,12 @@ export default function Footer({ onNavigate, onOpenBooking }) {
         <div>
           © {new Date().getFullYear()} Arab Signature Hotel and Suites. All rights reserved. • Nsugbe, Onitsha
         </div>
-        <div className="flex items-center gap-4 text-gray-400">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-gray-400">
+          <span className="text-[#f3e5ab] font-medium inline-flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#d4af37]" />
+            Built by <strong className="text-[#d4af37] font-semibold tracking-wide">Microbase</strong>
+          </span>
+          <span>•</span>
           <span>Verified Paystack Payment</span>
           <span>•</span>
           <span>Diplomatic Choice</span>

@@ -160,6 +160,11 @@ export default function AdminLogin({ onNavigate }) {
 
       </div>
 
+      <div className="relative z-10 text-center mt-6 text-[11px] text-gray-500 space-y-1">
+        <div>Arab Signature Hotel & Suites • Executive Management System</div>
+        <div>Software Infrastructure • <span className="text-[#d4af37] font-semibold">Built by Microbase</span></div>
+      </div>
+
     </div>
   );
 }
