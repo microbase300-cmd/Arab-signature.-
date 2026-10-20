@@ -308,12 +308,12 @@ export const INITIAL_DINING_MENU = [
     isSignature: false,
   },
 
-  // --- 2. SOUPS & SWALLOW (Must pair with a Protein & Swallow) ---
+  // --- 2. TRADITIONAL SOUPS (Must pair with a Protein & Swallow) ---
   {
     id: "food-egusi-soup",
     name: "Egusi Soup",
     category: "soups",
-    categoryLabel: "Soups & Swallow",
+    categoryLabel: "Traditional Soups",
     type: "food",
     desc: "Rich ground melon seed soup slow-cooked with palm oil, traditional seasonings, and fresh leafy greens.",
     price: 2000,
@@ -328,7 +328,7 @@ export const INITIAL_DINING_MENU = [
     id: "food-afang-soup",
     name: "Afang Soup",
     category: "soups",
-    categoryLabel: "Soups & Swallow",
+    categoryLabel: "Traditional Soups",
     type: "food",
     desc: "Traditional Cross River / Akwa Ibom delicacy prepared with finely shredded afang leaves, waterleaf, and rich palm oil stock.",
     price: 4000,
@@ -343,7 +343,7 @@ export const INITIAL_DINING_MENU = [
     id: "food-vegetable-soup",
     name: "Vegetable Soup",
     category: "soups",
-    categoryLabel: "Soups & Swallow",
+    categoryLabel: "Traditional Soups",
     type: "food",
     desc: "Nutritious Nigerian leafy vegetable soup cooked with fluted pumpkin leaves (ugu), waterleaf, and traditional spices.",
     price: 4000,
@@ -358,7 +358,7 @@ export const INITIAL_DINING_MENU = [
     id: "food-bitterleaf-soup",
     name: "Bitterleaf Soup (Ofe Onugbu)",
     category: "soups",
-    categoryLabel: "Soups & Swallow",
+    categoryLabel: "Traditional Soups",
     type: "food",
     desc: "Authentic Anambra Ofe Onugbu thickened with cocoyam paste and washed bitterleaf, simmered with ogiri and traditional spices.",
     price: 2000,
@@ -373,7 +373,7 @@ export const INITIAL_DINING_MENU = [
     id: "food-oha-soup",
     name: "Oha Soup (Ofe Oha)",
     category: "soups",
-    categoryLabel: "Soups & Swallow",
+    categoryLabel: "Traditional Soups",
     type: "food",
     desc: "Eastern Nigerian traditional Oha leaf soup thickened with cocoyam and seasoned with uziza and indigenous herbs.",
     price: 2000,
@@ -388,7 +388,7 @@ export const INITIAL_DINING_MENU = [
     id: "food-okro-soup",
     name: "Okro Soup",
     category: "soups",
-    categoryLabel: "Soups & Swallow",
+    categoryLabel: "Traditional Soups",
     type: "food",
     desc: "Freshly chopped farm okro simmered in rich seasoned broth with red palm oil and aromatic peppers.",
     price: 4000,
@@ -403,7 +403,7 @@ export const INITIAL_DINING_MENU = [
     id: "food-nsala-soup",
     name: "Nsala Soup (White Soup)",
     category: "soups",
-    categoryLabel: "Soups & Swallow",
+    categoryLabel: "Traditional Soups",
     type: "food",
     desc: "Famous Onitsha Ofe Nsala (White Soup) richly spiced with utazi leaves, uda, ehuru, and smooth yam thickener.",
     price: 4000,
@@ -414,11 +414,13 @@ export const INITIAL_DINING_MENU = [
     pairingNote: "Not served alone — must pair with a Protein & Swallow (Semo or Garri)",
     isSignature: true,
   },
+
+  // --- 3. SWALLOW (Pairs with Traditional Soups) ---
   {
     id: "food-semo",
     name: "Semo (Swallow)",
-    category: "soups",
-    categoryLabel: "Soups & Swallow",
+    category: "swallow",
+    categoryLabel: "Swallow (Garri & Semo)",
     type: "food",
     desc: "Smooth, hot semovita swallow freshly prepared to accompany any of our traditional Nigerian soups.",
     price: 2000,
@@ -431,8 +433,8 @@ export const INITIAL_DINING_MENU = [
   {
     id: "food-garri",
     name: "Garri (Eba Swallow)",
-    category: "soups",
-    categoryLabel: "Soups & Swallow",
+    category: "swallow",
+    categoryLabel: "Swallow (Garri & Semo)",
     type: "food",
     desc: "Smooth, hot yellow garri (eba) swallow freshly turned to accompany any of our traditional Nigerian soups.",
     price: 2000,
@@ -1392,11 +1394,13 @@ export const portalStore = {
           return {
             ...defaultMatch,
             ...item,
-            image: item.image || defaultMatch.image,
+            category: defaultMatch.category,
+            categoryLabel: defaultMatch.categoryLabel,
+            image: defaultMatch.image || item.image,
             requiresProtein: defaultMatch.requiresProtein,
             requiresSwallow: defaultMatch.requiresSwallow,
             pairingType: defaultMatch.pairingType,
-            pairingNote: item.pairingNote || defaultMatch.pairingNote,
+            pairingNote: defaultMatch.pairingNote || item.pairingNote,
           };
         }
         return item;

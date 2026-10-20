@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Utensils, Wine, Sparkles, Search, 
-  GlassWater, Beer, MessageSquare, ChevronRight, AlertCircle, CheckCircle2, Soup, Drumstick, Coffee, ArrowRight, Plus, Minus
+  GlassWater, Beer, MessageSquare, ChevronRight, AlertCircle, CheckCircle2, Soup, Drumstick, Coffee, ArrowRight, Plus, Minus, CircleDot
 } from 'lucide-react';
 import { portalStore } from '../data/portalStore';
 
@@ -112,7 +112,8 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
   const categories = [
     { id: 'all', label: 'All Selections', icon: Utensils },
     { id: 'rice', label: 'Rice, Pasta & Sides', icon: Utensils },
-    { id: 'soups', label: 'Soups & Swallow', icon: Soup },
+    { id: 'soups', label: 'Traditional Soups', icon: Soup },
+    { id: 'swallow', label: 'Swallow (Garri & Semo)', icon: CircleDot },
     { id: 'proteins', label: 'Proteins & Pepper Soup', icon: Drumstick },
     { id: 'continental', label: 'Continental & Breakfast', icon: Coffee },
     { id: 'spirits', label: 'Champagne & VIP Bottles', icon: Wine },

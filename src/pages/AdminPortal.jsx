@@ -201,7 +201,8 @@ export default function AdminPortal({ onNavigate }) {
 
     const categoryMap = {
       rice: "Rice, Pasta & Sides",
-      soups: "Soups & Swallow",
+      soups: "Traditional Soups",
+      swallow: "Swallow (Garri & Semo)",
       proteins: "Proteins & Pepper Soup",
       continental: "Continental & Breakfast",
       spirits: "Champagne & VIP Spirits",
@@ -667,9 +668,10 @@ export default function AdminPortal({ onNavigate }) {
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
                 {[
                   { id: 'all', label: 'All Items' },
-                  { id: 'food', label: 'All Food (25)' },
+                  { id: 'food', label: 'All Food' },
                   { id: 'rice', label: 'Rice & Pasta' },
-                  { id: 'soups', label: 'Soups & Swallow' },
+                  { id: 'soups', label: 'Traditional Soups' },
+                  { id: 'swallow', label: 'Swallow (Garri & Semo)' },
                   { id: 'proteins', label: 'Proteins' },
                   { id: 'continental', label: 'Continental' },
                   { id: 'drinks', label: 'Drinks Only' },
@@ -1323,7 +1325,8 @@ export default function AdminPortal({ onNavigate }) {
                     className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white focus:outline-none focus:border-[#d4af37]"
                   >
                     <option value="rice">Rice, Pasta & Sides</option>
-                    <option value="soups">Soups & Swallow</option>
+                    <option value="soups">Traditional Soups</option>
+                    <option value="swallow">Swallow (Garri & Semo)</option>
                     <option value="proteins">Proteins & Pepper Soup</option>
                     <option value="continental">Continental & Breakfast</option>
                     <option value="spirits">Champagne & VIP Spirits</option>
