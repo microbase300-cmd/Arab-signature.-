@@ -470,7 +470,7 @@ export default function AdminPortal({ onNavigate }) {
             }`}
           >
             <Utensils size={14} />
-            <span>Al-Sultan Food & Drinks Menu ({diningMenu.length})</span>
+            <span>Dining & Drinks Menu ({diningMenu.length})</span>
           </button>
 
           <button
@@ -633,7 +633,7 @@ export default function AdminPortal({ onNavigate }) {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-cinzel font-bold text-base sm:text-lg text-white">
-                    Al-Sultan Food & Drinks Menu Manager
+                    Dining & Drinks Menu Manager
                   </h3>
                   <span className="px-2.5 py-0.5 rounded-full bg-[#5c0725] border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] font-mono uppercase tracking-wider font-bold">
                     Admin Exclusive Control

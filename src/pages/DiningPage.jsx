@@ -34,18 +34,29 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
   const semoItem = menuItems.find((i) => i.id === 'food-semo') || { id: 'food-semo', name: 'Semo', price: 2000 };
   const garriItem = menuItems.find((i) => i.id === 'food-garri') || { id: 'food-garri', name: 'Garri', price: 2000 };
 
+  // Get available protein add-ons for a dish (Eggs excluded for traditional soups)
+  const getAvailableProteinsForDish = (dish) => {
+    return proteinAddons.filter((prot) => {
+      if (dish.category === 'soups' || dish.pairingType === 'soup') {
+        return prot.id !== 'prot-egg';
+      }
+      return true;
+    });
+  };
+
   // Get current map of { [protId]: quantity } for a dish (always at least 1 protein for required dishes)
   const getProteinSelectionMap = (dish) => {
+    const dishProteins = getAvailableProteinsForDish(dish);
     const customMap = selectedPairings[dish.id];
     if (customMap && Object.keys(customMap).length > 0) {
-      const validEntries = Object.entries(customMap).filter(([id, qty]) => qty > 0 && proteinAddons.some((p) => p.id === id));
+      const validEntries = Object.entries(customMap).filter(([id, qty]) => qty > 0 && dishProteins.some((p) => p.id === id));
       if (validEntries.length > 0) {
         return Object.fromEntries(validEntries);
       }
     }
     // Default recommended protein: Goat Meat for Soups, Chicken for Rice/Pasta
     const defaultProtId = dish.pairingType === 'soup' ? 'prot-goatmeat' : 'prot-chicken';
-    const fallbackId = proteinAddons.find((p) => p.id === defaultProtId)?.id || proteinAddons[0]?.id || 'prot-chicken';
+    const fallbackId = dishProteins.find((p) => p.id === defaultProtId)?.id || dishProteins[0]?.id || 'prot-chicken';
     return { [fallbackId]: 1 };
   };
 
@@ -160,11 +171,11 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
         <div className="relative z-10 max-w-4xl mx-auto space-y-4">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#5c0725]/50 border border-[#d4af37]/40 text-[#f3e5ab] text-xs font-mono tracking-widest shadow-lg">
             <Utensils size={14} className="text-[#d4af37]" />
-            <span>AL-SULTAN GOURMET DINING & VIP BAR LOUNGE • NSUGBE, ONITSHA</span>
+            <span>HOTEL DINING & VIP BAR LOUNGE • NSUGBE, ONITSHA</span>
           </div>
 
           <h1 className="font-cinzel text-4xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-wide">
-            Al-Sultan Kitchen & <br />
+            Dining Kitchen & <br />
             <span className="gold-text-gradient">VIP Bottle Service</span>
           </h1>
 
@@ -200,7 +211,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
               className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-700"
             />
             <div className="absolute top-4 left-4 px-3 py-1 rounded-full bg-black/75 border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] font-mono font-bold uppercase tracking-wider">
-              Al-Sultan Dining Hall
+              Dining Hall
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-6">
               <span className="text-xs text-[#f3e5ab] font-mono bg-black/60 px-3 py-1 rounded-full border border-white/20">
@@ -219,7 +230,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
             </h2>
 
             <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
-              At Al-Sultan Restaurant & Bar, our chefs prepare every dish fresh using rich local ingredients—from Ofe Nsala, Oha, and Afang soups to smoky Jollof Rice, Basmati Rice, Peppered Turkey, Goat Meat, and whole fresh Catfish Pepper Soup.
+              At our Restaurant & Bar, our chefs prepare every dish fresh using rich local ingredients—from Ofe Nsala, Oha, and Afang soups to smoky Jollof Rice, Basmati Rice, Peppered Turkey, Goat Meat, and whole fresh Catfish Pepper Soup.
             </p>
 
             <div className="grid grid-cols-2 gap-3 text-xs pt-2">
@@ -246,13 +257,13 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
           <div className="space-y-2 max-w-xl">
             <span className="text-xs uppercase font-mono tracking-widest text-[#d4af37] font-semibold flex items-center gap-1.5">
               <Sparkles size={13} />
-              OFFICIAL AL-SULTAN KITCHEN & BAR MENU
+              OFFICIAL KITCHEN & BAR MENU
             </span>
             <h2 className="font-cinzel text-3xl sm:text-4xl font-extrabold tracking-wide text-white">
               Food & Drinks <span className="gold-text-gradient">Price Catalog</span>
             </h2>
             <p className="text-xs sm:text-sm text-gray-300">
-              Live pricing managed directly by hotel management. Dine-in at Al-Sultan Restaurant & VIP Poolside Lounge.
+              Live pricing managed directly by hotel management. Dine-in at our Restaurant & VIP Poolside Lounge.
             </p>
           </div>
 
@@ -513,7 +524,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                             )}
 
                             {/* Interactive Multi-Protein Pairing Calculator for Rice & Soup Dishes */}
-                            {needsProtein && proteinAddons.length > 0 && (
+                            {needsProtein && getAvailableProteinsForDish(item).length > 0 && (
                               <div className="pt-2.5 space-y-2.5 border-t border-white/10">
                                 <div className="flex items-center justify-between">
                                   <span className="text-[10px] font-mono uppercase tracking-wider text-[#f3e5ab] font-bold">
@@ -525,7 +536,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                                 </div>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                                  {proteinAddons.map((prot) => {
+                                  {getAvailableProteinsForDish(item).map((prot) => {
                                     const qty = selectionMap[prot.id] || 0;
                                     const isSelected = qty > 0;
                                     const isLastRemainingProtein = isSelected && totalProteinPieces === 1;
@@ -708,7 +719,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                           </span>
 
                           <span className="text-[10px] text-[#f3e5ab]/70 font-mono tracking-wider">
-                            {item.type === 'drinks' ? 'VIP Bar & Lounge' : 'Al-Sultan Kitchen'}
+                            {item.type === 'drinks' ? 'VIP Bar & Lounge' : 'Hotel Kitchen'}
                           </span>
                         </div>
                       </div>

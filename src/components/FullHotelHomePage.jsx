@@ -115,7 +115,7 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
             <a href="#about" className="hover:text-[#d4af37] transition-colors">Our Heritage</a>
             <a href="#suites" className="hover:text-[#d4af37] transition-colors">Doha Suites</a>
             <a href="#amenities" className="hover:text-[#d4af37] transition-colors">Poolside & Cabanas</a>
-            <a href="#dining" className="hover:text-[#d4af37] transition-colors">Al-Sultan Dining</a>
+            <a href="#dining" className="hover:text-[#d4af37] transition-colors">Dining</a>
             <a href="#location" className="hover:text-[#d4af37] transition-colors">Location</a>
           </nav>
 
@@ -160,7 +160,7 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
             <a href="#about" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-sm font-semibold border-b border-white/5">Our Heritage</a>
             <a href="#suites" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-sm font-semibold border-b border-white/5">Doha Suites & Rates</a>
             <a href="#amenities" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-sm font-semibold border-b border-white/5">Poolside & Cabanas</a>
-            <a href="#dining" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-sm font-semibold border-b border-white/5">Al-Sultan Dining</a>
+            <a href="#dining" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-sm font-semibold border-b border-white/5">Dining</a>
             <a href="#location" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-sm font-semibold border-b border-white/5">Location & Contact</a>
             
             <button
@@ -1086,12 +1086,12 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
             </p>
           </div>
 
-          {/* Amenity 2: Al-Sultan Gourmet Dining */}
+          {/* Amenity 2: Gourmet Dining */}
           <div id="dining" className={`p-6 rounded-3xl border space-y-4 ${cardBgClass}`}>
             <div className="w-12 h-12 rounded-2xl bg-[#5c0725] text-[#f3e5ab] flex items-center justify-center">
               <Utensils size={24} />
             </div>
-            <h3 className="font-cinzel text-lg font-bold">Al-Sultan Gourmet Dining</h3>
+            <h3 className="font-cinzel text-lg font-bold">Gourmet Dining</h3>
             <p className="text-xs text-gray-400 leading-relaxed">
               Authentic Middle Eastern delights (hummus, lamb mandi, mixed grills) paired with continental and Nigerian delicacies.
             </p>

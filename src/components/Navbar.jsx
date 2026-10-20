@@ -11,7 +11,7 @@ export default function Navbar({ currentPage, onNavigate, onOpenBooking }) {
     { id: 'about', label: 'About Us' },
     { id: 'suites', label: 'Doha Suites' },
     { id: 'amenities', label: 'Poolside & Cabanas' },
-    { id: 'dining', label: 'Al-Sultan Dining' },
+    { id: 'dining', label: 'Dining' },
     { id: 'gallery', label: 'Photo Gallery' },
     { id: 'contact', label: 'Location & Contact' },
   ];

@@ -310,7 +310,7 @@ export default function ReceptionPortal({ onNavigate }) {
             <button
               onClick={() => setIsDiningMenuOpen(true)}
               className="p-2 sm:px-3 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-medium border border-white/10 flex items-center gap-1.5 transition-all"
-              title="View Al-Sultan Food & Drinks Current Prices (Read-Only)"
+              title="View Dining & Drinks Current Prices (Read-Only)"
             >
               <Utensils size={14} className="text-[#d4af37]" />
               <span className="hidden sm:inline">Menu Prices</span>
@@ -1212,7 +1212,7 @@ export default function ReceptionPortal({ onNavigate }) {
                 <div className="flex items-center gap-2">
                   <Utensils size={18} className="text-[#d4af37]" />
                   <h3 className="font-cinzel text-lg sm:text-xl font-bold text-white">
-                    Al-Sultan Food & Drinks Price Sheet
+                    Dining & Drinks Price Sheet
                   </h3>
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-950/70 border border-amber-500/40 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider">
                     <Lock size={10} />

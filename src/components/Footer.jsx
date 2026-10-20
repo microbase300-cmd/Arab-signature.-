@@ -64,7 +64,7 @@ export default function Footer({ onNavigate, onOpenBooking }) {
             </li>
             <li>
               <button onClick={() => handleNav('dining')} className="hover:text-[#d4af37] transition-colors">
-                Al-Sultan Gourmet Dining
+                Dining
               </button>
             </li>
             <li>

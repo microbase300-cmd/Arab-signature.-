@@ -162,7 +162,7 @@ export const hotelAiEngine = {
     if (!userMessage || !userMessage.trim()) {
       return {
         text: "Warm greetings from Arab Signature Hotel & Suites, Nsugbe. I am **Amira**, your Royal AI Concierge. How may I assist your stay or reservation today?",
-        suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe", "Al-Sultan Dining Menu"]
+        suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe", "Dining Menu"]
       };
     }
 
@@ -285,7 +285,7 @@ export const hotelAiEngine = {
         text: `💎 **Current Live Suite Rates — Prepared by Amira:**\n\n` +
               `${rateSummary}\n\n` +
               `*Note: Rates include VAT, high-speed Wi-Fi, 24/7 security, uninterrupted power, and morning breakfast buffet at Al-Sultan Restaurant.*`,
-        suggestions: ["Check Available Suites", "Reserve a Suite Now", "Al-Sultan Dining Menu"]
+        suggestions: ["Check Available Suites", "Reserve a Suite Now", "Dining Menu"]
       };
     }
 
@@ -332,7 +332,7 @@ export const hotelAiEngine = {
       return {
         text: `Warm greetings! I am **Amira**, the Royal AI Concierge at **Arab Signature Hotel & Suites** in Nsugbe, Onitsha. We are an ultra-luxury hospitality retreat offering 34 handcrafted rooms and Doha suites, Olympic-grade poolside cabanas, Al-Sultan gourmet dining, and 24/7 uninterrupted power.\n\n` +
               `You can ask me to check suite availability, track an existing reservation code (e.g. ASH-7812), or inquire about our location and amenities. For direct human assistance, click the **WhatsApp** button above or call our Front Desk Hotline at **0812 578 6875**.`,
-        suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe", "Al-Sultan Dining Menu"]
+        suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe", "Dining Menu"]
       };
     } catch (err) {
       console.error("hotelAiEngine processQuery error:", err);

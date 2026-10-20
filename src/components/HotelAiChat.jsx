@@ -20,7 +20,7 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
     {
       id: "welcome-1",
       sender: "ai",
-      text: "Warm greetings and welcome to **Arab Signature Hotel & Suites**, Nsugbe, Onitsha! 👑\n\nI am **Amira**, your Royal AI Concierge. I can assist you with:\n• Checking **live room availability** right now\n• Securely tracking your **booking reference** (e.g. `ASH-7812`)\n• Suite pricing, directions to Nsugbe, or Al-Sultan dining menus.\n\nHow may I assist your stay today?",
+      text: "Warm greetings and welcome to **Arab Signature Hotel & Suites**, Nsugbe, Onitsha! 👑\n\nI am **Amira**, your Royal AI Concierge. I can assist you with:\n• Checking **live room availability** right now\n• Securely tracking your **booking reference** (e.g. `ASH-7812`)\n• Suite pricing, directions to Nsugbe, or dining menus.\n\nHow may I assist your stay today?",
       suggestions: [
         "Check Available Suites",
         "Track My Booking Code",
