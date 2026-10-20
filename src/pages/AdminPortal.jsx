@@ -207,8 +207,7 @@ export default function AdminPortal({ onNavigate }) {
       continental: "Continental & Breakfast",
       spirits: "Champagne, Cognac & Whiskey",
       wines: "Fine Wines & Sparkling",
-      beers: "Beers & Refreshments",
-      cocktails: "Signature Cocktails & Mocktails"
+      beers: "Beers & Refreshments"
     };
 
     portalStore.addMenuItem({
@@ -679,7 +678,6 @@ export default function AdminPortal({ onNavigate }) {
                   { id: 'spirits', label: 'Cognac & Whiskey' },
                   { id: 'wines', label: 'Fine Wines & Champagne' },
                   { id: 'beers', label: 'Beers (₦2,000)' },
-                  { id: 'cocktails', label: 'Cocktails' },
                 ].map((cat) => (
                   <button
                     key={cat.id}
@@ -1334,7 +1332,6 @@ export default function AdminPortal({ onNavigate }) {
                     <option value="spirits">Champagne, Cognac & Whiskey</option>
                     <option value="wines">Fine Wines & Sparkling</option>
                     <option value="beers">Beers & Refreshments (₦2,000)</option>
-                    <option value="cocktails">Signature Cocktails & Mocktails</option>
                   </select>
                 </div>
               </div>

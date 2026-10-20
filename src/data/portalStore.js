@@ -603,27 +603,18 @@ export const INITIAL_DINING_MENU = [
     isSignature: false,
   },
 
-  // ========================================================
+    // ========================================================
   // 6. DRINKS: CHAMPAGNE, COGNAC & WHISKEY (VIP BOTTLE SERVICE)
   // ========================================================
   {
-    id: "drink-azul-reposado",
+    id: "drink-azul",
     name: "Clase Azul Reposado Tequila (750ml)",
     category: "spirits",
     categoryLabel: "Champagne, Cognac & Whiskey",
     type: "drinks",
     desc: "Ultra-premium handcrafted Mexican reposado tequila in the iconic cobalt-blue ceramic decanter. Served with VIP sparklers and ice bucket.",
     price: 500000,
-    isSignature: true,
-  },
-  {
-    id: "drink-don-julio-1942",
-    name: "Don Julio 1942 Añejo Tequila (750ml)",
-    category: "spirits",
-    categoryLabel: "Champagne, Cognac & Whiskey",
-    type: "drinks",
-    desc: "Legendary handcrafted añejo tequila aged in American white oak barrels with notes of rich caramel and toasted vanilla.",
-    price: 500000,
+    image: "/dining/drinks/drink-azul.jpg",
     isSignature: true,
   },
   {
@@ -634,6 +625,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Rare hand-selected Scotch casks offering velvety honey, dry fruit sweetness, and lingering peat smoke finish.",
     price: 500000,
+    image: "/dining/drinks/drink-jw-blue.jpg",
     isSignature: true,
   },
   {
@@ -644,6 +636,18 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Aged 21 years and finished in Caribbean rum casks for an opulent, sweet vanilla and toffee finish.",
     price: 500000,
+    image: "/dining/drinks/drink-glenfiddich-21.jpg",
+    isSignature: true,
+  },
+  {
+    id: "drink-don-julio",
+    name: "Don Julio 1942 Añejo Tequila (750ml)",
+    category: "spirits",
+    categoryLabel: "Champagne, Cognac & Whiskey",
+    type: "drinks",
+    desc: "Legendary handcrafted añejo tequila aged in American white oak barrels with notes of rich caramel and toasted vanilla.",
+    price: 500000,
+    image: "/dining/drinks/drink-don-julio.jpg",
     isSignature: true,
   },
   {
@@ -654,6 +658,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Robust deep amber French cognac blending rare eaux-de-vie with rich candied fruits, spicy cinnamon, and wild dark chocolate.",
     price: 350000,
+    image: "/dining/drinks/drink-hennessy-xo.jpg",
     isSignature: true,
   },
   {
@@ -664,6 +669,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Matured in Spanish Oloroso wood and American oak for an exceptionally rich, warm spiced apple and dried fruit flavor.",
     price: 200000,
+    image: "/dining/drinks/drink-glenfiddich-18.jpg",
     isSignature: false,
   },
   {
@@ -674,6 +680,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Aged in European, American, and New American oak solera vats with warm spice, honey, and rich fruit notes.",
     price: 150000,
+    image: "/dining/drinks/drink-glenfiddich-15.jpg",
     isSignature: false,
   },
   {
@@ -684,6 +691,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Harmonious and balanced cognac with aromas of fresh vanilla, cinnamon, and toasted oak.",
     price: 140000,
+    image: "/dining/drinks/drink-hennessy-vsop.jpg",
     isSignature: false,
   },
   {
@@ -694,6 +702,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Smooth and mellow French cognac blending luscious red fruit and refined oak nuances.",
     price: 120000,
+    image: "/dining/drinks/drink-martell-vsop.jpg",
     isSignature: false,
   },
   {
@@ -704,6 +713,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Iconic Cognac Fine Champagne with perfect harmony of powerful and elegant ripe summer fruit aromas.",
     price: 120000,
+    image: "/dining/drinks/drink-remy-martin-vsop.jpg",
     isSignature: false,
   },
   {
@@ -714,6 +724,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Carefully matured in fine American bourbon and Spanish sherry oak casks for fresh pear and subtle oak flavors.",
     price: 90000,
+    image: "/dining/drinks/drink-glenfiddich-12.jpg",
     isSignature: false,
   },
   {
@@ -724,6 +735,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Dynamic and lively French cognac with demanding oak character and vibrant fruity notes.",
     price: 80000,
+    image: "/dining/drinks/drink-hennessy-vs.jpg",
     isSignature: false,
   },
   {
@@ -734,6 +746,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "The world's benchmark blended Scotch whisky aged for a full 12 years with deep smoky complexity.",
     price: 60000,
+    image: "/dining/drinks/drink-jw-black.jpg",
     isSignature: false,
   },
   {
@@ -744,6 +757,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Double-charred bourbon oak barrels bring out enhanced notes of toasted wood, spice, and exotic fruit sweetness.",
     price: 60000,
+    image: "/dining/drinks/drink-jameson-black.jpg",
     isSignature: false,
   },
   {
@@ -754,6 +768,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Triple distilled, exceptionally smooth Irish whiskey with perfectly balanced spicy, nutty, and vanilla notes.",
     price: 40000,
+    image: "/dining/drinks/drink-jameson-green.jpg",
     isSignature: false,
   },
   {
@@ -764,6 +779,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Classic vibrant red Italian aperitif infused with aromatic herbs, chinotto, and bitter orange peel.",
     price: 40000,
+    image: "/dining/drinks/drink-campari.jpg",
     isSignature: false,
   },
   {
@@ -774,6 +790,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Vibrant, spicy blend crafted for highballs and celebration with crackling aromatic spice.",
     price: 35000,
+    image: "/dining/drinks/drink-jw-red.jpg",
     isSignature: false,
   },
   {
@@ -784,6 +801,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Smooth Kentucky straight bourbon whiskey blended with pure honey for an exceptionally smooth, sweet palate.",
     price: 35000,
+    image: "/dining/drinks/drink-american-honey.jpg",
     isSignature: false,
   },
   {
@@ -794,6 +812,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Delicious African cream liqueur made from wild marula fruit, double-distilled and matured in French oak.",
     price: 20000,
+    image: "/dining/drinks/drink-amarula.jpg",
     isSignature: false,
   },
 
@@ -808,6 +827,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "The world's most celebrated champagne with crisp green apple, white floral notes, and elegant fine bubbles.",
     price: 150000,
+    image: "/dining/drinks/drink-moet-chandon.jpg",
     isSignature: true,
   },
   {
@@ -818,6 +838,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Prestigious French champagne featuring delicate effervescence, ripe yellow fruit, and vanilla toastiness.",
     price: 150000,
+    image: "/dining/drinks/drink-veuve-clicquot.jpg",
     isSignature: true,
   },
   {
@@ -828,16 +849,18 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Exquisite French sparkling wine with fresh strawberry and blackcurrant notes in a stunning illuminated bottle.",
     price: 100000,
+    image: "/dining/drinks/drink-belaire.jpg",
     isSignature: true,
   },
   {
-    id: "drink-element-wine",
+    id: "drink-element",
     name: "Element Premium Reserve Wine",
     category: "wines",
     categoryLabel: "Fine Wines & Sparkling",
     type: "drinks",
     desc: "Exclusive reserve wine offering deep complexity, velvet texture, and rich berry notes.",
     price: 70000,
+    image: "/dining/drinks/drink-element.jpg",
     isSignature: false,
   },
   {
@@ -848,6 +871,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Rich red wine aged 3 months in bourbon whiskey barrels, loaded with warm vanilla, dark cherry, and toasty spice.",
     price: 60000,
+    image: "/dining/drinks/drink-cooper-and-thief.jpg",
     isSignature: true,
   },
   {
@@ -858,6 +882,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Distinctive black bottle rosé with refined fizz, wild raspberry aromas, and crisp celebratory finish.",
     price: 60000,
+    image: "/dining/drinks/drink-angelus-black-rose.jpg",
     isSignature: false,
   },
   {
@@ -868,6 +893,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Smooth and luscious red blend with aromas of ripe red fruit, mocha, vanilla, and warm baking spices.",
     price: 30000,
+    image: "/dining/drinks/drink-silk-and-spice.jpg",
     isSignature: false,
   },
   {
@@ -878,6 +904,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Prestigious Chilean red reserve with intense blackcurrant, dark chocolate, and roasted coffee nuances.",
     price: 30000,
+    image: "/dining/drinks/drink-escudo-rojo.jpg",
     isSignature: false,
   },
   {
@@ -888,6 +915,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Noble vintage wine with velvety roundness, ripe plum, and gentle oak undertones.",
     price: 30000,
+    image: "/dining/drinks/drink-aznauri.jpg",
     isSignature: false,
   },
   {
@@ -898,6 +926,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Rich, bold full-bodied wine featuring deep ruby color, blackberries, and balanced acidity.",
     price: 30000,
+    image: "/dining/drinks/drink-black-star.jpg",
     isSignature: false,
   },
   {
@@ -908,6 +937,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Traditional Spanish red wine with bright cherry notes, soft tannins, and smooth finish.",
     price: 30000,
+    image: "/dining/drinks/drink-castillo.jpg",
     isSignature: false,
   },
   {
@@ -918,6 +948,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "South Africa's favorite sweet wine with luscious aromas of ripe summer berries and floral sweetness.",
     price: 25000,
+    image: "/dining/drinks/drink-four-cousins.jpg",
     isSignature: false,
   },
   {
@@ -928,6 +959,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "100% pure crisp sparkling apple cider (non-alcoholic), perfect for celebratory toasts.",
     price: 25000,
+    image: "/dining/drinks/drink-martinellis.jpg",
     isSignature: false,
   },
   {
@@ -938,6 +970,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Smooth and approachable dining wine that complements grilled poultry, red meat, and Nigerian dishes.",
     price: 25000,
+    image: "/dining/drinks/drink-angelus-wine.jpg",
     isSignature: false,
   },
   {
@@ -948,6 +981,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Crisp and lively California pink sparkling bubbly with sweet red apple and strawberry flavors.",
     price: 25000,
+    image: "/dining/drinks/drink-andre-rose.jpg",
     isSignature: false,
   },
   {
@@ -958,6 +992,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Delicate and refreshing European sparkling wine with fine bubbles and fresh fruity aromas.",
     price: 25000,
+    image: "/dining/drinks/drink-alita.jpg",
     isSignature: false,
   },
   {
@@ -968,6 +1003,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Fresh, naturally sweet red wine bursting with fruity flavors of strawberry, raspberry, and red cherry.",
     price: 20000,
+    image: "/dining/drinks/drink-4th-street.jpg",
     isSignature: false,
   },
   {
@@ -978,6 +1014,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Smooth and inviting dessert wine with delicate floral bouquets and pleasant fruity sweetness.",
     price: 20000,
+    image: "/dining/drinks/drink-expression.jpg",
     isSignature: false,
   },
   {
@@ -988,6 +1025,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Refreshing South African non-alcoholic sparkling grape drink made from premier quality fruit.",
     price: 20000,
+    image: "/dining/drinks/drink-chamdor.jpg",
     isSignature: false,
   },
   {
@@ -998,6 +1036,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Renowned Australian wine with bright varietal fruit expression and smooth, easy-drinking tannins.",
     price: 15000,
+    image: "/dining/drinks/drink-wolf-blass.jpg",
     isSignature: false,
   },
   {
@@ -1008,6 +1047,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Light and balanced dinner wine, ideal for everyday dining and social pairings.",
     price: 15000,
+    image: "/dining/drinks/drink-reseau.jpg",
     isSignature: false,
   },
   {
@@ -1018,6 +1058,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Pleasantly smooth dining wine with soft berry aromas and crisp clean finish.",
     price: 15000,
+    image: "/dining/drinks/drink-nines.jpg",
     isSignature: false,
   },
 
@@ -1032,6 +1073,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Unique light and refreshing lager beer boosted with the zesty kick of tequila flavor. Served ice cold.",
     price: 2000,
+    image: "/dining/drinks/beer-desperados.jpg",
     isSignature: false,
   },
   {
@@ -1042,6 +1084,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Crisp Asian lager brewed with tropical lagering techniques for a smooth and refreshing taste.",
     price: 2000,
+    image: "/dining/drinks/beer-tiger.jpg",
     isSignature: false,
   },
   {
@@ -1052,6 +1095,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "World-famous Dutch pure malt lager served sub-zero chilled in an ice bucket.",
     price: 2000,
+    image: "/dining/drinks/beer-heineken-med.jpg",
     isSignature: false,
   },
   {
@@ -1062,6 +1106,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Large bottle of premium Heineken lager extra chilled for prolonged enjoyment.",
     price: 2000,
+    image: "/dining/drinks/beer-heineken-big.jpg",
     isSignature: false,
   },
   {
@@ -1072,6 +1117,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Full-bodied Nigerian extra stout brewed with roasted barley and fine hops for rich bitter-sweet taste.",
     price: 2000,
+    image: "/dining/drinks/beer-legend-big.jpg",
     isSignature: false,
   },
   {
@@ -1082,6 +1128,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Medium bottle of smooth, rich Legend extra stout served ice cold.",
     price: 2000,
+    image: "/dining/drinks/beer-legend-med.jpg",
     isSignature: false,
   },
   {
@@ -1092,6 +1139,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Nigeria's legendary premium cold-filtered lager with bright golden clarity and rich foam head.",
     price: 2000,
+    image: "/dining/drinks/beer-star.jpg",
     isSignature: false,
   },
   {
@@ -1102,6 +1150,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Refreshing double-filtered lager blended with real citrus fruit juice for twice the refreshment.",
     price: 2000,
+    image: "/dining/drinks/beer-star-radler.jpg",
     isSignature: false,
   },
   {
@@ -1112,6 +1161,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Delicious flavoured premium beer with crisp burst of fresh lemon/orange zest.",
     price: 2000,
+    image: "/dining/drinks/beer-flying-fish.jpg",
     isSignature: false,
   },
   {
@@ -1122,6 +1172,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Crisp and crisp golden lager known as 'The Honourable' across Nigeria. Extra cold.",
     price: 2000,
+    image: "/dining/drinks/beer-trophy.jpg",
     isSignature: false,
   },
   {
@@ -1132,6 +1183,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Bold and smooth black stout with toasted malt sweetness and lingering richness.",
     price: 2000,
+    image: "/dining/drinks/beer-trophy-stout.jpg",
     isSignature: false,
   },
   {
@@ -1142,6 +1194,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Medium-bodied, flavorful American crisp lager brewed with beechwood aging for unmatched smoothness.",
     price: 2000,
+    image: "/dining/drinks/beer-budweiser.jpg",
     isSignature: false,
   },
   {
@@ -1152,6 +1205,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Special reserve Budweiser offering silky smooth mouthfeel and clean crisp finish.",
     price: 2000,
+    image: "/dining/drinks/beer-budweiser-royal.jpg",
     isSignature: false,
   },
   {
@@ -1162,6 +1216,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "The proud brew of the East ('Oh Mpa'). Crisp, distinct golden lager served extra chilled.",
     price: 2000,
+    image: "/dining/drinks/beer-hero.jpg",
     isSignature: false,
   },
   {
@@ -1172,6 +1227,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Sub-zero brewed premium light lager for ultimate refreshing taste and lower bitterness.",
     price: 2000,
+    image: "/dining/drinks/beer-castle-lite.jpg",
     isSignature: false,
   },
   {
@@ -1182,6 +1238,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Crisp, effervescent ready-to-drink vodka cocktail with zesty natural lemon taste.",
     price: 2000,
+    image: "/dining/drinks/beer-smirnoff-ice.jpg",
     isSignature: false,
   },
   {
@@ -1192,6 +1249,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Bold blend of crisp Smirnoff vodka with energizing guarana extract for intense refreshment.",
     price: 2000,
+    image: "/dining/drinks/beer-smirnoff-black-ice.jpg",
     isSignature: false,
   },
   {
@@ -1202,6 +1260,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Original energy punch delivering intense, smooth caffeine and B-vitamin boost over ice.",
     price: 2000,
+    image: "/dining/drinks/beer-monster.jpg",
     isSignature: false,
   },
   {
@@ -1212,6 +1271,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Classic small bottle of iconic Nigerian Guinness extra stout, rich and creamy.",
     price: 2000,
+    image: "/dining/drinks/beer-guinness-small.jpg",
     isSignature: false,
   },
   {
@@ -1222,6 +1282,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Medium bottle of chilled Guinness foreign extra stout with roasted malt notes.",
     price: 2000,
+    image: "/dining/drinks/beer-guinness-med.jpg",
     isSignature: false,
   },
   {
@@ -1232,6 +1293,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Eastern Nigeria's beloved continental lager brewed with pride, progress, and rich tradition.",
     price: 2000,
+    image: "/dining/drinks/beer-life.jpg",
     isSignature: false,
   },
   {
@@ -1242,70 +1304,7 @@ export const INITIAL_DINING_MENU = [
     type: "drinks",
     desc: "Bold, extra-filtered lager with firm bitterness and rich hop aroma for the ultimate experience.",
     price: 2000,
-    isSignature: false,
-  },
-
-  // ========================================================
-  // 9. DRINKS: SIGNATURE COCKTAILS & MOCKTAILS
-  // ========================================================
-  {
-    id: "drink-arabian-night-cocktail",
-    name: "Arabian Night Sky Cocktail",
-    category: "cocktails",
-    categoryLabel: "Signature Cocktails & Mocktails",
-    type: "drinks",
-    desc: "Blue Curaçao, premium French vodka, wild blackberry liqueur, splash of citrus tonic, and edible gold shimmer dust",
-    price: 9500,
-    isSignature: true,
-  },
-  {
-    id: "drink-doha-gold-martini",
-    name: "Doha Gold Leaf Martini",
-    category: "cocktails",
-    categoryLabel: "Signature Cocktails & Mocktails",
-    type: "drinks",
-    desc: "London dry gin, St. Germain elderflower liqueur, dry vermouth, twist of Meyer lemon, garnished with genuine 24-karat gold leaf",
-    price: 12000,
-    isSignature: true,
-  },
-  {
-    id: "drink-onitsha-sunset",
-    name: "Onitsha Sunset Rum Punch",
-    category: "cocktails",
-    categoryLabel: "Signature Cocktails & Mocktails",
-    type: "drinks",
-    desc: "Aged dark rum, fresh passion fruit nectar, lime juice, dash of Angostura bitters, layered over pomegranate syrup",
-    price: 8500,
-    isSignature: false,
-  },
-  {
-    id: "drink-long-island",
-    name: "Al-Sultan Classic Long Island",
-    category: "cocktails",
-    categoryLabel: "Signature Cocktails & Mocktails",
-    type: "drinks",
-    desc: "Tequila, vodka, white rum, triple sec, gin, fresh sweet-and-sour citrus mix, finished with chilled cola over crushed ice",
-    price: 9000,
-    isSignature: false,
-  },
-  {
-    id: "drink-dubai-oasis-mocktail",
-    name: "Virgin Dubai Oasis Mocktail",
-    category: "cocktails",
-    categoryLabel: "Signature Cocktails & Mocktails",
-    type: "drinks",
-    desc: "Fresh garden spearmint muddled with Key lime, organic agave, pomegranate arils, and sparkling San Pellegrino",
-    price: 6500,
-    isSignature: false,
-  },
-  {
-    id: "drink-zobo-royal-fizz",
-    name: "Royal Zobo Hibiscus Fizz (Mocktail)",
-    category: "cocktails",
-    categoryLabel: "Signature Cocktails & Mocktails",
-    type: "drinks",
-    desc: "Artisanal slow-brewed hibiscus flower infusion with ginger, cloves, citrus peel, and sparkling mineral water",
-    price: 5500,
+    image: "/dining/drinks/beer-gulder.jpg",
     isSignature: false,
   }
 ];

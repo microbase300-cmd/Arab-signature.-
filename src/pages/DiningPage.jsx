@@ -130,7 +130,6 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
     { id: 'spirits', label: 'Champagne, Cognac & Whiskey', icon: Wine },
     { id: 'wines', label: 'Fine Wines & Sparkling', icon: Sparkles },
     { id: 'beers', label: 'Beers & Refreshments (₦2,000)', icon: Beer },
-    { id: 'cocktails', label: 'Cocktails & Mocktails', icon: GlassWater },
   ];
 
   // Filtered menu
@@ -438,7 +437,12 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
 
                               {/* Top-left Pairing Status Badge */}
                               <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                                {needsProtein ? (
+                                {item.type === 'drinks' ? (
+                                  <span className="px-2.5 py-1 rounded-full bg-[#3a0618]/90 border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] font-mono font-bold uppercase tracking-wider shadow-lg flex items-center gap-1">
+                                    <Wine size={11} className="text-[#d4af37]" />
+                                    Chilled Bottle
+                                  </span>
+                                ) : needsProtein ? (
                                   <span className="px-2.5 py-1 rounded-full bg-amber-950/90 border border-amber-400/60 text-amber-200 text-[10px] font-mono font-bold uppercase tracking-wider shadow-lg flex items-center gap-1">
                                     <AlertCircle size={11} className="text-amber-400" />
                                     Requires Protein Pairing
@@ -466,7 +470,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                                   ₦{Number(item.price).toLocaleString()}
                                 </span>
                                 <span className="text-[9px] text-gray-300 font-mono block">
-                                  {needsProtein ? 'base portion' : 'per portion'}
+                                  {needsProtein ? 'base portion' : item.type === 'drinks' ? 'per bottle / can' : 'per portion'}
                                 </span>
                               </div>
                             </div>
