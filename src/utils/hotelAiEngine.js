@@ -138,13 +138,13 @@ export const hotelAiEngine = {
     return {
       isAvailabilityReport: true,
       availableCount: availableRooms.length,
-      text: `🏨 **Live Suite Availability (Nsugbe, Onitsha):**\n\n` +
+      text: `🏨 **Amira's Live Suite Availability Report (Nsugbe, Onitsha):**\n\n` +
             `Out of our **${rooms.length} total luxury rooms & suites**, we currently have **${availableRooms.length} suites** ready for immediate check-in:\n\n` +
             `• **Deluxe Doha Suite:** ${deluxeAvail > 0 ? `${deluxeAvail} available (${deluxeRate}/night)` : 'Fully Booked Tonight'}\n` +
             `• **Executive Arabian Suite:** ${execAvail > 0 ? `${execAvail} available (${execRate}/night)` : 'Fully Booked Tonight'}\n` +
             `• **Royal Diplomatic Penthouse:** ${royalAvail > 0 ? `${royalAvail} available (${royalRate}/night)` : 'Fully Booked Tonight'}\n` +
             `• **Standard Classic Room:** ${stdAvail > 0 ? `${stdAvail} available (${stdRate}/night)` : 'Fully Booked Tonight'}\n\n` +
-            `All bookings include complimentary gourmet breakfast, pool access, and 24/7 solar/CAT power guarantee. Would you like to reserve one right now?`,
+            `All bookings include complimentary gourmet breakfast, pool access, and 24/7 solar/CAT power guarantee. Would you like me to reserve one for you right now?`,
       suggestions: ["Reserve Deluxe Suite", "Reserve Executive Suite", "Reserve Penthouse", "Track My Booking"]
     };
   },
@@ -161,7 +161,7 @@ export const hotelAiEngine = {
 
     if (!userMessage || !userMessage.trim()) {
       return {
-        text: "Warm greetings from Arab Signature Hotel & Suites, Nsugbe. How may I assist your stay or reservation today?",
+        text: "Warm greetings from Arab Signature Hotel & Suites, Nsugbe. I am **Amira**, your Royal AI Concierge. How may I assist your stay or reservation today?",
         suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe", "Al-Sultan Dining Menu"]
       };
     }
@@ -226,20 +226,20 @@ export const hotelAiEngine = {
         };
 
         return {
-          text: `🛎️ Reservation Verified: **${matchedBooking.id}**\n\n` +
+          text: `🛎️ **Amira Reservation Verification (${matchedBooking.id}):**\n\n` +
                 `• **Registered Guest:** ${maskName(matchedBooking.guestName)}\n` +
                 `• **Suite Category:** ${matchedBooking.roomName}\n` +
                 `• **Stay Dates:** ${matchedBooking.checkIn} → ${matchedBooking.checkOut} (${matchedBooking.nights} Night${matchedBooking.nights > 1 ? 's' : ''})\n` +
                 `• **Reservation Status:** ${matchedBooking.status === 'Checked In' ? 'In Residence (Checked In)' : 'Confirmed & Guaranteed'}\n` +
                 `• **Settlement:** ${matchedBooking.paymentStatus === 'Paid' ? 'Paid & Verified (Paystack)' : 'Awaiting Settlement'}\n` +
                 `• **Contact on Record:** ${maskPhone(matchedBooking.phone)}\n\n` +
-                `🔐 *Security Policy:* For guest protection, physical room keys and digital card locks are issued exclusively at the front desk upon presenting matching government ID. We look forward to your arrival!`,
+                `🔐 *Security Policy:* For guest protection, physical room keys and digital card locks are issued exclusively at the front desk upon presenting matching government ID. We look forward to welcoming you!`,
           suggestions: ["Book Another Suite", "Directions to Nsugbe", "Chat with Front Desk on WhatsApp"]
         };
       } else {
         failedBookingLookupAttempts++;
         return {
-          text: `🔍 I could not locate a confirmed reservation under reference code **${codeToSearch}**. Please double-check your receipt code (e.g., ASH-7812) or contact our Front Desk Concierge at 0812 578 6875.`,
+          text: `🔍 I am **Amira**, your Royal AI Concierge — I could not locate a confirmed reservation under reference code **${codeToSearch}**. Please double-check your receipt code (e.g., ASH-7812) or contact our Front Desk Concierge at 0812 578 6875.`,
           suggestions: ["Check Available Suites", "Chat on WhatsApp"]
         };
       }
@@ -282,7 +282,7 @@ export const hotelAiEngine = {
       const rateSummary = rates.map(r => `• **${r.name}:** ${r.priceFormatted}/night — ${r.bed}, ${r.guests}`).join("\n");
 
       return {
-        text: `💎 **Current Live Suite Rates (Arab Signature Hotel & Suites):**\n\n` +
+        text: `💎 **Current Live Suite Rates — Prepared by Amira:**\n\n` +
               `${rateSummary}\n\n` +
               `*Note: Rates include VAT, high-speed Wi-Fi, 24/7 security, uninterrupted power, and morning breakfast buffet at Al-Sultan Restaurant.*`,
         suggestions: ["Check Available Suites", "Reserve a Suite Now", "Al-Sultan Dining Menu"]
@@ -330,14 +330,14 @@ export const hotelAiEngine = {
     // 6. GENERAL LUXURY CONCIERGE FALLBACK
     // ========================================================
       return {
-        text: `Thank you for contacting Arab Signature Hotel & Suites in Nsugbe, Onitsha. We are an ultra-luxury hospitality retreat offering 12 handcrafted Doha suites, Olympic-grade poolside cabanas, Al-Sultan gourmet dining, and 24/7 uninterrupted power.\n\n` +
-              `You can check suite availability, track an existing reservation code (e.g. ASH-7812), or ask me about our location and amenities. For urgent VIP assistance, our Front Desk Hotline is **0812 578 6875**.`,
+        text: `Warm greetings! I am **Amira**, the Royal AI Concierge at **Arab Signature Hotel & Suites** in Nsugbe, Onitsha. We are an ultra-luxury hospitality retreat offering 34 handcrafted rooms and Doha suites, Olympic-grade poolside cabanas, Al-Sultan gourmet dining, and 24/7 uninterrupted power.\n\n` +
+              `You can ask me to check suite availability, track an existing reservation code (e.g. ASH-7812), or inquire about our location and amenities. For direct human assistance, click the **WhatsApp** button above or call our Front Desk Hotline at **0812 578 6875**.`,
         suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe", "Al-Sultan Dining Menu"]
       };
     } catch (err) {
       console.error("hotelAiEngine processQuery error:", err);
       return {
-        text: "I am Arab Signature's AI Concierge. We currently have luxury suites available in Nsugbe, Onitsha. You can check live suite availability, track a booking reference code, or ask for directions.",
+        text: "I am **Amira**, Arab Signature's Royal AI Concierge. We currently have luxury suites available in Nsugbe, Onitsha. You can check live suite availability, track a booking reference code, or ask for directions.",
         suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe"]
       };
     }
