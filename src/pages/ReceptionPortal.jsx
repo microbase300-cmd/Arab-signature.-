@@ -1261,28 +1261,44 @@ export default function ReceptionPortal({ onNavigate }) {
                       key={item.id}
                       className="p-3.5 rounded-xl bg-black/50 border border-white/10 flex items-start justify-between gap-3"
                     >
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-xs text-white">
-                            {item.name}
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        {item.image && (
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-11 h-11 rounded-lg object-cover border border-[#d4af37]/40 flex-shrink-0 mt-0.5"
+                          />
+                        )}
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-xs text-white">
+                              {item.name}
+                            </span>
+                            <span className={`text-[8px] font-mono px-1.5 py-0.2 rounded-full uppercase ${item.type === 'drinks' ? 'bg-purple-950/70 text-purple-300' : 'bg-amber-950/70 text-amber-300'}`}>
+                              {item.type}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-gray-400 font-mono block">
+                            {item.categoryLabel}
                           </span>
-                          <span className={`text-[8px] font-mono px-1.5 py-0.2 rounded-full uppercase ${item.type === 'drinks' ? 'bg-purple-950/70 text-purple-300' : 'bg-amber-950/70 text-amber-300'}`}>
-                            {item.type}
-                          </span>
+                          {item.pairingNote && (
+                            <span className={`text-[10px] font-mono block ${item.requiresProtein ? 'text-amber-300' : 'text-emerald-300/80'}`}>
+                              {item.pairingNote}
+                            </span>
+                          )}
+                          <p className="text-[11px] text-gray-400 line-clamp-2">
+                            {item.desc}
+                          </p>
                         </div>
-                        <span className="text-[10px] text-gray-400 font-mono block">
-                          {item.categoryLabel}
-                        </span>
-                        <p className="text-[11px] text-gray-400 line-clamp-2">
-                          {item.desc}
-                        </p>
                       </div>
 
                       <div className="text-right flex-shrink-0">
                         <span className="font-mono text-sm font-bold text-[#d4af37]">
                           ₦{Number(item.price).toLocaleString()}
                         </span>
-                        <span className="text-[9px] text-gray-500 block">Current Price</span>
+                        <span className="text-[9px] text-gray-500 block">
+                          {item.requiresProtein ? 'Base Price' : 'Current Price'}
+                        </span>
                       </div>
                     </div>
                   ))}

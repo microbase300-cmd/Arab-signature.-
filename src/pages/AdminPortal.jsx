@@ -32,8 +32,8 @@ export default function AdminPortal({ onNavigate }) {
   const [isAddMenuItemOpen, setIsAddMenuItemOpen] = useState(false);
   const [newItemForm, setNewItemForm] = useState({
     name: '',
-    category: 'arabian',
-    categoryLabel: 'Arabian Specialties',
+    category: 'rice',
+    categoryLabel: 'Rice, Pasta & Sides',
     type: 'food',
     desc: '',
     price: '',
@@ -200,8 +200,10 @@ export default function AdminPortal({ onNavigate }) {
     }
 
     const categoryMap = {
-      arabian: "Arabian Specialties",
-      continental: "Continental & Local Delicacies",
+      rice: "Rice, Pasta & Sides",
+      soups: "Soups & Swallow",
+      proteins: "Proteins & Pepper Soup",
+      continental: "Continental & Breakfast",
       spirits: "Champagne & VIP Spirits",
       cocktails: "Signature Cocktails & Mocktails",
       beers: "Beer, Wine & Refreshments"
@@ -222,8 +224,8 @@ export default function AdminPortal({ onNavigate }) {
     setIsAddMenuItemOpen(false);
     setNewItemForm({
       name: '',
-      category: 'arabian',
-      categoryLabel: 'Arabian Specialties',
+      category: 'rice',
+      categoryLabel: 'Rice, Pasta & Sides',
       type: 'food',
       desc: '',
       price: '',
@@ -665,10 +667,12 @@ export default function AdminPortal({ onNavigate }) {
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
                 {[
                   { id: 'all', label: 'All Items' },
-                  { id: 'food', label: 'Food Only' },
+                  { id: 'food', label: 'All Food (25)' },
+                  { id: 'rice', label: 'Rice & Pasta' },
+                  { id: 'soups', label: 'Soups & Swallow' },
+                  { id: 'proteins', label: 'Proteins' },
+                  { id: 'continental', label: 'Continental' },
                   { id: 'drinks', label: 'Drinks Only' },
-                  { id: 'arabian', label: 'Arabian' },
-                  { id: 'continental', label: 'Continental/Local' },
                   { id: 'spirits', label: 'Champagne & Spirits' },
                   { id: 'cocktails', label: 'Cocktails' },
                   { id: 'beers', label: 'Beer & Wine' },
@@ -728,18 +732,32 @@ export default function AdminPortal({ onNavigate }) {
                       key={item.id}
                       className="p-4 sm:p-5 rounded-2xl bg-[#16030c] border border-white/10 hover:border-[#d4af37]/40 transition-all flex flex-col justify-between space-y-3.5 shadow-lg"
                     >
-                      <div className="space-y-1.5">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="space-y-0.5">
-                            <span className="text-[10px] font-mono uppercase tracking-wider text-[#d4af37]">
-                              {item.categoryLabel}
-                            </span>
-                            <h4 className="font-bold text-sm text-white line-clamp-1">
-                              {item.name}
-                            </h4>
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2.5">
+                          <div className="flex items-center gap-3 min-w-0">
+                            {item.image && (
+                              <img
+                                src={item.image}
+                                alt={item.name}
+                                className="w-12 h-12 rounded-xl object-cover border border-[#d4af37]/40 flex-shrink-0"
+                              />
+                            )}
+                            <div className="space-y-0.5 min-w-0">
+                              <span className="text-[10px] font-mono uppercase tracking-wider text-[#d4af37] block truncate">
+                                {item.categoryLabel}
+                              </span>
+                              <h4 className="font-bold text-sm text-white truncate">
+                                {item.name}
+                              </h4>
+                              {item.requiresProtein && (
+                                <span className="text-[9px] font-mono text-amber-300 block">
+                                  ⚠️ Pairs with Protein
+                                </span>
+                              )}
+                            </div>
                           </div>
 
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
                             <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full uppercase font-bold ${item.type === 'drinks' ? 'bg-purple-950/70 text-purple-300 border border-purple-500/30' : 'bg-amber-950/70 text-amber-300 border border-amber-500/30'}`}>
                               {item.type}
                             </span>
@@ -1304,8 +1322,10 @@ export default function AdminPortal({ onNavigate }) {
                     onChange={(e) => setNewItemForm({ ...newItemForm, category: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white focus:outline-none focus:border-[#d4af37]"
                   >
-                    <option value="arabian">Arabian Specialties</option>
-                    <option value="continental">Continental & Local Delicacies</option>
+                    <option value="rice">Rice, Pasta & Sides</option>
+                    <option value="soups">Soups & Swallow</option>
+                    <option value="proteins">Proteins & Pepper Soup</option>
+                    <option value="continental">Continental & Breakfast</option>
                     <option value="spirits">Champagne & VIP Spirits</option>
                     <option value="cocktails">Signature Cocktails & Mocktails</option>
                     <option value="beers">Beer, Wine & Refreshments</option>

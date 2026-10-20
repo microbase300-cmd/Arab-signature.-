@@ -99,8 +99,8 @@ export const CUSTOM_TRAINING_DATA = [
   {
     id: "restaurant-dining",
     category: "dining",
-    keywords: ["food", "eat", "restaurant", "menu", "dining", "dinner", "lunch", "breakfast", "al sultan", "drink", "bar"],
-    answer: "Our flagship Al-Sultan Restaurant serves gourmet continental delicacies, Middle Eastern specialties (shawarma, grilled lamb kofta, saffron rice), and authentic Nigerian luxury dishes (Ofe Owerri, Nkwobi, Fisherman soup, pepper soup). Complimentary morning buffet breakfast is included with all suite bookings."
+    keywords: ["food", "eat", "restaurant", "menu", "dining", "dinner", "lunch", "breakfast", "al sultan", "drink", "bar", "jollof", "fried rice", "soup", "egusi", "afang", "nsala", "oha", "turkey", "chicken", "catfish"],
+    answer: "Our flagship **Al-Sultan Restaurant** serves 25 freshly prepared Nigerian and Continental dishes grouped into:\n\n• **Rice, Pasta & Sides** *(Must pair with a Protein)*: Fried Rice (₦3,000), Jollof Rice (₦3,000), Basmati Rice (₦5,000), White Rice & Stew (₦4,000), Spaghetti (₦4,000), and Coleslaw Salad (₦2,000).\n• **Soups & Swallow** *(Must pair with a Protein & Semo)*: Egusi Soup (₦2,000), Bitterleaf Soup (₦2,000), Oha Soup (₦2,000), Afang Soup (₦4,000), Vegetable Soup (₦4,000), Okro Soup (₦4,000), Nsala Soup (₦4,000), and Semo Swallow (₦2,000).\n• **Proteins & Pepper Soup**: Turkey (₦6,000), Chicken (₦6,000), Goat Meat (₦6,000), Beef (₦5,000), Egg (₦2,000), and Whole Fresh Catfish Pepper Soup (₦25,000).\n• **Continental & Breakfast** *(Complete Meals)*: Chicken & Chips (₦8,000), Yam & Egg Sauce (₦6,000), Indomie Noodles (₦4,000), Custard, Bread & Egg (₦4,000), and Tea, Bread & Egg (₦4,000)."
   },
   {
     id: "room-service",
