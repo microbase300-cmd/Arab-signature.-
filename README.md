@@ -1,10 +1,10 @@
 # 🏨 Arab Signature Hotel & Suites — Luxury Official Website
 
-> **Digital Platform & Software Architecture: Built by Microbase**
+> **Digital Platform & Software Architecture: Built by [Microbase](https://kinggold-one.vercel.app)**
 
 A high-end, responsive multi-page website and direct suite booking system for **Arab Signature Hotel and Suites**, located in **Nsugbe, Onitsha, Anambra State, Nigeria**.
 
-Engineered and **Built by Microbase** using **React**, **Vite**, **Tailwind CSS**, and **Lucide React**.
+Engineered and **Built by [Microbase](https://kinggold-one.vercel.app)** using **React**, **Vite**, **Tailwind CSS**, and **Lucide React**.
 
 ---
 
@@ -96,8 +96,9 @@ All hotel data, room rates, and phone numbers are managed in:
 
 ## 💻 Development & Engineering Credits
 
-- **Platform Architecture & Development:** **Built by Microbase**
+- **Platform Architecture & Development:** **Built by [Microbase](https://kinggold-one.vercel.app)**
+- **Developer Website:** [https://kinggold-one.vercel.app](https://kinggold-one.vercel.app)
 - **Technology Stack:** React, Vite, Tailwind CSS, Local/Cloud Portal Synchronization
 - **Security & Portals:** Dual-Role Cryptographic Hash Protection (General Manager Admin & Front Desk Receptionist)
 - **Client:** Arab Signature Hotel and Suites, Nsugbe, Onitsha
-- **Copyright:** © 2026 Arab Signature Hotel and Suites. All rights reserved. Built by Microbase.
+- **Copyright:** © 2026 Arab Signature Hotel and Suites. All rights reserved. Built by [Microbase](https://kinggold-one.vercel.app).

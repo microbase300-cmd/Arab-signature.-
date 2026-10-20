@@ -1247,7 +1247,7 @@ export default function AdminPortal({ onNavigate }) {
         {/* Admin Operational Platform Footer Credit */}
         <footer className="mt-12 pt-6 pb-2 border-t border-white/10 text-center text-[11px] text-gray-500 space-y-1">
           <div>Arab Signature Hotel & Suites • Executive Operations Management System</div>
-          <div>Hospitality Software Infrastructure • <span className="text-[#d4af37] font-semibold">Built by Microbase</span></div>
+          <div>Hospitality Software Infrastructure • Built by <a href="https://kinggold-one.vercel.app" target="_blank" rel="noopener noreferrer" className="text-[#d4af37] hover:text-[#f3e5ab] font-semibold underline underline-offset-2 transition-colors">Microbase</a></div>
         </footer>
 
       </div>

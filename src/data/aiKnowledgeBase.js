@@ -120,6 +120,6 @@ export const CUSTOM_TRAINING_DATA = [
     id: "built-by-microbase",
     category: "technology",
     keywords: ["who built", "developer", "built by", "microbase", "who created", "who made", "website creator", "software company", "agency"],
-    answer: "The official Arab Signature Hotel & Suites digital web platform, online reservation engine, and operations management software was engineered and built by Microbase."
+    answer: "The official Arab Signature Hotel & Suites digital web platform, online reservation engine, and operations management software was engineered and built by Microbase (https://kinggold-one.vercel.app)."
   }
 ];

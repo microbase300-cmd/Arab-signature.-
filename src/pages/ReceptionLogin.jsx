@@ -163,7 +163,7 @@ export default function ReceptionLogin({ onNavigate }) {
 
       <div className="relative z-10 text-center mt-6 text-[11px] text-gray-500 space-y-1">
         <div>Arab Signature Hotel & Suites • Front Desk Terminal</div>
-        <div>Hospitality Software • <span className="text-[#d4af37] font-semibold">Built by Microbase</span></div>
+        <div>Hospitality Software • Built by <a href="https://kinggold-one.vercel.app" target="_blank" rel="noopener noreferrer" className="text-[#d4af37] hover:text-[#f3e5ab] font-semibold underline underline-offset-2 transition-colors">Microbase</a></div>
       </div>
 
     </div>
