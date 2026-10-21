@@ -9,7 +9,9 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
   const goldGradient = 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black';
   
   const [menuItems, setMenuItems] = useState([]);
-  const [activeCategory, setActiveCategory] = useState('all');
+  const [activeMainCategory, setActiveMainCategory] = useState('food'); // 'food' | 'drinks'
+  const [activeFoodSubcategory, setActiveFoodSubcategory] = useState('all');
+  const [activeDrinksSubcategory, setActiveDrinksSubcategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   // Track multi-protein selections & quantities per dish ID: { [dishId]: { [protId]: count } }
   const [selectedPairings, setSelectedPairings] = useState({});
@@ -120,29 +122,47 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
     });
   };
 
-  const categories = [
-    { id: 'all', label: 'All Selections', icon: Utensils },
+  const foodSubcategories = [
+    { id: 'all', label: 'All Food', icon: Utensils },
     { id: 'rice', label: 'Rice, Pasta & Sides', icon: Utensils },
     { id: 'soups', label: 'Traditional Soups', icon: Soup },
     { id: 'swallow', label: 'Swallow (Garri & Semo)', icon: CircleDot },
     { id: 'proteins', label: 'Proteins & Pepper Soup', icon: Drumstick },
     { id: 'continental', label: 'Continental & Breakfast', icon: Coffee },
+  ];
+
+  const drinksSubcategories = [
+    { id: 'all', label: 'All Drinks', icon: Wine },
     { id: 'spirits', label: 'Champagne, Cognac & Whiskey', icon: Wine },
     { id: 'wines', label: 'Fine Wines & Sparkling', icon: Sparkles },
     { id: 'beers', label: 'Beers & Refreshments (₦2,000)', icon: Beer },
   ];
 
+  const foodCount = menuItems.filter((i) => i.type === 'food').length;
+  const drinksCount = menuItems.filter((i) => i.type === 'drinks').length;
+
+  const getSubcategoryCount = (catId, mainType) => {
+    if (catId === 'all') {
+      return menuItems.filter((i) => i.type === mainType).length;
+    }
+    return menuItems.filter((i) => i.type === mainType && i.category === catId).length;
+  };
+
+  const currentSubcategory =
+    activeMainCategory === 'food' ? activeFoodSubcategory : activeDrinksSubcategory;
+
   // Filtered menu
   const filteredItems = menuItems.filter((item) => {
-    const matchesCategory =
-      activeCategory === 'all'
-        ? true
-        : activeCategory === 'food'
-        ? item.type === 'food'
-        : activeCategory === 'drinks'
-        ? item.type === 'drinks'
-        : item.category === activeCategory;
+    // 1. Must match active main category ('food' vs 'drinks')
+    if (item.type !== activeMainCategory) {
+      return false;
+    }
 
+    // 2. Must match active subcategory
+    const matchesSubcategory =
+      currentSubcategory === 'all' ? true : item.category === currentSubcategory;
+
+    // 3. Search query
     const matchesSearch =
       searchQuery.trim() === ''
         ? true
@@ -150,8 +170,22 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
           item.desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
           (item.categoryLabel && item.categoryLabel.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    return matchesCategory && matchesSearch;
+    return matchesSubcategory && matchesSearch;
   });
+
+  // Calculate if search query matches items in the other main category
+  const otherMainCategory = activeMainCategory === 'food' ? 'drinks' : 'food';
+  const otherCategoryName = activeMainCategory === 'food' ? 'Drinks & Wine' : 'Food Menu';
+
+  const matchesInOtherCategory = searchQuery.trim()
+    ? menuItems.filter(
+        (item) =>
+          item.type === otherMainCategory &&
+          (item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (item.categoryLabel && item.categoryLabel.toLowerCase().includes(searchQuery.toLowerCase())))
+      ).length
+    : 0;
 
   // Group by categoryLabel for structured presentation
   const groupedCategories = {};
@@ -184,13 +218,30 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
           </p>
 
           <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
-            <a
-              href="#menu-section"
+            <button
+              onClick={() => {
+                setActiveMainCategory('food');
+                setActiveFoodSubcategory('all');
+                document.getElementById('menu-section')?.scrollIntoView({ behavior: 'smooth' });
+              }}
               className={`px-7 py-3 rounded-xl ${goldGradient} font-bold text-xs uppercase tracking-wider shadow-lg inline-flex items-center gap-2`}
             >
-              <span>Explore Food & Drink Menu</span>
-              <ChevronRight size={15} />
-            </a>
+              <Utensils size={14} />
+              <span>Explore Food Menu</span>
+              <ChevronRight size={14} />
+            </button>
+            <button
+              onClick={() => {
+                setActiveMainCategory('drinks');
+                setActiveDrinksSubcategory('all');
+                document.getElementById('menu-section')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-7 py-3 rounded-xl bg-[#5c0725]/60 hover:bg-[#5c0725] text-[#f3e5ab] font-bold text-xs uppercase tracking-wider border border-[#d4af37]/40 shadow-lg inline-flex items-center gap-2 transition-all"
+            >
+              <Wine size={14} />
+              <span>Explore Drinks & Wine</span>
+              <ChevronRight size={14} />
+            </button>
             <button
               onClick={() => onOpenBooking('deluxe')}
               className="px-7 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs uppercase tracking-wider border border-white/20 transition-all"
@@ -271,7 +322,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
           <div className="relative w-full md:w-80">
             <input
               type="text"
-              placeholder="Search Jollof, Egusi, Turkey, Catfish..."
+              placeholder={activeMainCategory === 'food' ? "Search Jollof, Egusi, Turkey, Catfish..." : "Search Hennessy, Moët, Heineken, Star..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-[#1c040e] border border-[#d4af37]/40 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37] shadow-xl"
@@ -288,67 +339,83 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
           </div>
         </div>
 
-        {/* IMPORTANT PAIRING POLICY GUIDE BANNER */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#2c0515] via-[#1c040e] to-[#250311] border border-[#d4af37]/45 shadow-xl">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-[#d4af37]/20 border border-[#d4af37]/50 flex items-center justify-center flex-shrink-0 text-[#f3e5ab] mt-0.5">
-                <AlertCircle size={20} />
-              </div>
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-cinzel text-sm sm:text-base font-bold text-[#f3e5ab]">
-                    Kitchen Serving & Multi-Protein Pairing Guide
-                  </h3>
-                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[10px] font-mono uppercase">
-                    Important Notice
-                  </span>
-                </div>
-                <p className="text-xs text-gray-300 leading-relaxed max-w-3xl">
-                  <strong className="text-white">Rice, Spaghetti & Traditional Soups are base prices only and are not served alone.</strong> Guests ordering any Rice, Spaghetti, or Soup dish must pair it with <strong className="text-[#f3e5ab]">1 or more Proteins</strong> (you can combine multiple proteins like <em className="text-gray-200">Turkey + Chicken</em> or <em className="text-gray-200">2x Goat Meat + Beef</em>), and for Soups choose either <strong className="text-[#f3e5ab]">Semo or Garri</strong> swallow.
-                </p>
-              </div>
-            </div>
+        {/* 1. MASTER TWO-CATEGORY SELECTOR: FOOD vs DRINKS */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#18030d] p-2 sm:p-2.5 rounded-2xl border border-[#d4af37]/35 shadow-2xl">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => {
+                setActiveMainCategory('food');
+                setActiveFoodSubcategory('all');
+              }}
+              className={`flex-1 sm:flex-initial px-6 sm:px-8 py-3.5 rounded-xl font-cinzel text-sm sm:text-base font-bold tracking-wide transition-all flex items-center justify-center gap-2.5 border ${
+                activeMainCategory === 'food'
+                  ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black border-[#d4af37] shadow-lg shadow-[#d4af37]/25 font-extrabold'
+                  : 'bg-black/40 text-gray-300 hover:text-white hover:bg-white/5 border-white/10'
+              }`}
+            >
+              <Utensils size={18} />
+              <span>Food</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-mono font-bold ${
+                activeMainCategory === 'food' ? 'bg-black/20 text-black' : 'bg-white/10 text-gray-400'
+              }`}>
+                {foodCount}
+              </span>
+            </button>
 
-            <div className="flex flex-wrap gap-2 lg:flex-shrink-0">
-              {proteinAddons.map((prot) => (
-                <div
-                  key={prot.id}
-                  className="px-3 py-1.5 rounded-xl bg-black/50 border border-[#d4af37]/30 text-[11px] font-mono flex items-center gap-1.5"
-                >
-                  <Drumstick size={11} className="text-[#d4af37]" />
-                  <span className="text-gray-200">{prot.name}:</span>
-                  <span className="text-[#f3e5ab] font-bold">₦{Number(prot.price).toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
+            <button
+              onClick={() => {
+                setActiveMainCategory('drinks');
+                setActiveDrinksSubcategory('all');
+              }}
+              className={`flex-1 sm:flex-initial px-6 sm:px-8 py-3.5 rounded-xl font-cinzel text-sm sm:text-base font-bold tracking-wide transition-all flex items-center justify-center gap-2.5 border ${
+                activeMainCategory === 'drinks'
+                  ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black border-[#d4af37] shadow-lg shadow-[#d4af37]/25 font-extrabold'
+                  : 'bg-black/40 text-gray-300 hover:text-white hover:bg-white/5 border-white/10'
+              }`}
+            >
+              <Wine size={18} />
+              <span>Drinks</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-mono font-bold ${
+                activeMainCategory === 'drinks' ? 'bg-black/20 text-black' : 'bg-white/10 text-gray-400'
+              }`}>
+                {drinksCount}
+              </span>
+            </button>
+          </div>
+
+          <div className="text-[11px] font-mono text-gray-400 px-3.5 py-1.5 rounded-xl bg-black/40 border border-white/10 hidden md:block">
+            Active Section: <span className="text-[#f3e5ab] font-bold">{activeMainCategory === 'food' ? 'Kitchen Delicacies & Soups' : 'Chilled Bottle Service & Cellar'}</span>
           </div>
         </div>
 
-        {/* Category Filter Pills */}
+        {/* 2. SUB-CATEGORY FILTER PILLS */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-          {categories.map((cat) => {
+          {(activeMainCategory === 'food' ? foodSubcategories : drinksSubcategories).map((cat) => {
             const Icon = cat.icon;
-            const count = menuItems.filter((i) => {
-              if (cat.id === 'all') return true;
-              if (cat.id === 'food') return i.type === 'food';
-              if (cat.id === 'drinks') return i.type === 'drinks';
-              return i.category === cat.id;
-            }).length;
+            const isSelected = (activeMainCategory === 'food' ? activeFoodSubcategory : activeDrinksSubcategory) === cat.id;
+            const count = getSubcategoryCount(cat.id, activeMainCategory);
 
             return (
               <button
                 key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
+                onClick={() => {
+                  if (activeMainCategory === 'food') {
+                    setActiveFoodSubcategory(cat.id);
+                  } else {
+                    setActiveDrinksSubcategory(cat.id);
+                  }
+                }}
                 className={`px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 border ${
-                  activeCategory === cat.id
-                    ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black border-[#d4af37] shadow-lg shadow-[#d4af37]/20'
+                  isSelected
+                    ? 'bg-[#5c0725] text-[#f3e5ab] border-[#d4af37] shadow-lg shadow-[#d4af37]/20 font-bold'
                     : 'bg-[#16030c] text-gray-300 hover:text-white border-white/10 hover:border-white/20'
                 }`}
               >
-                <Icon size={13} />
+                <Icon size={13} className={isSelected ? 'text-[#d4af37]' : 'text-gray-400'} />
                 <span>{cat.label}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeCategory === cat.id ? 'bg-black/20 text-black' : 'bg-white/10 text-gray-400'}`}>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                  isSelected ? 'bg-black/40 text-[#f3e5ab]' : 'bg-white/10 text-gray-400'
+                }`}>
                   {count}
                 </span>
               </button>
@@ -356,18 +423,125 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
           })}
         </div>
 
+        {/* 3. CONTEXTUAL POLICY / INFO BANNER */}
+        {activeMainCategory === 'food' ? (
+          <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#2c0515] via-[#1c040e] to-[#250311] border border-[#d4af37]/45 shadow-xl">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-[#d4af37]/20 border border-[#d4af37]/50 flex items-center justify-center flex-shrink-0 text-[#f3e5ab] mt-0.5">
+                  <AlertCircle size={20} />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-cinzel text-sm sm:text-base font-bold text-[#f3e5ab]">
+                      Kitchen Serving & Multi-Protein Pairing Guide
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[10px] font-mono uppercase">
+                      Important Notice
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed max-w-3xl">
+                    <strong className="text-white">Rice, Spaghetti & Traditional Soups are base prices only and are not served alone.</strong> Guests ordering any Rice, Spaghetti, or Soup dish must pair it with <strong className="text-[#f3e5ab]">1 or more Proteins</strong> (you can combine multiple proteins like <em className="text-gray-200">Turkey + Chicken</em> or <em className="text-gray-200">2x Goat Meat + Beef</em>), and for Soups choose either <strong className="text-[#f3e5ab]">Semo or Garri</strong> swallow.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 lg:flex-shrink-0">
+                {proteinAddons.map((prot) => (
+                  <div
+                    key={prot.id}
+                    className="px-3 py-1.5 rounded-xl bg-black/50 border border-[#d4af37]/30 text-[11px] font-mono flex items-center gap-1.5"
+                  >
+                    <Drumstick size={11} className="text-[#d4af37]" />
+                    <span className="text-gray-200">{prot.name}:</span>
+                    <span className="text-[#f3e5ab] font-bold">₦{Number(prot.price).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#2c0515] via-[#1c040e] to-[#250311] border border-[#d4af37]/45 shadow-xl">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-[#d4af37]/20 border border-[#d4af37]/50 flex items-center justify-center flex-shrink-0 text-[#f3e5ab] mt-0.5">
+                  <Wine size={20} />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-cinzel text-sm sm:text-base font-bold text-[#f3e5ab]">
+                      VIP Bottle Service & Executive Cellar
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#f3e5ab] text-[10px] font-mono uppercase">
+                      63 Curated Labels
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed max-w-3xl">
+                    Enjoy chilled VIP bottle service served tableside, at our Executive Bar Lounge, poolside, or delivered directly to your luxury suite. All beers, stouts, and energy refreshments are flat <strong className="text-[#f3e5ab]">₦2,000</strong>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 lg:flex-shrink-0">
+                <div className="px-3 py-1.5 rounded-xl bg-black/50 border border-[#d4af37]/30 text-[11px] font-mono flex items-center gap-1.5">
+                  <Wine size={12} className="text-[#d4af37]" />
+                  <span className="text-gray-200">Spirits & Cognac:</span>
+                  <span className="text-[#f3e5ab] font-bold">19 Labels</span>
+                </div>
+                <div className="px-3 py-1.5 rounded-xl bg-black/50 border border-[#d4af37]/30 text-[11px] font-mono flex items-center gap-1.5">
+                  <Sparkles size={12} className="text-[#d4af37]" />
+                  <span className="text-gray-200">Fine Wines:</span>
+                  <span className="text-[#f3e5ab] font-bold">22 Labels</span>
+                </div>
+                <div className="px-3 py-1.5 rounded-xl bg-black/50 border border-emerald-400/40 text-[11px] font-mono flex items-center gap-1.5">
+                  <Beer size={12} className="text-emerald-400" />
+                  <span className="text-gray-200">All Beers & Refreshments:</span>
+                  <span className="text-emerald-300 font-bold">₦2,000 Flat</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Menu Cards Display */}
         {Object.keys(groupedCategories).length === 0 ? (
-          <div className="text-center py-16 p-8 rounded-3xl bg-[#16030c] border border-white/10 space-y-3">
+          <div className="text-center py-16 p-8 rounded-3xl bg-[#16030c] border border-white/10 space-y-4">
             <Utensils size={32} className="text-[#d4af37] mx-auto opacity-60" />
             <h4 className="font-cinzel text-lg font-bold text-white">No items found matching "{searchQuery}"</h4>
-            <p className="text-xs text-gray-400">Try searching for "Jollof", "Egusi", "Nsala", "Turkey", "Catfish", or choose another category.</p>
-            <button
-              onClick={() => { setSearchQuery(''); setActiveCategory('all'); }}
-              className="mt-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs text-[#f3e5ab] font-bold"
-            >
-              Reset Filters
-            </button>
+            {matchesInOtherCategory > 0 ? (
+              <div className="space-y-3">
+                <p className="text-xs text-amber-200">
+                  Looking for {otherCategoryName.toLowerCase()}? We found <strong>{matchesInOtherCategory}</strong> matching item(s) in <strong>{otherCategoryName}</strong>.
+                </p>
+                <button
+                  onClick={() => {
+                    setActiveMainCategory(otherMainCategory);
+                    if (otherMainCategory === 'food') setActiveFoodSubcategory('all');
+                    else setActiveDrinksSubcategory('all');
+                  }}
+                  className={`px-5 py-2.5 rounded-xl ${goldGradient} text-xs font-bold uppercase tracking-wider inline-flex items-center gap-2 shadow-lg`}
+                >
+                  <span>Switch to {otherCategoryName}</span>
+                  <ArrowRight size={14} />
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">
+                Try searching for {activeMainCategory === 'food' ? '"Jollof", "Egusi", "Nsala", "Turkey", or "Catfish"' : '"Hennessy", "Moët", "Heineken", or "Star"'}, or choose another subcategory.
+              </p>
+            )}
+            <div>
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  if (activeMainCategory === 'food') setActiveFoodSubcategory('all');
+                  else setActiveDrinksSubcategory('all');
+                }}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs text-[#f3e5ab] font-bold"
+              >
+                Reset Filters
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-14">
