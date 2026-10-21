@@ -8,7 +8,7 @@ const STORAGE_KEYS = {
   BOOKINGS: 'ash_portal_bookings',
   ROOMS: 'ash_portal_rooms_inventory_v6',
   ROOM_RATES: 'ash_portal_room_rates_v2',
-  DINING_MENU: 'ash_portal_dining_menu_v3',
+  DINING_MENU: 'ash_portal_dining_menu_v4',
   HOTEL_CONFIG: 'ash_portal_hotel_config',
   ACTIVITY_LOG: 'ash_portal_activity_log',
 };
