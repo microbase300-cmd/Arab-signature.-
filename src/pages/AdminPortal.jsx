@@ -678,6 +678,9 @@ export default function AdminPortal({ onNavigate }) {
                   { id: 'spirits', label: 'Cognac & Whiskey' },
                   { id: 'wines', label: 'Fine Wines & Champagne' },
                   { id: 'beers', label: 'Beers (₦2,000)' },
+                  { id: 'softdrinks', label: 'Soft Drinks & Malts' },
+                  { id: 'energy', label: 'Energy Drinks' },
+                  { id: 'juices', label: 'Juices & Dairy' },
                 ].map((cat) => (
                   <button
                     key={cat.id}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Utensils, Wine, Sparkles, Search, 
-  GlassWater, Beer, MessageSquare, ChevronRight, AlertCircle, CheckCircle2, Soup, Drumstick, Coffee, ArrowRight, Plus, Minus, CircleDot
+  GlassWater, Beer, MessageSquare, ChevronRight, AlertCircle, CheckCircle2, Soup, Drumstick, Coffee, ArrowRight, Plus, Minus, CircleDot, Zap
 } from 'lucide-react';
 import { portalStore } from '../data/portalStore';
 
@@ -136,6 +136,9 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
     { id: 'spirits', label: 'Champagne, Cognac & Whiskey', icon: Wine },
     { id: 'wines', label: 'Fine Wines & Sparkling', icon: Sparkles },
     { id: 'beers', label: 'Beers & Refreshments (₦2,000)', icon: Beer },
+    { id: 'softdrinks', label: 'Soft Drinks & Malts (₦1,000 - ₦1,500)', icon: Coffee },
+    { id: 'energy', label: 'Energy Drinks (₦1,000 - ₦3,000)', icon: Zap },
+    { id: 'juices', label: 'Juices & Dairy (₦3,000 - ₦4,000)', icon: GlassWater },
   ];
 
   const foodCount = menuItems.filter((i) => i.type === 'food').length;
