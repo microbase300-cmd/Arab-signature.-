@@ -964,7 +964,7 @@ export const INITIAL_DINING_MENU = [
   },
   {
     id: "drink-angelus-wine",
-    name: "Angelus Fine Table Wine",
+    name: "D' Angelus Fine Table Wine",
     category: "wines",
     categoryLabel: "Fine Wines & Sparkling",
     type: "drinks",
@@ -1041,7 +1041,7 @@ export const INITIAL_DINING_MENU = [
   },
   {
     id: "drink-reseau",
-    name: "Reseau Fine Dinner Wine",
+    name: "Roseau Fine Dinner Wine",
     category: "wines",
     categoryLabel: "Fine Wines & Sparkling",
     type: "drinks",
