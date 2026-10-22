@@ -7,18 +7,16 @@ import {
   Calendar, 
   ArrowRight, 
   Flame, 
-  Percent, 
-  Check, 
-  Clock, 
+  Wine, 
   CheckCircle2, 
-  VolumeX, 
-  RefreshCw 
+  RefreshCw, 
+  GlassWater 
 } from 'lucide-react';
 import { HOTEL_INFO } from '../data/hotelData';
 
-// --- CURATED POOLS FOR DYNAMIC PROMO GENERATION ---
-
-// 1. Base Foods (Rice, Pasta & Traditional Soups)
+// ============================================================================
+// 1. KITCHEN POOL (Base Foods + Proteins for Culinary Pairings)
+// ============================================================================
 const BASE_FOODS = [
   {
     name: "Smoky Party Jollof Rice",
@@ -78,7 +76,6 @@ const BASE_FOODS = [
   }
 ];
 
-// 2. Proteins for Pairing
 const PROTEINS = [
   {
     name: "Crisp Peppered Turkey",
@@ -112,7 +109,119 @@ const PROTEINS = [
   }
 ];
 
-// 3. Arab Suites & Upcoming Events
+// ============================================================================
+// 2. DRINKS POOL (Al-Sultan Bar, Cellar & Lounge Spotlights)
+// ============================================================================
+const DRINKS_PROMOS = [
+  {
+    id: "wine-angelus",
+    name: "D' Angelus Fine Table Wine",
+    category: "Fine Table Wine",
+    price: 15000,
+    promoPrice: 13500,
+    savings: 1500,
+    discountPercent: 10,
+    image: "/dining/drinks/drink-angelus-wine.jpg",
+    desc: "Rich full-bodied red table wine with ripe dark berries, subtle spice, and smooth oak finish. Served chilled with crystal stemware.",
+    tag: "Lounge Wine of the Week",
+    serving: "Chilled Bottle + Ice Bucket & Stemware"
+  },
+  {
+    id: "wine-reseau",
+    name: "Roseau Fine Dinner Wine",
+    category: "Fine Dinner Wine",
+    price: 15000,
+    promoPrice: 13500,
+    savings: 1500,
+    discountPercent: 10,
+    image: "/dining/drinks/drink-reseau.jpg",
+    desc: "Meticulously selected vintage red wine. The perfect pairing for grilled turkey, peppered beef, and traditional soups.",
+    tag: "Sommelier's Dinner Selection",
+    serving: "Served at Ideal Cellar Temperature (16°C)"
+  },
+  {
+    id: "champagne-belaire",
+    name: "Belaire Rare Rosé / Luxe French Sparkling",
+    category: "Luxury French Sparkling",
+    price: 65000,
+    promoPrice: 58000,
+    savings: 7000,
+    discountPercent: 11,
+    image: "/dining/drinks/drink-belaire.jpg",
+    desc: "Iconic French sparkling wine crafted with fresh strawberry and blackcurrant notes. Luminescent bottle for VIP celebration.",
+    tag: "VIP Celebration Bottle",
+    serving: "Ice Bucket Setup with Flute Glasses"
+  },
+  {
+    id: "cognac-hennessy",
+    name: "Hennessy VS Cognac",
+    category: "Prestige French Cognac",
+    price: 70000,
+    promoPrice: 63000,
+    savings: 7000,
+    discountPercent: 10,
+    image: "/dining/drinks/drink-hennessy-vs.jpg",
+    desc: "World-renowned cognac boasting bold aromas of toasted oak, almond, and vanilla. Served with choice of chilled mixer.",
+    tag: "Executive Bar Special",
+    serving: "Served with Rock Ice & Premium Mixer"
+  },
+  {
+    id: "whiskey-honey",
+    name: "American Honey Bourbon Liqueur",
+    category: "Smooth Bourbon Liqueur",
+    price: 30000,
+    promoPrice: 26500,
+    savings: 3500,
+    discountPercent: 12,
+    image: "/dining/drinks/drink-american-honey.jpg",
+    desc: "Deep, smooth blend of pure honey and Kentucky bourbon whiskey. Incredibly refreshing served over crystal rocks.",
+    tag: "Poolside Lounge Favorite",
+    serving: "Served On The Rocks with Citrus Slice"
+  },
+  {
+    id: "beer-budweiser-royal",
+    name: "Budweiser Royal Reserve / Smooth (Black Bottle)",
+    category: "Royal Cold-Filtered Beer",
+    price: 2000,
+    promoPrice: 1800,
+    savings: 200,
+    discountPercent: 10,
+    image: "/dining/drinks/beer-budweiser-royal.jpg",
+    desc: "Signature black bottle cold-filtered smooth beer. Crisp, bold, and served straight from the sub-zero cooler.",
+    tag: "Al-Sultan Ice-Cold Bucket Special",
+    serving: "Sub-Zero Chilled Bottle (or 5 for ₦9,000)"
+  },
+  {
+    id: "sparkling-chamdor",
+    name: "Chamdor Sparkling Non-Alcoholic Wine",
+    category: "Sparkling Celebration (Non-Alcoholic)",
+    price: 10000,
+    promoPrice: 9000,
+    savings: 1000,
+    discountPercent: 10,
+    image: "/dining/drinks/drink-chamdor.jpg",
+    desc: "100% pure sparkling natural grape juice with a delicate effervescence. Perfect for halal dining and family celebrations.",
+    tag: "Signature Non-Alcoholic Toast",
+    serving: "Chilled Flute Glass Presentation"
+  },
+  {
+    id: "energy-bullet",
+    name: "Bullet Energy & Premium Vitality Boosters",
+    category: "Energy & Mixers",
+    price: 3000,
+    promoPrice: 2500,
+    savings: 500,
+    discountPercent: 17,
+    image: "/dining/drinks/energy-bullet.jpg",
+    desc: "Revitalizing taurine and guarana energy drink chilled to 4°C. Perfect refreshment for poolside relaxation.",
+    tag: "Vitality Boost",
+    serving: "Ice-Cold Can with Lime Garnish"
+  }
+];
+
+// ============================================================================
+// 3. HOTEL SUITES POOL (Arab Suites & Upcoming Events)
+// ============================================================================
 const SUITE_EVENT_PROMOS = [
   {
     id: "poolside-night",
@@ -176,23 +285,26 @@ const SUITE_EVENT_PROMOS = [
   }
 ];
 
+// ============================================================================
+// MAIN COMPONENT: PromoPopupModal
+// ============================================================================
 export default function PromoPopupModal({
   onNavigate,
   onOpenBooking,
-  isBlocked = false // Set to true if booking modal is open or staff portal active
+  isBlocked = false // Blocked if booking modal is open or staff portal active
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [promoType, setPromoType] = useState('food'); // 'food' or 'suite'
+  const [promoType, setPromoType] = useState('kitchen'); // 'kitchen', 'drinks', or 'suite'
   const [foodPromo, setFoodPromo] = useState(null);
+  const [drinksPromo, setDrinksPromo] = useState(null);
   const [suitePromo, setSuitePromo] = useState(null);
   const [dontShowToday, setDontShowToday] = useState(false);
 
-  // Helper to generate a random food combo
+  // Helper: Generate random kitchen combo (Food + Protein)
   const generateRandomFoodCombo = () => {
     const randomFood = BASE_FOODS[Math.floor(Math.random() * BASE_FOODS.length)];
     const randomProtein = PROTEINS[Math.floor(Math.random() * PROTEINS.length)];
     const originalTotal = randomFood.price + randomProtein.price;
-    // 15% discount rounded to nearest 500
     const promoPrice = Math.max(3500, Math.round((originalTotal * 0.85) / 500) * 500);
     const savings = originalTotal - promoPrice;
     const discountPercent = Math.round(((originalTotal - promoPrice) / originalTotal) * 100);
@@ -207,56 +319,87 @@ export default function PromoPopupModal({
     };
   };
 
-  // Helper to pick a random suite event promo
+  // Helper: Pick random drinks spotlight
+  const generateRandomDrinksPromo = () => {
+    return DRINKS_PROMOS[Math.floor(Math.random() * DRINKS_PROMOS.length)];
+  };
+
+  // Helper: Pick random suite & event promo
   const generateRandomSuitePromo = () => {
     return SUITE_EVENT_PROMOS[Math.floor(Math.random() * SUITE_EVENT_PROMOS.length)];
   };
 
   useEffect(() => {
-    // 1. Anti-frustration checks: check localStorage and sessionStorage
     if (typeof window === 'undefined') return;
 
-    // Check if user chose "Don't show again today"
+    // 1. User mute check ("Don't show again today")
     const dismissedUntil = localStorage.getItem('ash_promo_dismissed_until');
     if (dismissedUntil && Date.now() < Number(dismissedUntil)) {
-      return; // Suppressed for 24h
-    }
-
-    // Check cooldown (15 minutes between popups across visits)
-    const cooldownUntil = localStorage.getItem('ash_promo_cooldown_until');
-    if (cooldownUntil && Date.now() < Number(cooldownUntil)) {
-      return; // In active cooldown
-    }
-
-    // Check session: only show ONCE per tab session unless cooldown expires
-    const shownThisSession = sessionStorage.getItem('ash_promo_shown_session');
-    if (shownThisSession) {
       return;
     }
 
-    // If externally blocked (e.g., booking modal open or portal page), don't trigger
+    // 2. Refresh Counter & Frequency Rule:
+    // "in every 5 refresh it should show 2 times"
+    // Use sessionStorage to ensure reload is counted once per page load cycle
+    const sessionReloadCounted = sessionStorage.getItem('ash_reload_counted_this_load');
+    let currentRefreshCount = Number(localStorage.getItem('ash_refresh_count') || 0);
+
+    if (!sessionReloadCounted) {
+      currentRefreshCount += 1;
+      localStorage.setItem('ash_refresh_count', String(currentRefreshCount));
+      sessionStorage.setItem('ash_reload_counted_this_load', 'true');
+    }
+
+    // Modulo 5: index 0 to 4
+    // Shows on index 0 (1st refresh) and index 2 (3rd refresh) -> Exactly 2 times out of 5 refreshes!
+    // Skips on index 1, 3, and 4 -> 3 times out of 5 are silent!
+    const cycleIndex = (currentRefreshCount - 1) % 5;
+    const shouldShowThisRefresh = (cycleIndex === 0 || cycleIndex === 2);
+
+    if (!shouldShowThisRefresh) {
+      return; // Skip this refresh
+    }
+
+    // If popup already showed once on this specific page load, don't repeat
+    if (sessionStorage.getItem('ash_promo_shown_this_load')) {
+      return;
+    }
+
+    // Don't trigger if externally blocked (booking modal open or staff portal)
     if (isBlocked) return;
 
-    // 2. Random delay between 5.5 and 7.5 seconds after page load
-    const randomDelay = Math.floor(Math.random() * 2000) + 5500; // 5500ms to 7500ms
+    // 3. Category Rotation Rule:
+    // "in every 5 times it shows 1 should be hotel suites and 2 for kitchecn and 2 for drinks"
+    // 5-item rotation: ['kitchen', 'drinks', 'suite', 'kitchen', 'drinks']
+    // In this 5-show sequence:
+    //   - kitchen: 2 times (index 0, 3)
+    //   - drinks: 2 times (index 1, 4)
+    //   - suite: 1 time (index 2)
+    const PROMO_ROTATION = ['kitchen', 'drinks', 'suite', 'kitchen', 'drinks'];
+    const currentShownCount = Number(localStorage.getItem('ash_promo_shown_count') || 0);
+    const chosenType = PROMO_ROTATION[currentShownCount % 5];
+
+    // 4. Timing Rule:
+    // Wait between 5 and 8 seconds after page load before displaying (organic non-intrusive timing)
+    const randomDelay = Math.floor(Math.random() * 2500) + 5500; // 5.5s to 8.0s
 
     const timer = setTimeout(() => {
-      // Re-verify condition before showing
       if (isBlocked) return;
 
-      // Randomly pick between food promo (50%) and suite event promo (50%)
-      const chosenType = Math.random() < 0.5 ? 'food' : 'suite';
       setPromoType(chosenType);
 
-      if (chosenType === 'food') {
+      if (chosenType === 'kitchen') {
         setFoodPromo(generateRandomFoodCombo());
+      } else if (chosenType === 'drinks') {
+        setDrinksPromo(generateRandomDrinksPromo());
       } else {
         setSuitePromo(generateRandomSuitePromo());
       }
 
       setIsOpen(true);
-      // Mark as shown in this session
-      sessionStorage.setItem('ash_promo_shown_session', 'true');
+      // Mark as shown on this page load and increment total shown count
+      sessionStorage.setItem('ash_promo_shown_this_load', 'true');
+      localStorage.setItem('ash_promo_shown_count', String(currentShownCount + 1));
     }, randomDelay);
 
     return () => clearTimeout(timer);
@@ -265,12 +408,8 @@ export default function PromoPopupModal({
   // Handle Close / Dismiss
   const handleClose = (userRequestedMute = false) => {
     setIsOpen(false);
-    
-    // Set 15-minute cooldown
-    localStorage.setItem('ash_promo_cooldown_until', String(Date.now() + 15 * 60 * 1000));
-    sessionStorage.setItem('ash_promo_shown_session', 'true');
+    sessionStorage.setItem('ash_promo_shown_this_load', 'true');
 
-    // If user clicked "Don't show again today"
     if (userRequestedMute || dontShowToday) {
       localStorage.setItem('ash_promo_dismissed_until', String(Date.now() + 24 * 60 * 60 * 1000));
     }
@@ -289,17 +428,26 @@ export default function PromoPopupModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, dontShowToday]);
 
-  // WhatsApp Order Action for Food Promo
+  // WhatsApp Order Action for Kitchen Food Combo
   const handleOrderFoodCombo = () => {
     if (!foodPromo) return;
-    const msg = `Hello Arab Signature Hotel! I would like to order the Chef's Special Dining Combo: *${foodPromo.food.name}* + *${foodPromo.protein.name}* at the promo price of ₦${foodPromo.promoPrice.toLocaleString()} (Saved ₦${foodPromo.savings.toLocaleString()}). Please confirm delivery to my suite/table.`;
+    const msg = `Hello Arab Signature Hotel! I would like to order the Chef's Kitchen Promo Combo: *${foodPromo.food.name}* + *${foodPromo.protein.name}* at the promo price of ₦${foodPromo.promoPrice.toLocaleString()} (Saved ₦${foodPromo.savings.toLocaleString()}). Please confirm delivery to my room/table.`;
     const url = `https://wa.me/${HOTEL_INFO.whatsapp}?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
     handleClose();
   };
 
-  // Navigate to Dining Menu
-  const handleViewMenu = () => {
+  // WhatsApp Order Action for Bar Drinks
+  const handleOrderDrink = () => {
+    if (!drinksPromo) return;
+    const msg = `Hello Al-Sultan Bar & Lounge! I would like to order the Bar Spotlight Promo: *${drinksPromo.name}* at the special promo price of ₦${drinksPromo.promoPrice.toLocaleString()} (Saved ₦${drinksPromo.savings.toLocaleString()}). Please confirm delivery to my suite/cabana.`;
+    const url = `https://wa.me/${HOTEL_INFO.whatsapp}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+    handleClose();
+  };
+
+  // Navigate to Dining / Drinks Menu
+  const handleViewDiningMenu = () => {
     handleClose();
     if (onNavigate) onNavigate('dining');
   };
@@ -319,10 +467,15 @@ export default function PromoPopupModal({
     if (onNavigate) onNavigate('suites');
   };
 
-  // Shuffle food combo manually if user wants to see another pair
-  const handleShuffleFoodCombo = (e) => {
+  // Shuffle buttons
+  const handleShuffleFood = (e) => {
     e.stopPropagation();
     setFoodPromo(generateRandomFoodCombo());
+  };
+
+  const handleShuffleDrink = (e) => {
+    e.stopPropagation();
+    setDrinksPromo(generateRandomDrinksPromo());
   };
 
   if (!isOpen) return null;
@@ -333,7 +486,7 @@ export default function PromoPopupModal({
       onClick={() => handleClose()}
       role="dialog"
       aria-modal="true"
-      aria-label={promoType === 'food' ? "Chef's Dining Combo Promo" : "Arab Suites & Luxury Event Promo"}
+      aria-label="Arab Signature Hotel Exclusive Announcement"
     >
       <div 
         className="relative w-full max-w-lg md:max-w-xl bg-gradient-to-b from-[#1c030d] via-[#120208] to-[#0a0104] border border-[#d4af37]/40 rounded-3xl shadow-[0_0_50px_rgba(212,175,55,0.22)] overflow-hidden text-gray-100 flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-300"
@@ -352,22 +505,22 @@ export default function PromoPopupModal({
           <X className="w-4 h-4 md:w-5 md:h-5 text-gray-200" />
         </button>
 
-        {/* Scrollable Container for Compact Mobile Viewports */}
+        {/* Scrollable Content Container */}
         <div className="overflow-y-auto px-5 py-5 sm:px-7 sm:py-6 space-y-4 sm:space-y-5">
 
           {/* ============================================================== */}
-          {/* TYPE A: FOOD & PROTEIN COMBO PROMO                             */}
+          {/* 1. KITCHEN PROMO: FOOD + PROTEIN CULINARY PAIRING              */}
           {/* ============================================================== */}
-          {promoType === 'food' && foodPromo && (
+          {promoType === 'kitchen' && foodPromo && (
             <>
               {/* Header Badge & Title */}
               <div className="text-center space-y-1.5 pr-6 sm:pr-0">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#d4af37]/15 border border-[#d4af37]/40 text-[#f5d77f] text-xs font-semibold tracking-wider uppercase">
                   <Flame className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                  <span>Chef's Royal Combo • {foodPromo.discountPercent}% OFF</span>
+                  <span>Al-Sultan Kitchen • {foodPromo.discountPercent}% OFF</span>
                 </div>
                 <h3 className="text-xl sm:text-2xl font-serif font-bold text-white tracking-wide">
-                  Taste of Al-Sultan Restaurant
+                  Chef's Daily Pairing Special
                 </h3>
                 <p className="text-xs sm:text-sm text-gray-300">
                   Pair your favorite base meal with succulent protein at a special guest discount.
@@ -376,9 +529,9 @@ export default function PromoPopupModal({
 
               {/* Combo Visual Pairing Display */}
               <div className="relative bg-black/40 border border-[#d4af37]/25 rounded-2xl p-3 sm:p-4 shadow-inner">
-                {/* Shuffle / Randomize another combo button */}
+                {/* Shuffle Button */}
                 <button
-                  onClick={handleShuffleFoodCombo}
+                  onClick={handleShuffleFood}
                   className="absolute top-2.5 right-2.5 flex items-center gap-1 text-[11px] text-[#d4af37] hover:text-white bg-black/50 px-2 py-0.5 rounded-md border border-[#d4af37]/30 hover:border-[#d4af37] transition-all"
                   title="Try another random combo"
                 >
@@ -452,7 +605,7 @@ export default function PromoPopupModal({
 
                   <div className="text-right">
                     <span className="text-[11px] uppercase tracking-wider text-amber-300 font-medium block">
-                      Royal Promo Price
+                      Kitchen Promo Price
                     </span>
                     <div className="flex items-baseline justify-end gap-1.5">
                       <span className="text-xl sm:text-2xl font-bold font-serif text-[#d4af37]">
@@ -478,17 +631,125 @@ export default function PromoPopupModal({
                 </button>
 
                 <button
-                  onClick={handleViewMenu}
+                  onClick={handleViewDiningMenu}
                   className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white text-xs font-medium tracking-wide transition-all flex items-center justify-center gap-1.5"
                 >
-                  <span>Explore Full Al-Sultan Dining & Bar Menu</span>
+                  <span>Explore Full Al-Sultan Food Menu</span>
                 </button>
               </div>
             </>
           )}
 
           {/* ============================================================== */}
-          {/* TYPE B: ARAB SUITES & UPCOMING EVENT PROMO                     */}
+          {/* 2. DRINKS PROMO: BAR & CELLAR SPOTLIGHT                       */}
+          {/* ============================================================== */}
+          {promoType === 'drinks' && drinksPromo && (
+            <>
+              {/* Header Badge & Title */}
+              <div className="text-center space-y-1.5 pr-6 sm:pr-0">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#d4af37]/15 border border-[#d4af37]/40 text-[#f5d77f] text-xs font-semibold tracking-wider uppercase">
+                  <Wine className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Al-Sultan Bar Spotlight • {drinksPromo.discountPercent}% OFF</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-serif font-bold text-white tracking-wide">
+                  {drinksPromo.name}
+                </h3>
+                <p className="text-xs sm:text-sm text-gray-300">
+                  Chilled to perfection and delivered directly to your suite, cabana, or lounge table.
+                </p>
+              </div>
+
+              {/* Drinks Display Card */}
+              <div className="relative bg-black/40 border border-[#d4af37]/30 rounded-2xl overflow-hidden p-3.5 sm:p-4 shadow-inner">
+                {/* Shuffle Button */}
+                <button
+                  onClick={handleShuffleDrink}
+                  className="absolute top-3 right-3 flex items-center gap-1 text-[11px] text-[#d4af37] hover:text-white bg-black/60 px-2 py-0.5 rounded-md border border-[#d4af37]/30 hover:border-[#d4af37] transition-all z-10"
+                  title="Try another featured drink"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Shuffle</span>
+                </button>
+
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  {/* Bottle Photo Card */}
+                  <div className="relative w-28 h-36 sm:w-32 sm:h-40 shrink-0 rounded-xl overflow-hidden border-2 border-[#d4af37]/40 bg-[#0d0106] shadow-lg flex items-center justify-center p-2 group">
+                    <img
+                      src={drinksPromo.image}
+                      alt={drinksPromo.name}
+                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-500"
+                      onError={(e) => { e.target.src = '/dining/drinks/drink-angelus-wine.jpg'; }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                    <span className="absolute bottom-1 text-[9px] font-bold text-[#f5d77f] px-1 bg-black/70 rounded">
+                      {drinksPromo.category}
+                    </span>
+                  </div>
+
+                  {/* Drink Details */}
+                  <div className="flex-1 text-center sm:text-left space-y-2">
+                    <span className="inline-block text-[10px] uppercase font-bold text-amber-300/90 tracking-wider bg-[#5b0624]/60 border border-[#d4af37]/30 px-2 py-0.5 rounded">
+                      {drinksPromo.tag}
+                    </span>
+
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      {drinksPromo.desc}
+                    </p>
+
+                    {/* Serving Note */}
+                    <div className="flex items-center justify-center sm:justify-start gap-1.5 text-[11px] text-[#f5d77f]">
+                      <GlassWater className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span>{drinksPromo.serving}</span>
+                    </div>
+
+                    {/* Price banner */}
+                    <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] uppercase text-gray-400 block">Regular</span>
+                        <span className="text-xs text-gray-400 line-through">
+                          ₦{drinksPromo.price.toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[10px] uppercase text-amber-300 font-semibold block">Lounge Promo</span>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-lg sm:text-xl font-bold font-serif text-[#d4af37]">
+                            ₦{drinksPromo.promoPrice.toLocaleString()}
+                          </span>
+                          <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1 py-0.2 rounded">
+                            Save ₦{drinksPromo.savings.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2 pt-1">
+                <button
+                  onClick={handleOrderDrink}
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f5d77f] to-[#b38f2a] text-black font-bold text-xs sm:text-sm tracking-wide uppercase shadow-lg shadow-[#d4af37]/20 hover:shadow-[#d4af37]/40 hover:brightness-105 active:scale-[0.99] transition-all flex items-center justify-center gap-2"
+                >
+                  <Wine className="w-4 h-4 text-black" />
+                  <span>Order via WhatsApp Bar</span>
+                  <ArrowRight className="w-4 h-4 text-black" />
+                </button>
+
+                <button
+                  onClick={handleViewDiningMenu}
+                  className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white text-xs font-medium tracking-wide transition-all flex items-center justify-center gap-1.5"
+                >
+                  <span>Explore Full Bar, Wines & Drinks Menu</span>
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ============================================================== */}
+          {/* 3. HOTEL SUITES PROMO: ARAB SUITES & UPCOMING EVENTS           */}
           {/* ============================================================== */}
           {promoType === 'suite' && suitePromo && (
             <>
