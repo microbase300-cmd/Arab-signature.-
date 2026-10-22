@@ -233,12 +233,12 @@ export const SAMPLE_NAMES = [
   { 
     id: 1, 
     name: "Cinematic Hero", 
-    subtitle: "Signature Burgundy & Gold Doha Suite Video Hero", 
+    subtitle: "Signature Burgundy & Gold Arab Suite Video Hero", 
     color: "#5b0624", 
     badge: "Design 01",
     image: "/rooms/suite-deluxe-doha.jpg",
     tags: ["Royal Burgundy", "Video Hero", "Gold Booking Bar"],
-    description: "Features a prominent 4K video preview card of the Doha luxury suite with a central play button and quick check-in date selectors."
+    description: "Features a prominent 4K video preview card of the Arab luxury suite with a central play button and quick check-in date selectors."
   },
   { 
     id: 2, 

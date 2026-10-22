@@ -450,7 +450,7 @@ export default function PhotoGallerySection({
                 : 'Explore Ultra-HD Moments in Our Cinema Archive'}
             </h3>
             <p className="text-xs sm:text-sm text-gray-300">
-              Reserve your luxury Doha Suite or VIP Lounge table with instant confirmation.
+              Reserve your luxury Arab Suite or VIP Lounge table with instant confirmation.
             </p>
           </div>
 

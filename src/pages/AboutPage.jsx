@@ -174,7 +174,7 @@ export default function AboutPage({ onNavigate, onOpenBooking }) {
           
           <div className="space-y-4 sm:space-y-6">
             <span className="text-[10px] sm:text-xs uppercase font-mono tracking-widest text-[#d4af37] font-semibold">
-              INSPIRED BY DOHA PALATIAL GRANDEUR
+              INSPIRED BY ARABIAN PALATIAL GRANDEUR
             </span>
             <h2 className="font-cinzel text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-wide leading-tight">
               Sophisticated Design in <br className="hidden sm:block" />
@@ -236,7 +236,7 @@ export default function AboutPage({ onNavigate, onOpenBooking }) {
               />
               <img
                 src="/rooms/suite-deluxe-doha.jpg"
-                alt="Deluxe Doha Suite"
+                alt="Arab Deluxe Suite"
                 className="rounded-xl sm:rounded-2xl border border-[#d4af37]/30 h-36 sm:h-48 md:h-56 w-full object-cover shadow-xl"
                 loading="lazy"
               />

@@ -58,7 +58,7 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
           </div>
 
           <h1 className="font-cinzel text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-wide leading-tight text-white">
-            Where Doha Elegance Meets <br className="hidden sm:inline" />
+            Where Arab Elegance Meets <br className="hidden sm:inline" />
             <span className="gold-text-gradient">Legendary Hospitality</span>
           </h1>
 
@@ -71,7 +71,7 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
               onClick={() => onNavigate('suites')}
               className={`px-8 py-4 rounded-2xl ${goldGradient} font-extrabold text-xs uppercase tracking-widest shadow-xl shadow-[#d4af37]/30 hover:scale-105 active:scale-98 transition-all flex items-center gap-2`}
             >
-              <span>Explore Doha Suites</span>
+              <span>Explore Arab Suites</span>
               <ArrowRight size={16} />
             </button>
 
@@ -232,7 +232,7 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
                 5-STAR LUXURY ACCOMMODATIONS • 34 TOTAL ROOMS & SUITES
               </span>
               <h2 className="font-cinzel text-3xl sm:text-4xl font-extrabold tracking-wide mt-1">
-                Signature Doha Suites & Penthouses
+                Signature Arab Suites & Residences
               </h2>
             </div>
             <button
@@ -410,7 +410,7 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
               The Only Verified Signature in Nsugbe
             </h2>
             <p className="text-xs sm:text-sm text-gray-200 leading-relaxed">
-              Experience the pinnacle of hospitality in Nsugbe, Onitsha. Enjoy 100% uninterrupted triple-generator & solar power, 24/7 diplomatic security, private poolside VIP cabanas, and opulent Doha suites.
+              Experience the pinnacle of hospitality in Nsugbe, Onitsha. Enjoy 100% uninterrupted triple-generator & solar power, 24/7 diplomatic security, private poolside VIP cabanas, and opulent Arab suites.
             </p>
           </div>
 

@@ -9,7 +9,7 @@ export default function Navbar({ currentPage, onNavigate, onOpenBooking }) {
   const navLinks = [
     { id: 'home', label: 'Home' },
     { id: 'about', label: 'About Us' },
-    { id: 'suites', label: 'Doha Suites' },
+    { id: 'suites', label: 'Arab Suites' },
     { id: 'amenities', label: 'Poolside & Cabanas' },
     { id: 'dining', label: 'Dining' },
     { id: 'gallery', label: 'Photo Gallery' },

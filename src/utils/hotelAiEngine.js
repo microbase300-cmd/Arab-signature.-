@@ -140,7 +140,7 @@ export const hotelAiEngine = {
       availableCount: availableRooms.length,
       text: `🏨 **Amira's Live Suite Availability Report (Nsugbe, Onitsha):**\n\n` +
             `Out of our **${rooms.length} total luxury rooms & suites**, we currently have **${availableRooms.length} suites** ready for immediate check-in:\n\n` +
-            `• **Deluxe Doha Suite:** ${deluxeAvail > 0 ? `${deluxeAvail} available (${deluxeRate}/night)` : 'Fully Booked Tonight'}\n` +
+            `• **Arab Deluxe Suite:** ${deluxeAvail > 0 ? `${deluxeAvail} available (${deluxeRate}/night)` : 'Fully Booked Tonight'}\n` +
             `• **Executive Arabian Suite:** ${execAvail > 0 ? `${execAvail} available (${execRate}/night)` : 'Fully Booked Tonight'}\n` +
             `• **Royal Diplomatic Penthouse:** ${royalAvail > 0 ? `${royalAvail} available (${royalRate}/night)` : 'Fully Booked Tonight'}\n` +
             `• **Standard Classic Room:** ${stdAvail > 0 ? `${stdAvail} available (${stdRate}/night)` : 'Fully Booked Tonight'}\n\n` +
@@ -330,7 +330,7 @@ export const hotelAiEngine = {
     // 6. GENERAL LUXURY CONCIERGE FALLBACK
     // ========================================================
       return {
-        text: `Warm greetings! I am **Amira**, the Royal AI Concierge at **Arab Signature Hotel & Suites** in Nsugbe, Onitsha. We are an ultra-luxury hospitality retreat offering 34 handcrafted rooms and Doha suites, Olympic-grade poolside cabanas, Al-Sultan gourmet dining, and 24/7 uninterrupted power.\n\n` +
+        text: `Warm greetings! I am **Amira**, the Royal AI Concierge at **Arab Signature Hotel & Suites** in Nsugbe, Onitsha. We are an ultra-luxury hospitality retreat offering 34 handcrafted rooms and Arab suites, Olympic-grade poolside cabanas, Al-Sultan gourmet dining, and 24/7 uninterrupted power.\n\n` +
               `You can ask me to check suite availability, track an existing reservation code (e.g. ASH-7812), or inquire about our location and amenities. For direct human assistance, click the **WhatsApp** button above or call our Front Desk Hotline at **0812 578 6875**.`,
         suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe", "Dining Menu"]
       };

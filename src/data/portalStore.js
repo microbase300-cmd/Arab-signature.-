@@ -1684,7 +1684,7 @@ export const portalStore = {
       phone: bookingData.phone || "0812 578 6875",
       email: bookingData.email || "",
       roomType: bookingData.roomType || "deluxe",
-      roomName: bookingData.roomName || "Deluxe Doha Suite",
+      roomName: bookingData.roomName || "Arab Deluxe Suite",
       roomNumber: bookingData.roomNumber || "Unassigned",
       checkIn: bookingData.checkIn || new Date().toISOString().split('T')[0],
       checkOut: bookingData.checkOut || "",

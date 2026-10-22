@@ -62,7 +62,7 @@ export const GALLERY_PHOTOS = [
   {
     id: 'suite-deluxe-doha',
     src: '/rooms/suite-deluxe-doha.jpg',
-    title: 'Deluxe Doha Suite',
+    title: 'Arab Deluxe Suite',
     subtitle: 'Plush King Bedding, Illuminated Headboard & Warm Ambient Glow',
     category: 'suites',
     categoryLabel: 'Luxury Suites & Rooms',

@@ -54,7 +54,7 @@ export default function Footer({ onNavigate, onOpenBooking }) {
             </li>
             <li>
               <button onClick={() => handleNav('suites')} className="hover:text-[#d4af37] transition-colors">
-                Doha Suites & Rates
+                Arab Suites & Rates
               </button>
             </li>
             <li>

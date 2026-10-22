@@ -172,7 +172,7 @@ export default function ReceptionPortal({ onNavigate }) {
     }
 
     const rateObj = rates.find(r => r.id === walkInForm.roomType);
-    const roomName = rateObj ? rateObj.name : "Deluxe Doha Suite";
+    const roomName = rateObj ? rateObj.name : "Arab Deluxe Suite";
 
     // Auto-select room if not chosen
     let selectedRoomNum = walkInForm.roomNumber;

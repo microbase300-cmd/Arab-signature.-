@@ -116,7 +116,7 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
           {/* Desktop Navigation Links */}
           <nav className="hidden lg:flex items-center gap-8 text-xs uppercase tracking-widest font-semibold">
             <a href="#about" className="hover:text-[#d4af37] transition-colors">Our Heritage</a>
-            <a href="#suites" className="hover:text-[#d4af37] transition-colors">Doha Suites</a>
+            <a href="#suites" className="hover:text-[#d4af37] transition-colors">Arab Suites</a>
             <a href="#amenities" className="hover:text-[#d4af37] transition-colors">Poolside & Cabanas</a>
             <a href="#dining" className="hover:text-[#d4af37] transition-colors">Dining</a>
             <a href="#location" className="hover:text-[#d4af37] transition-colors">Location</a>
@@ -161,7 +161,7 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
             isLight ? 'bg-white border-gray-200 text-gray-900' : 'bg-[#1a040d] border-[#d4af37]/30 text-white'
           }`}>
             <a href="#about" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-sm font-semibold border-b border-white/5">Our Heritage</a>
-            <a href="#suites" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-sm font-semibold border-b border-white/5">Doha Suites & Rates</a>
+            <a href="#suites" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-sm font-semibold border-b border-white/5">Arab Suites & Rates</a>
             <a href="#amenities" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-sm font-semibold border-b border-white/5">Poolside & Cabanas</a>
             <a href="#dining" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-sm font-semibold border-b border-white/5">Dining</a>
             <a href="#location" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-sm font-semibold border-b border-white/5">Location & Contact</a>
@@ -203,7 +203,7 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
             </div>
 
             <h1 className="font-cinzel text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-wide leading-tight text-white">
-              Where Doha Elegance Meets <br className="hidden sm:inline" />
+              Where Arab Elegance Meets <br className="hidden sm:inline" />
               <span className="gold-text-gradient">Legendary Hospitality</span>
             </h1>
 
@@ -216,7 +216,7 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
                 href="#suites"
                 className={`px-8 py-4 rounded-2xl ${goldGradient} font-extrabold text-xs uppercase tracking-widest shadow-xl shadow-[#d4af37]/30 hover:scale-105 active:scale-98 transition-all flex items-center gap-2`}
               >
-                <span>Explore Doha Suites</span>
+                <span>Explore Arab Suites</span>
                 <ArrowRight size={16} />
               </a>
 
@@ -353,7 +353,7 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
                 <div className="absolute top-4 left-4 w-44 h-56 rounded-3xl bg-gradient-to-br from-[#d4af37]/25 to-black/80 border border-[#d4af37]/50 backdrop-blur-2xl p-4 shadow-2xl transform -rotate-12 hover:rotate-0 transition-transform duration-500 flex flex-col justify-between text-left">
                   <span className="text-[10px] font-mono uppercase text-[#f3e5ab]">SUITE 01</span>
                   <div>
-                    <div className="text-sm font-bold text-white">Deluxe Doha</div>
+                    <div className="text-sm font-bold text-white">Arab Deluxe Suite</div>
                     <div className="text-xs text-[#d4af37] font-mono font-bold">₦45,000 / Night</div>
                   </div>
                 </div>
@@ -549,7 +549,7 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
               <div className="absolute inset-0 m-auto w-32 h-32 border border-[#d4af37]/50 rotate-45 rounded-3xl bg-gradient-to-br from-[#5c0725]/60 to-black/80 backdrop-blur-md shadow-[0_0_35px_rgba(212,175,55,0.3)]" />
               <div className="relative z-10 text-center">
                 <Sparkles size={28} className="text-[#f3e5ab] mx-auto animate-pulse" />
-                <span className="text-[10px] font-mono tracking-widest text-[#d4af37] block mt-1">DOHA AI</span>
+                <span className="text-[10px] font-mono tracking-widest text-[#d4af37] block mt-1">ARAB AI</span>
               </div>
             </div>
 
@@ -618,7 +618,7 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-4">
                   <span className="text-[10px] uppercase tracking-widest text-[#d4af37] font-bold">Royal Orbit</span>
-                  <div className="text-sm font-bold text-white">Deluxe Doha Suite</div>
+                  <div className="text-sm font-bold text-white">Arab Deluxe Suite</div>
                   <div className="text-xs font-bold text-[#f3e5ab]">₦45,000 / Night</div>
                 </div>
               </div>
@@ -674,7 +674,7 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="p-3.5 rounded-2xl bg-white/90 border border-black/10">
                   <span className="text-[10px] uppercase font-bold text-gray-500 block">Suite Category</span>
-                  <span className="font-bold text-sm text-gray-900 mt-1 block">Signature Doha Suite</span>
+                  <span className="font-bold text-sm text-gray-900 mt-1 block">Signature Arab Suite</span>
                 </div>
                 <div className="p-3.5 rounded-2xl bg-white/90 border border-black/10">
                   <span className="text-[10px] uppercase font-bold text-gray-500 block">Check-In</span>
@@ -966,7 +966,7 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
                 ACCOMMODATION & LUXURY LIVING
               </span>
               <h2 className="font-cinzel text-3xl sm:text-4xl font-extrabold tracking-wide mt-1">
-                Handcrafted Doha Suites & Penthouses
+                Handcrafted Arab Suites & Residences
               </h2>
             </div>
             
@@ -1158,7 +1158,7 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
                 {[...Array(5)].map((_, i) => <Star key={i} size={15} fill="#d4af37" />)}
               </div>
               <p className="text-xs text-gray-300 leading-relaxed italic">
-                "The closest you will get to a 5-star Doha boutique resort in Nigeria. The privacy, uninterrupted power, and poolside cabanas are world class."
+                "The closest you will get to a 5-star Arabian boutique resort in Nigeria. The privacy, uninterrupted power, and poolside cabanas are world class."
               </p>
               <div className="pt-2 border-t border-white/10">
                 <div className="font-bold text-xs text-white">Amb. K. Mohammed</div>
