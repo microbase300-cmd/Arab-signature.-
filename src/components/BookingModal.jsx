@@ -99,20 +99,21 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
                 <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2 font-medium">
                   Select Room / Suite
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {rooms.map((room) => (
                     <button
                       key={room.id}
                       type="button"
                       onClick={() => setRoomId(room.id)}
-                      className={`p-3 rounded-xl text-left border transition-all ${
+                      className={`p-2.5 rounded-xl text-left border transition-all ${
                         roomId === room.id
-                          ? 'border-[#d4af37] bg-[#5c0725]/40 text-white shadow-md'
+                          ? 'border-[#d4af37] bg-[#5c0725]/40 text-white shadow-md ring-1 ring-[#d4af37]'
                           : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/20'
                       }`}
                     >
                       <div className="font-semibold text-xs text-white truncate">{room.name}</div>
-                      <div className="text-xs text-[#d4af37] font-bold mt-1">{room.priceFormatted} <span className="text-[10px] text-gray-400 font-normal">/ night</span></div>
+                      <div className="text-[10px] text-[#f3e5ab] truncate mt-0.5">{room.buildingLabel || ''}</div>
+                      <div className="text-xs text-[#d4af37] font-bold mt-1">{room.priceFormatted} <span className="text-[10px] text-gray-400 font-normal">/ nt</span></div>
                     </button>
                   ))}
                 </div>

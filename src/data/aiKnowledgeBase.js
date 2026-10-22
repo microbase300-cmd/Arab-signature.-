@@ -113,8 +113,8 @@ export const CUSTOM_TRAINING_DATA = [
   {
     id: "suite-types",
     category: "suites",
-    keywords: ["suite", "room", "rooms", "types", "category", "penthouse", "deluxe", "executive", "standard", "total rooms", "how many rooms"],
-    answer: "Arab Signature Hotel & Suites features 34 luxury rooms and suites across 4 distinct categories: 1) Deluxe Doha Suite (₦45,000/night), 2) Executive Arabian Suite with lounge seating (₦65,000/night), 3) Royal Diplomatic Penthouse with Majlis lounge armchairs (₦120,000/night), and 4) Standard Classic Room (₦35,000/night). All 34 rooms feature marble floors, plush king bedding, and soundproof acoustics."
+    keywords: ["suite", "room", "rooms", "types", "category", "penthouse", "deluxe", "executive", "superior", "standard", "total rooms", "how many rooms", "building", "extension", "pricing", "rate"],
+    answer: "Arab Signature Hotel & Suites comprises 34 luxury rooms across two distinct hotel complexes: 1) Main Building (20 rooms • 600 Wing): Super Executive (₦60,000 • Rooms 605, 612, 615), Executive (₦50,000 • Rooms 601, 609, 619), Superior (₦40,000 • Rooms 603, 607, 611, 613, 617), Deluxe (₦35,000 • Rooms 602, 604, 606, 608, 610, 620), and Standard (₦30,000 • Rooms 614, 616, 618). 2) Extension Building (14 rooms • 100 Wing): Diplomatic Suites (₦120,000 • Rooms 107, 114), Super-Executive (₦60,000 • Rooms 102, 109), Executive (₦50,000 • Rooms 103, 104, 110, 111), and Superior (₦40,000 • Rooms 101, 105, 106, 108, 112, 113). All 34 rooms feature marble floors, plush bedding, and soundproof acoustics."
   },
 
   // 6. SPECIAL EVENTS & MEETINGS

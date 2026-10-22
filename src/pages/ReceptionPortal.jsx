@@ -35,8 +35,11 @@ export default function ReceptionPortal({ onNavigate }) {
     checkOut: new Date(Date.now() + 86400000).toISOString().split('T')[0],
     nights: 1,
     paymentMethod: 'POS Terminal (Front Desk)',
-    amount: 45000
+    amount: 35000
   });
+
+  // Building Filter: 'all' | 'Main Building' | 'Extension Building'
+  const [selectedBuilding, setSelectedBuilding] = useState('all');
 
   // Current live time
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
@@ -484,22 +487,103 @@ export default function ReceptionPortal({ onNavigate }) {
               </div>
             </div>
 
-            {/* Grouped by Floor */}
-            {['Penthouse', 'Floor 2', 'Floor 1', 'Floor 4'].map((floorName) => {
-              const floorRooms = rooms.filter(r => r.floor === floorName);
-              if (floorRooms.length === 0) return null;
+            {/* Building Filter Tabs & Overview */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#16030c] border border-[#d4af37]/30 shadow-lg">
+              <div className="flex items-center gap-2">
+                <Building2 size={18} className="text-[#d4af37]" />
+                <span className="font-cinzel font-bold text-sm text-white">Complex Filter:</span>
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <button
+                  onClick={() => setSelectedBuilding('all')}
+                  className={`px-3.5 py-1.5 rounded-xl font-semibold transition-all ${
+                    selectedBuilding === 'all'
+                      ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold shadow-md'
+                      : 'bg-white/5 text-gray-300 hover:text-white border border-white/10'
+                  }`}
+                >
+                  All Buildings ({rooms.length})
+                </button>
+                <button
+                  onClick={() => setSelectedBuilding('Main Building')}
+                  className={`px-3.5 py-1.5 rounded-xl font-semibold transition-all ${
+                    selectedBuilding === 'Main Building'
+                      ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold shadow-md'
+                      : 'bg-white/5 text-gray-300 hover:text-white border border-white/10'
+                  }`}
+                >
+                  Main Building (20 Rooms • 600 Wing)
+                </button>
+                <button
+                  onClick={() => setSelectedBuilding('Extension Building')}
+                  className={`px-3.5 py-1.5 rounded-xl font-semibold transition-all ${
+                    selectedBuilding === 'Extension Building'
+                      ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold shadow-md'
+                      : 'bg-white/5 text-gray-300 hover:text-white border border-white/10'
+                  }`}
+                >
+                  Extension Building (14 Rooms • 100 Wing)
+                </button>
+              </div>
+            </div>
 
-              return (
-                <div key={floorName} className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Building2 size={16} className="text-[#d4af37]" />
-                    <h3 className="font-cinzel font-bold text-sm tracking-wide text-white uppercase">
-                      {floorName === 'Penthouse' ? 'Top Floor VIP Penthouses' : `${floorName} Luxury Suites`}
-                    </h3>
-                  </div>
+            {/* Grouped by Building (Main Building & Extension Building) */}
+            {[
+              {
+                name: 'Main Building',
+                wing: '600 Wing (Rooms 601 – 620)',
+                ratesNote: 'Super Exec ₦60k • Exec ₦50k • Superior ₦40k • Deluxe ₦35k • Standard ₦30k',
+                totalCount: 20
+              },
+              {
+                name: 'Extension Building',
+                wing: '100 Wing (Rooms 101 – 114)',
+                ratesNote: 'Suites ₦120k • Super-Exec ₦60k • Exec ₦50k • Superior ₦40k',
+                totalCount: 14
+              }
+            ]
+              .filter(bldg => selectedBuilding === 'all' || selectedBuilding === bldg.name)
+              .map((bldg) => {
+                const bldgRooms = rooms.filter(r => r.building === bldg.name || r.floor === bldg.name);
+                if (bldgRooms.length === 0) return null;
+                const vacantCount = bldgRooms.filter(r => r.status === 'available').length;
+                const occupiedCount = bldgRooms.filter(r => r.status === 'occupied').length;
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {floorRooms.map((room) => {
+                return (
+                  <div key={bldg.name} className="space-y-3 pt-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-2xl bg-gradient-to-r from-[#1c040e] via-[#240614] to-[#16030c] border border-[#d4af37]/40 shadow-lg">
+                      <div className="flex items-center gap-2.5">
+                        <Building2 size={18} className="text-[#d4af37]" />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-cinzel font-bold text-sm sm:text-base text-white uppercase">
+                              {bldg.name}
+                            </h3>
+                            <span className="px-2 py-0.5 rounded-full bg-[#d4af37]/20 border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] font-mono">
+                              {bldg.wing}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#f3e5ab]/80 font-mono mt-0.5">
+                            Rates: {bldg.ratesNote}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 font-mono">
+                          {vacantCount} Vacant
+                        </span>
+                        <span className="px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/40 text-rose-400 font-mono">
+                          {occupiedCount} Occupied
+                        </span>
+                        <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300 font-mono">
+                          {bldgRooms.length} Rooms
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {bldgRooms.map((room) => {
                       const isOccupied = room.status === 'occupied';
                       const isAvailable = room.status === 'available';
                       const isCleaning = room.status === 'cleaning';
@@ -539,9 +623,7 @@ export default function ReceptionPortal({ onNavigate }) {
                                 <span className="font-mono text-2xl font-black text-white">
                                   #{room.roomNumber}
                                 </span>
-                                <span className="text-[10px] text-gray-400 uppercase tracking-widest">
-                                  {room.floor}
-                                </span>
+                                <span className="text-[10px] text-gray-400 uppercase tracking-widest">{room.building || room.floor}</span>
                               </div>
 
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider border ${badgeColor}`}>
@@ -984,7 +1066,7 @@ export default function ReceptionPortal({ onNavigate }) {
                       .filter(r => r.type === walkInForm.roomType && r.status === 'available')
                       .map(r => (
                         <option key={r.roomNumber} value={r.roomNumber}>
-                          Room #{r.roomNumber} ({r.floor})
+                          Room #{r.roomNumber} • {r.building || r.floor} (₦{r.price.toLocaleString()})
                         </option>
                       ))}
                     {rooms.filter(r => r.type === walkInForm.roomType && r.status === 'available').length === 0 && (

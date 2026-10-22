@@ -9,62 +9,65 @@ export const HOTEL_INFO = {
   coordinates: { lat: 6.2458, lng: 6.8142 },
   googleMapsQuery: "Arab+Signature+Hotel+and+Suites+Nsugbe+Onitsha+Anambra+Nigeria",
   totalRooms: 34,
+  buildingsCount: 2,
+  mainBuildingRooms: 20,
+  extensionBuildingRooms: 14,
   checkInTime: "2:00 PM",
   checkOutTime: "12:00 PM",
-  aboutText: "Welcome to Arab Signature Hotel and Suites, a premier luxury destination located in Nsugbe, Onitsha. Featuring 34 luxury rooms and diplomatic suites, we pride ourselves on delivering an exceptional blend of world-class comfort, sophisticated design, and unparalleled guest experiences. Whether visiting for business or leisure, our guests enjoy state-of-the-art amenities, elegantly appointed suites, and premium dining options designed to meet the highest standards of excellence. Independently owned and operated by a private investment group, our establishment is dedicated to providing a secure, relaxing, and memorable stay. Experience the ultimate standard of elegance and premium service with us."
+  aboutText: "Welcome to Arab Signature Hotel and Suites, a premier luxury destination located in Nsugbe, Onitsha. Featuring 34 luxury rooms and diplomatic suites across two private wings (Main Building & Extension Building), we pride ourselves on delivering an exceptional blend of world-class comfort, sophisticated design, and unparalleled guest experiences. Whether visiting for business or leisure, our guests enjoy state-of-the-art amenities, elegantly appointed suites, and premium dining options designed to meet the highest standards of excellence. Independently owned and operated by a private investment group, our establishment is dedicated to providing a secure, relaxing, and memorable stay. Experience the ultimate standard of elegance and premium service with us."
 };
+
+// Hotel Buildings & Wing Groupings
+export const HOTEL_BUILDINGS = [
+  {
+    id: "main",
+    name: "Main Building",
+    wing: "600 Wing",
+    totalRooms: 20,
+    roomRange: "Rooms 601 – 620",
+    priceRange: "₦30,000 – ₦60,000",
+    description: "The primary hotel building housing 20 premium rooms ranging from Standard to Super Executive.",
+    categories: [
+      { name: "Super Executive", type: "super-executive", price: 60000, priceFormatted: "₦60,000", rooms: ["605", "612", "615"], count: 3 },
+      { name: "Executive", type: "executive", price: 50000, priceFormatted: "₦50,000", rooms: ["601", "609", "619"], count: 3 },
+      { name: "Superior", type: "superior", price: 40000, priceFormatted: "₦40,000", rooms: ["603", "607", "611", "613", "617"], count: 5 },
+      { name: "Deluxe", type: "deluxe", price: 35000, priceFormatted: "₦35,000", rooms: ["602", "604", "606", "608", "610", "620"], count: 6 },
+      { name: "Standard", type: "standard", price: 30000, priceFormatted: "₦30,000", rooms: ["614", "616", "618"], count: 3 }
+    ]
+  },
+  {
+    id: "extension",
+    name: "Extension Building",
+    wing: "100 Wing",
+    totalRooms: 14,
+    roomRange: "Rooms 101 – 114",
+    priceRange: "₦40,000 – ₦120,000",
+    description: "The private annex building housing 14 luxury residences including the flagship ₦120,000 Diplomatic Suites.",
+    categories: [
+      { name: "Suites", type: "suites", price: 120000, priceFormatted: "₦120,000", rooms: ["107", "114"], count: 2 },
+      { name: "Super-Executive", type: "super-executive", price: 60000, priceFormatted: "₦60,000", rooms: ["102", "109"], count: 2 },
+      { name: "Executive", type: "executive", price: 50000, priceFormatted: "₦50,000", rooms: ["103", "104", "110", "111"], count: 4 },
+      { name: "Superior", type: "superior", price: 40000, priceFormatted: "₦40,000", rooms: ["101", "105", "106", "108", "112", "113"], count: 6 }
+    ]
+  }
+];
 
 export const ROOMS = [
   {
-    id: "deluxe",
-    name: "Deluxe Doha Suite",
-    category: "Signature Suite",
-    price: 45000,
-    priceFormatted: "₦45,000",
-    rating: 4.9,
-    reviews: 128,
-    image: "/rooms/suite-deluxe-doha.jpg",
-    thumb: "/rooms/suite-deluxe-doha.jpg",
-    gallery: [
-      "/rooms/suite-deluxe-doha.jpg",
-      "/rooms/suite-executive-king.jpg",
-      "/rooms/suite-corridor-hallway.jpg"
-    ],
-    description: "King bed with custom leather-tufted headboard, high-gloss wood paneling, warm ambient wall sconces, marble rain shower, smart TV, and complimentary morning buffet.",
-    bed: "1 Super King Bed",
-    guests: "2 Adults",
-    size: "42 sqm",
-    amenities: ["Free High-Speed Wi-Fi", "Smart 4K TV with Netflix", "24/7 Power Backup", "Room Bar", "Breakfast Included"]
-  },
-  {
-    id: "executive",
-    name: "Executive Arabian Suite",
-    category: "Executive",
-    price: 65000,
-    priceFormatted: "₦65,000",
-    rating: 5.0,
-    reviews: 94,
-    image: "/rooms/suite-executive-arabian.jpg",
-    thumb: "/rooms/suite-executive-arabian.jpg",
-    gallery: [
-      "/rooms/suite-executive-arabian.jpg",
-      "/rooms/suite-executive-king.jpg",
-      "/rooms/suite-executive-portrait.jpg"
-    ],
-    description: "Golden recessed tray ceiling lighting, velvet scallop lounge armchair, architectural glass partition, work desk, marble flooring, and priority front desk service.",
-    bed: "1 Royal King Bed",
-    guests: "2 Adults + 1 Child",
-    size: "65 sqm",
-    amenities: ["Velvet Lounge Seating", "Architectural Glass Divider", "Executive Workstation", "Free VIP Pool Access", "24/7 Dedicated Butler Service"]
-  },
-  {
-    id: "royal",
-    name: "Royal Diplomatic Penthouse",
-    category: "Penthouse",
+    id: "suites",
+    name: "Diplomatic Suite",
+    boardTitle: "SUITES",
+    category: "Suites",
     price: 120000,
     priceFormatted: "₦120,000",
+    buildings: ["Extension Building"],
+    buildingLabel: "Extension Building • Rooms 107, 114",
+    roomNumbers: ["107", "114"],
+    mainBuildingRooms: [],
+    extensionBuildingRooms: ["107", "114"],
+    totalRooms: 2,
     rating: 5.0,
-    reviews: 57,
+    reviews: 58,
     image: "/rooms/suite-royal-penthouse.jpg",
     thumb: "/rooms/suite-royal-penthouse.jpg",
     gallery: [
@@ -72,20 +75,111 @@ export const ROOMS = [
       "/rooms/suite-royal-lounge-wide.jpg",
       "/rooms/suite-royal-entertainment.jpg"
     ],
-    description: "The pinnacle of Arab Signature luxury. Expansive suite with dual crimson-velvet Majlis armchairs, royal blue & gold ambient cove lighting, wood-slat entertainment wall, mini-fridge, and on-call butler service.",
-    bed: "1 Presidential King Bed",
+    description: "The crown jewel of Arab Signature Hotel Extension. An expansive diplomatic suite featuring royal blue & gold ambient tray ceiling, plush velvet lounge armchairs, media entertainment wall, ensuite marble bathroom, mini-bar, and dedicated butler service.",
+    bed: "1 Presidential King Bed + Majlis Lounge",
     guests: "2–4 Guests",
     size: "115 sqm",
-    amenities: ["Personal Butler Service", "Dual Velvet Lounge Chairs", "Entertainment Media Wall", "In-Suite Mini Bar & Fridge", "Full Folio Concierge"]
+    amenities: ["Personal Butler Service", "Private Majlis Velvet Lounge", "Smart 4K TV & Sound Bar", "In-Suite Mini Bar & Fridge", "Complimentary Gourmet Breakfast", "24/7 Power Backup"]
   },
   {
-    id: "standard",
-    name: "Standard Classic Room",
-    category: "Classic",
+    id: "super-executive",
+    name: "Super Executive Room",
+    boardTitle: "SUPER EXECUTIVE",
+    category: "Super Executive",
+    price: 60000,
+    priceFormatted: "₦60,000",
+    buildings: ["Main Building", "Extension Building"],
+    buildingLabel: "Main Building (3) & Extension Building (2)",
+    roomNumbers: ["102", "109", "605", "612", "615"],
+    mainBuildingRooms: ["605", "612", "615"],
+    extensionBuildingRooms: ["102", "109"],
+    totalRooms: 5,
+    rating: 4.9,
+    reviews: 86,
+    image: "/rooms/suite-executive-arabian.jpg",
+    thumb: "/rooms/suite-executive-arabian.jpg",
+    gallery: [
+      "/rooms/suite-executive-arabian.jpg",
+      "/rooms/suite-executive-king.jpg",
+      "/rooms/suite-executive-portrait.jpg"
+    ],
+    description: "Available across both Main and Extension buildings (5 rooms total). Exquisite executive accommodations featuring golden tray ceiling illumination, plush velvet scallop armchair, architectural glass partition, marble flooring, and executive work desk.",
+    bed: "1 Royal King Bed",
+    guests: "2 Adults + 1 Child",
+    size: "55 sqm",
+    amenities: ["Royal King Bed", "Velvet Scallop Armchair", "Architectural Glass Partition", "Executive Workstation", "Free High-Speed Wi-Fi", "Complimentary Breakfast"]
+  },
+  {
+    id: "executive",
+    name: "Executive Room",
+    boardTitle: "EXECUTIVE",
+    category: "Executive",
+    price: 50000,
+    priceFormatted: "₦50,000",
+    buildings: ["Main Building", "Extension Building"],
+    buildingLabel: "Main Building (3) & Extension Building (4)",
+    roomNumbers: ["103", "104", "110", "111", "601", "609", "619"],
+    mainBuildingRooms: ["601", "609", "619"],
+    extensionBuildingRooms: ["103", "104", "110", "111"],
+    totalRooms: 7,
+    rating: 4.9,
+    reviews: 112,
+    image: "/rooms/suite-deluxe-doha.jpg",
+    thumb: "/rooms/suite-deluxe-doha.jpg",
+    gallery: [
+      "/rooms/suite-deluxe-doha.jpg",
+      "/rooms/suite-executive-king.jpg",
+      "/rooms/suite-corridor-hallway.jpg"
+    ],
+    description: "Available in both Main and Extension buildings (7 rooms total). King bed with custom leather-tufted headboard, warm ambient wall sconces, executive work desk, smart TV, and complimentary morning breakfast.",
+    bed: "1 King Bed",
+    guests: "2 Adults",
+    size: "46 sqm",
+    amenities: ["Custom Tufted Headboard", "Smart 4K TV with Netflix", "Executive Work Desk", "Ensuite Rain Shower", "Room Service", "24/7 Security"]
+  },
+  {
+    id: "superior",
+    name: "Superior Room",
+    boardTitle: "SUPERIOR",
+    category: "Superior",
+    price: 40000,
+    priceFormatted: "₦40,000",
+    buildings: ["Main Building", "Extension Building"],
+    buildingLabel: "Main Building (5) & Extension Building (6)",
+    roomNumbers: ["101", "105", "106", "108", "112", "113", "603", "607", "611", "613", "617"],
+    mainBuildingRooms: ["603", "607", "611", "613", "617"],
+    extensionBuildingRooms: ["101", "105", "106", "108", "112", "113"],
+    totalRooms: 11,
+    rating: 4.8,
+    reviews: 144,
+    image: "/rooms/suite-classic-chevron.jpg",
+    thumb: "/rooms/suite-classic-chevron.jpg",
+    gallery: [
+      "/rooms/suite-classic-chevron.jpg",
+      "/rooms/suite-deluxe-doha.jpg",
+      "/rooms/suite-corridor-hallway.jpg"
+    ],
+    description: "Our most versatile luxury category spanning 11 rooms across Main and Extension buildings. Elegantly furnished with plush bedding, acoustic soundproofing, modern ensuite bathroom, and high-speed Wi-Fi.",
+    bed: "1 King / Queen Bed",
+    guests: "2 Adults",
+    size: "40 sqm",
+    amenities: ["Plush Bedding", "Air Conditioning", "Free High-Speed Wi-Fi", "Soundproof Acoustic Walls", "Ensuite Rain Shower", "24/7 Power Backup"]
+  },
+  {
+    id: "deluxe",
+    name: "Deluxe Room",
+    boardTitle: "DELUXE",
+    category: "Deluxe",
     price: 35000,
     priceFormatted: "₦35,000",
+    buildings: ["Main Building"],
+    buildingLabel: "Main Building • Rooms 602, 604, 606, 608, 610, 620",
+    roomNumbers: ["602", "604", "606", "608", "610", "620"],
+    mainBuildingRooms: ["602", "604", "606", "608", "610", "620"],
+    extensionBuildingRooms: [],
+    totalRooms: 6,
     rating: 4.8,
-    reviews: 210,
+    reviews: 98,
     image: "/rooms/suite-standard-classic.jpg",
     thumb: "/rooms/suite-standard-classic.jpg",
     gallery: [
@@ -93,11 +187,38 @@ export const ROOMS = [
       "/rooms/suite-classic-chevron.jpg",
       "/rooms/suite-corridor-hallway.jpg"
     ],
-    description: "Cozy elegance with soundproof walls, tufted headboard, full-height wardrobe closet, marble floors, ergonomic workspace, and high-speed Wi-Fi.",
+    description: "Located in the Main Building (6 rooms). Contemporary comfort with tufted headboard, wardrobe closet, marble tile flooring, smart TV, air conditioning, and pristine ensuite bathroom.",
     bed: "1 Queen / King Bed",
     guests: "2 Adults",
+    size: "36 sqm",
+    amenities: ["Queen/King Bed", "Smart TV", "Air Conditioning", "Wardrobe Closet", "Complimentary Water", "Ensuite Shower"]
+  },
+  {
+    id: "standard",
+    name: "Standard Room",
+    boardTitle: "STANDARD",
+    category: "Standard",
+    price: 30000,
+    priceFormatted: "₦30,000",
+    buildings: ["Main Building"],
+    buildingLabel: "Main Building • Rooms 614, 616, 618",
+    roomNumbers: ["614", "616", "618"],
+    mainBuildingRooms: ["614", "616", "618"],
+    extensionBuildingRooms: [],
+    totalRooms: 3,
+    rating: 4.7,
+    reviews: 130,
+    image: "/rooms/suite-standard-classic.jpg",
+    thumb: "/rooms/suite-standard-classic.jpg",
+    gallery: [
+      "/rooms/suite-standard-classic.jpg",
+      "/rooms/suite-corridor-hallway.jpg"
+    ],
+    description: "Located in the Main Building (3 rooms). Cozy, peaceful, and fully air-conditioned accommodations providing signature Arab Signature hospitality, comfortable queen bed, and reliable 24/7 security.",
+    bed: "1 Queen Bed",
+    guests: "2 Adults",
     size: "30 sqm",
-    amenities: ["Free Wi-Fi", "Air Conditioning", "24/7 Security", "Complimentary Water", "Ensuite Shower"]
+    amenities: ["Comfortable Queen Bed", "Air Conditioning", "Free Wi-Fi", "Private Ensuite Shower", "24/7 Security & Power"]
   }
 ];
 

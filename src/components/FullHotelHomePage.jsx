@@ -73,9 +73,12 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
         ? 'bg-[#5c0725] hover:bg-[#430419] text-white'
         : 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black';
 
-  const filteredRooms = selectedCategory === 'all' 
-    ? ROOMS 
-    : ROOMS.filter(r => r.category.toLowerCase().includes(selectedCategory.toLowerCase()));
+  const filteredRooms = ROOMS.filter(r => {
+    if (selectedCategory === 'all') return true;
+    if (selectedCategory === 'main') return r.buildings && r.buildings.includes('Main Building');
+    if (selectedCategory === 'extension') return r.buildings && r.buildings.includes('Extension Building');
+    return r.id === selectedCategory || r.category.toLowerCase().includes(selectedCategory.toLowerCase());
+  });
 
   const handleBookingSubmit = (e) => {
     e.preventDefault();
@@ -969,26 +972,36 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
             
             {/* Category Filter Pills */}
             <div className="flex flex-wrap gap-2 text-xs">
-              {['all', 'signature', 'executive', 'penthouse', 'classic'].map((cat) => (
+              {[
+                { id: 'all', label: 'All 34 Residences' },
+                { id: 'main', label: 'Main Building (20)' },
+                { id: 'extension', label: 'Extension Building (14)' },
+                { id: 'suites', label: 'Suites (₦120k)' },
+                { id: 'super-executive', label: 'Super Exec (₦60k)' },
+                { id: 'executive', label: 'Executive (₦50k)' },
+                { id: 'superior', label: 'Superior (₦40k)' },
+                { id: 'deluxe', label: 'Deluxe (₦35k)' },
+                { id: 'standard', label: 'Standard (₦30k)' }
+              ].map((tab) => (
                 <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-4 py-2 rounded-xl font-semibold capitalize transition-all ${
-                    selectedCategory === cat
+                  key={tab.id}
+                  onClick={() => setSelectedCategory(tab.id)}
+                  className={`px-3.5 py-1.5 rounded-xl font-semibold transition-all ${
+                    selectedCategory === tab.id
                       ? 'bg-[#d4af37] text-black shadow-md font-bold'
                       : isLight 
                         ? 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                         : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
                   }`}
                 >
-                  {cat === 'all' ? 'All Residences' : cat}
+                  {tab.label}
                 </button>
               ))}
             </div>
           </div>
 
           {/* Rooms Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredRooms.map((room) => (
               <div
                 key={room.id}
@@ -1016,9 +1029,14 @@ export default function FullHotelHomePage({ themeId = 1, onOpenBooking, onSelect
                 {/* Details */}
                 <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
-                    <h3 className="font-cinzel text-lg font-bold truncate group-hover:text-[#d4af37] transition-colors">
-                      {room.name}
-                    </h3>
+                    <div>
+                      <span className="text-[10px] text-[#d4af37] font-mono uppercase tracking-wider block">
+                        {room.buildingLabel}
+                      </span>
+                      <h3 className="font-cinzel text-lg font-bold truncate group-hover:text-[#d4af37] transition-colors">
+                        {room.name}
+                      </h3>
+                    </div>
                     <p className={`text-xs line-clamp-2 leading-relaxed ${isLight ? 'text-gray-600' : 'text-gray-300'}`}>
                       {room.description}
                     </p>

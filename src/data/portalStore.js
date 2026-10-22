@@ -5,57 +5,59 @@ const STORAGE_KEYS = {
   AUTH: 'ash_portal_auth_user',
   USERS: 'ash_portal_staff_users',
   LOGIN_LOGS: 'ash_portal_login_attempts',
-  BOOKINGS: 'ash_portal_bookings',
-  ROOMS: 'ash_portal_rooms_inventory_v6',
-  ROOM_RATES: 'ash_portal_room_rates_v2',
+  BOOKINGS: 'ash_portal_bookings_v7',
+  ROOMS: 'ash_portal_rooms_inventory_v7',
+  ROOM_RATES: 'ash_portal_room_rates_v3',
   DINING_MENU: 'ash_portal_dining_menu_v4',
   HOTEL_CONFIG: 'ash_portal_hotel_config',
   ACTIVITY_LOG: 'ash_portal_activity_log',
 };
 
-// 1. Initial Room Inventory (34 Luxury Rooms & Suites in Nsugbe, Onitsha)
+// 1. Initial Room Inventory (34 Authentic Rooms Across 2 Buildings in Nsugbe, Onitsha)
 const INITIAL_ROOMS_INVENTORY = [
-  // Floor 1: 10 Deluxe Doha Suites (101 - 110)
-  { roomNumber: "101", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "occupied", currentGuest: "Dr. Ngozi Adeleke", checkOut: "2026-10-22", price: 45000 },
-  { roomNumber: "102", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "occupied", currentGuest: "Walk-In Guest", checkOut: "2026-10-20", price: 45000 },
-  { roomNumber: "103", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "reserved", currentGuest: "Alhaji Ibrahim Musa", checkOut: "2026-10-23", price: 45000 },
-  { roomNumber: "104", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
-  { roomNumber: "105", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
-  { roomNumber: "106", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
-  { roomNumber: "107", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
-  { roomNumber: "108", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
-  { roomNumber: "109", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
-  { roomNumber: "110", type: "deluxe", name: "Deluxe Doha Suite", floor: "Floor 1", status: "available", currentGuest: null, checkOut: null, price: 45000 },
+  // ==========================================
+  // MAIN BUILDING (20 Rooms total • 600 Wing)
+  // Super Exec (₦60k), Exec (₦50k), Superior (₦40k), Deluxe (₦35k), Standard (₦30k)
+  // ==========================================
+  { roomNumber: "601", building: "Main Building", floor: "Main Building", type: "executive", name: "Executive Room", price: 50000, status: "reserved", currentGuest: "Alhaji Ibrahim Musa", checkOut: "2026-10-23" },
+  { roomNumber: "602", building: "Main Building", floor: "Main Building", type: "deluxe", name: "Deluxe Room", price: 35000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "603", building: "Main Building", floor: "Main Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "604", building: "Main Building", floor: "Main Building", type: "deluxe", name: "Deluxe Room", price: 35000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "605", building: "Main Building", floor: "Main Building", type: "super-executive", name: "Super Executive Room", price: 60000, status: "occupied", currentGuest: "Senator Chuka Nwosu", checkOut: "2026-10-23" },
+  { roomNumber: "606", building: "Main Building", floor: "Main Building", type: "deluxe", name: "Deluxe Room", price: 35000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "607", building: "Main Building", floor: "Main Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "608", building: "Main Building", floor: "Main Building", type: "deluxe", name: "Deluxe Room", price: 35000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "609", building: "Main Building", floor: "Main Building", type: "executive", name: "Executive Room", price: 50000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "610", building: "Main Building", floor: "Main Building", type: "deluxe", name: "Deluxe Room", price: 35000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "611", building: "Main Building", floor: "Main Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "612", building: "Main Building", floor: "Main Building", type: "super-executive", name: "Super Executive Room", price: 60000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "613", building: "Main Building", floor: "Main Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "614", building: "Main Building", floor: "Main Building", type: "standard", name: "Standard Room", price: 30000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "615", building: "Main Building", floor: "Main Building", type: "super-executive", name: "Super Executive Room", price: 60000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "616", building: "Main Building", floor: "Main Building", type: "standard", name: "Standard Room", price: 30000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "617", building: "Main Building", floor: "Main Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "618", building: "Main Building", floor: "Main Building", type: "standard", name: "Standard Room", price: 30000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "619", building: "Main Building", floor: "Main Building", type: "executive", name: "Executive Room", price: 50000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "620", building: "Main Building", floor: "Main Building", type: "deluxe", name: "Deluxe Room", price: 35000, status: "cleaning", currentGuest: null, checkOut: null },
 
-  // Floor 2: 10 Executive Arabian Suites (201 - 210)
-  { roomNumber: "201", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
-  { roomNumber: "202", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "occupied", currentGuest: "Senator Chuka Nwosu", checkOut: "2026-10-21", price: 65000 },
-  { roomNumber: "203", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
-  { roomNumber: "204", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
-  { roomNumber: "205", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
-  { roomNumber: "206", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
-  { roomNumber: "207", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
-  { roomNumber: "208", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
-  { roomNumber: "209", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
-  { roomNumber: "210", type: "executive", name: "Executive Arabian Suite", floor: "Floor 2", status: "available", currentGuest: null, checkOut: null, price: 65000 },
-
-  // Penthouse Wing: 4 Royal Diplomatic Penthouses (301 - 304)
-  { roomNumber: "301", type: "royal", name: "Royal Diplomatic Penthouse", floor: "Penthouse", status: "occupied", currentGuest: "Chief Emeka Obi", checkOut: "2026-10-22", price: 120000 },
-  { roomNumber: "302", type: "royal", name: "Royal Diplomatic Penthouse", floor: "Penthouse", status: "available", currentGuest: null, checkOut: null, price: 120000 },
-  { roomNumber: "303", type: "royal", name: "Royal Diplomatic Penthouse", floor: "Penthouse", status: "available", currentGuest: null, checkOut: null, price: 120000 },
-  { roomNumber: "304", type: "royal", name: "Royal Diplomatic Penthouse", floor: "Penthouse", status: "available", currentGuest: null, checkOut: null, price: 120000 },
-
-  // Floor 4: 10 Standard Classic Rooms (401 - 410)
-  { roomNumber: "401", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
-  { roomNumber: "402", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
-  { roomNumber: "403", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "occupied", currentGuest: "Engr. Tunde Bakare", checkOut: "2026-10-20", price: 35000 },
-  { roomNumber: "404", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
-  { roomNumber: "405", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
-  { roomNumber: "406", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
-  { roomNumber: "407", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
-  { roomNumber: "408", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
-  { roomNumber: "409", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
-  { roomNumber: "410", type: "standard", name: "Standard Classic Room", floor: "Floor 4", status: "available", currentGuest: null, checkOut: null, price: 35000 },
+  // ==========================================
+  // EXTENSION BUILDING (14 Rooms total • 100 Wing)
+  // Suites (₦120k), Super-Exec (₦60k), Exec (₦50k), Superior (₦40k)
+  // ==========================================
+  { roomNumber: "101", building: "Extension Building", floor: "Extension Building", type: "superior", name: "Superior Room", price: 40000, status: "occupied", currentGuest: "Dr. Ngozi Adeleke", checkOut: "2026-10-22" },
+  { roomNumber: "102", building: "Extension Building", floor: "Extension Building", type: "super-executive", name: "Super Executive Room", price: 60000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "103", building: "Extension Building", floor: "Extension Building", type: "executive", name: "Executive Room", price: 50000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "104", building: "Extension Building", floor: "Extension Building", type: "executive", name: "Executive Room", price: 50000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "105", building: "Extension Building", floor: "Extension Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "106", building: "Extension Building", floor: "Extension Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "107", building: "Extension Building", floor: "Extension Building", type: "suites", name: "Diplomatic Suite", price: 120000, status: "occupied", currentGuest: "Chief Emeka Obi", checkOut: "2026-10-24" },
+  { roomNumber: "108", building: "Extension Building", floor: "Extension Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "109", building: "Extension Building", floor: "Extension Building", type: "super-executive", name: "Super Executive Room", price: 60000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "110", building: "Extension Building", floor: "Extension Building", type: "executive", name: "Executive Room", price: 50000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "111", building: "Extension Building", floor: "Extension Building", type: "executive", name: "Executive Room", price: 50000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "112", building: "Extension Building", floor: "Extension Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "113", building: "Extension Building", floor: "Extension Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
+  { roomNumber: "114", building: "Extension Building", floor: "Extension Building", type: "suites", name: "Diplomatic Suite", price: 120000, status: "available", currentGuest: null, checkOut: null }
 ];
 
 // 2. Pre-Seeded Real Bookings with Backend Confirmation status
@@ -65,80 +67,80 @@ const INITIAL_BOOKINGS = [
     guestName: "Chief Emeka Obi",
     phone: "0803 234 5678",
     email: "emeka.obi@nigerdelta.org",
-    roomType: "royal",
-    roomName: "Royal Diplomatic Penthouse",
-    roomNumber: "301",
+    roomType: "suites",
+    roomName: "Diplomatic Suite (Extension Building)",
+    roomNumber: "107",
     checkIn: "2026-10-20",
-    checkOut: "2026-10-22",
-    nights: 2,
-    amount: 240000,
+    checkOut: "2026-10-24",
+    nights: 4,
+    amount: 480000,
     status: "Checked In",
     paymentMethod: "Paystack (Online)",
     paymentStatus: "Paid", // Confirmed by backend
     backendVerified: true,
-    verifiedAt: "2026-10-17 08:31",
+    verifiedAt: "2026-10-20 08:31",
     source: "Direct Website",
-    createdAt: "2026-10-17 08:30"
+    createdAt: "2026-10-20 08:30"
   },
   {
     id: "ASH-7812",
     guestName: "Alhaji Ibrahim Musa",
     phone: "0812 578 6875",
     email: "ibrahim.musa@example.com",
-    roomType: "deluxe",
-    roomName: "Deluxe Doha Suite",
-    roomNumber: "103",
+    roomType: "executive",
+    roomName: "Executive Room (Main Building)",
+    roomNumber: "601",
     checkIn: "2026-10-20",
-    checkOut: "2026-10-22",
-    nights: 2,
-    amount: 90000,
+    checkOut: "2026-10-23",
+    nights: 3,
+    amount: 150000,
     status: "Confirmed",
     paymentMethod: "Paystack (Online)",
     paymentStatus: "Paid", // Confirmed by backend
     backendVerified: true,
-    verifiedAt: "2026-10-17 09:16",
+    verifiedAt: "2026-10-20 09:16",
     source: "Direct Website",
-    createdAt: "2026-10-17 09:15"
+    createdAt: "2026-10-20 09:15"
   },
   {
     id: "ASH-6204",
     guestName: "Senator Chuka Nwosu",
     phone: "0802 999 1122",
     email: "nwosu.chuka@assembly.gov.ng",
-    roomType: "executive",
-    roomName: "Executive Arabian Suite",
-    roomNumber: "202",
+    roomType: "super-executive",
+    roomName: "Super Executive Room (Main Building)",
+    roomNumber: "605",
     checkIn: "2026-10-19",
-    checkOut: "2026-10-21",
-    nights: 2,
-    amount: 130000,
+    checkOut: "2026-10-23",
+    nights: 4,
+    amount: 240000,
     status: "Checked In",
     paymentMethod: "Bank Transfer (Approved by GM)",
     paymentStatus: "Paid", // Confirmed by backend
     backendVerified: true,
-    verifiedAt: "2026-10-16 16:45",
+    verifiedAt: "2026-10-19 16:45",
     source: "Front Desk Walk-In",
-    createdAt: "2026-10-16 16:40"
+    createdAt: "2026-10-19 16:40"
   },
   {
     id: "ASH-4109",
     guestName: "Dr. Ngozi Adeleke",
     phone: "0806 555 4321",
     email: "dr.adeleke@medspecialist.com",
-    roomType: "deluxe",
-    roomName: "Deluxe Doha Suite",
+    roomType: "superior",
+    roomName: "Superior Room (Extension Building)",
     roomNumber: "101",
     checkIn: "2026-10-20",
     checkOut: "2026-10-22",
     nights: 2,
-    amount: 90000,
+    amount: 80000,
     status: "Checked In",
     paymentMethod: "POS Terminal (Front Desk)",
     paymentStatus: "Paid", // Confirmed by backend
     backendVerified: true,
-    verifiedAt: "2026-10-17 07:12",
+    verifiedAt: "2026-10-20 07:12",
     source: "Front Desk Walk-In",
-    createdAt: "2026-10-17 07:10"
+    createdAt: "2026-10-20 07:10"
   },
   {
     id: "ASH-3105",
@@ -146,19 +148,19 @@ const INITIAL_BOOKINGS = [
     phone: "0814 888 2345",
     email: "kenneth.igwe@architects.ng",
     roomType: "deluxe",
-    roomName: "Deluxe Doha Suite",
-    roomNumber: "102",
+    roomName: "Deluxe Room (Main Building)",
+    roomNumber: "602",
     checkIn: "2026-10-21",
     checkOut: "2026-10-22",
     nights: 1,
-    amount: 45000,
+    amount: 35000,
     status: "Confirmed",
     paymentMethod: "Paystack (Online Auto-Confirmed)",
     paymentStatus: "Paid",
     backendVerified: true,
-    verifiedAt: "2026-10-17 10:16",
+    verifiedAt: "2026-10-21 10:16",
     source: "Direct Website",
-    createdAt: "2026-10-17 10:15"
+    createdAt: "2026-10-21 10:15"
   }
 ];
 
@@ -1770,8 +1772,8 @@ export const portalStore = {
         // ignore
       }
     }
-    const v6Rooms = getLocalItem(STORAGE_KEYS.ROOMS, null);
-    if (v6Rooms && Array.isArray(v6Rooms) && v6Rooms.length === 34) return v6Rooms;
+    const v7Rooms = getLocalItem(STORAGE_KEYS.ROOMS, null);
+    if (v7Rooms && Array.isArray(v7Rooms) && v7Rooms.length === 34) return v7Rooms;
     return INITIAL_ROOMS_INVENTORY;
   },
 
@@ -1821,7 +1823,7 @@ export const portalStore = {
       const payload = JSON.stringify({ rooms: updated, updatedAt: Date.now() });
       
       // Direct Primary: MantleDB (100% Client-side, 0 Vercel Serverless Function calls)
-      fetch('https://mantledb.sh/v2/arab-signature-hotel-34rooms/inventory', {
+      fetch('https://mantledb.sh/v2/arab-signature-hotel-34rooms-v2/inventory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: payload
@@ -1865,7 +1867,7 @@ export const portalStore = {
       const ctrl = new AbortController();
       const timeoutId = setTimeout(() => ctrl.abort(), 1500);
 
-      const res = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-34rooms/inventory?_t=${Date.now()}`, {
+      const res = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-34rooms-v2/inventory?_t=${Date.now()}`, {
         cache: 'no-store',
         signal: ctrl.signal
       });
