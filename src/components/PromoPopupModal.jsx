@@ -334,6 +334,37 @@ export default function PromoPopupModal({
     return SUITE_EVENT_PROMOS[Math.floor(Math.random() * SUITE_EVENT_PROMOS.length)];
   };
 
+  // Helper: Get next randomized promo type ensuring 1 suite, 2 kitchen, 2 drinks per 5 shows
+  const getNextRandomPromoType = () => {
+    let batch = [];
+    try {
+      const stored = localStorage.getItem('ash_promo_shuffled_batch');
+      if (stored) {
+        batch = JSON.parse(stored);
+      }
+    } catch (e) {
+      batch = [];
+    }
+
+    // If batch is empty or invalid, generate a fresh randomly shuffled bag of 5:
+    // Exactly 1 suite, 2 kitchen, 2 drinks
+    if (!Array.isArray(batch) || batch.length === 0) {
+      batch = ['kitchen', 'kitchen', 'drinks', 'drinks', 'suite'];
+      // Fisher-Yates random shuffle so ANY category can appear first
+      for (let i = batch.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [batch[i], batch[j]] = [batch[j], batch[i]];
+      }
+    }
+
+    const selectedType = batch.shift();
+    try {
+      localStorage.setItem('ash_promo_shuffled_batch', JSON.stringify(batch));
+    } catch (e) {}
+
+    return selectedType;
+  };
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -386,13 +417,12 @@ export default function PromoPopupModal({
     if (isBlocked) return;
 
     // 4. Content Rotation Rule:
-    // In every 5 times it shows: 1 for hotel suites, 2 for kitchen, 2 for drinks
-    // Sequence: ['kitchen', 'drinks', 'suite', 'kitchen', 'drinks']
-    const PROMO_ROTATION = ['kitchen', 'drinks', 'suite', 'kitchen', 'drinks'];
+    // In every 5 times it shows: exactly 1 for hotel suites, 2 for kitchen, 2 for drinks
+    // Each 5-item batch is randomly shuffled so the first show (and any show) is unpredictable!
+    const chosenType = getNextRandomPromoType();
     const currentShownCount = Number(localStorage.getItem('ash_promo_shown_count') || 0);
-    const chosenType = PROMO_ROTATION[currentShownCount % 5];
 
-    console.log(`[Arab Signature Promo] Refresh #${currentRefreshCount} (cycle step ${cycleIndex + 1}/5) -> SHOW (${chosenType}) in 5s`);
+    console.log(`[Arab Signature Promo] Refresh #${currentRefreshCount} (cycle step ${cycleIndex + 1}/5) -> SHOW (Randomly Selected: ${chosenType}) in 5s`);
 
     // 5. Timing Rule: 5.0 seconds after page reload
     const SHOW_DELAY_MS = 5000;
