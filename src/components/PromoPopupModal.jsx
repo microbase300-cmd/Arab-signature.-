@@ -339,7 +339,7 @@ export default function PromoPopupModal({
     }
 
     // 2. Refresh Counter & Frequency Rule:
-    // "in every 5 refresh it should show 2 times"
+    // "in every 5 refresh it should show 3 times"
     // Use sessionStorage to ensure reload is counted once per page load cycle
     const sessionReloadCounted = sessionStorage.getItem('ash_reload_counted_this_load');
     let currentRefreshCount = Number(localStorage.getItem('ash_refresh_count') || 0);
@@ -351,10 +351,10 @@ export default function PromoPopupModal({
     }
 
     // Modulo 5: index 0 to 4
-    // Shows on index 0 (1st refresh) and index 2 (3rd refresh) -> Exactly 2 times out of 5 refreshes!
-    // Skips on index 1, 3, and 4 -> 3 times out of 5 are silent!
+    // Shows on index 0 (1st refresh), index 2 (3rd refresh), and index 4 (5th refresh) -> Exactly 3 times out of 5 refreshes!
+    // Skips on index 1 (2nd refresh) and index 3 (4th refresh) -> 2 times out of 5 are silent!
     const cycleIndex = (currentRefreshCount - 1) % 5;
-    const shouldShowThisRefresh = (cycleIndex === 0 || cycleIndex === 2);
+    const shouldShowThisRefresh = (cycleIndex === 0 || cycleIndex === 2 || cycleIndex === 4);
 
     if (!shouldShowThisRefresh) {
       return; // Skip this refresh
