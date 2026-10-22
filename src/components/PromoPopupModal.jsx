@@ -285,13 +285,18 @@ const SUITE_EVENT_PROMOS = [
   }
 ];
 
+// Module-level execution state (resets fresh on every page reload)
+let hasProcessedThisPageReload = false;
+let hasShownOnThisReload = false;
+
 // ============================================================================
 // MAIN COMPONENT: PromoPopupModal
 // ============================================================================
 export default function PromoPopupModal({
   onNavigate,
   onOpenBooking,
-  isBlocked = false // Blocked if booking modal is open or staff portal active
+  isBlocked = false, // Blocked if booking modal is open or staff portal active
+  isIntroActive = false // Whether cinematic welcome intro is currently displaying
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [promoType, setPromoType] = useState('kitchen'); // 'kitchen', 'drinks', or 'suite'
@@ -332,83 +337,106 @@ export default function PromoPopupModal({
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    // 0. Clean up any stale lock keys from previous versions
+    try {
+      localStorage.removeItem('ash_promo_cooldown_until');
+      localStorage.removeItem('ash_promo_cooldown');
+      localStorage.removeItem('ash_promo_seen_session');
+      localStorage.removeItem('ash_promo_shown_session');
+      sessionStorage.removeItem('ash_promo_shown_this_load');
+      sessionStorage.removeItem('ash_reload_counted_this_load');
+    } catch (e) {}
+
     // 1. User mute check ("Don't show again today")
     const dismissedUntil = localStorage.getItem('ash_promo_dismissed_until');
     if (dismissedUntil && Date.now() < Number(dismissedUntil)) {
       return;
     }
 
-    // 2. Refresh Counter & Frequency Rule:
-    // "in every 5 refresh it should show 3 times"
-    // Use sessionStorage to ensure reload is counted once per page load cycle
-    const sessionReloadCounted = sessionStorage.getItem('ash_reload_counted_this_load');
+    // 2. Increment refresh counter once per actual page reload (in-memory guard)
     let currentRefreshCount = Number(localStorage.getItem('ash_refresh_count') || 0);
-
-    if (!sessionReloadCounted) {
+    if (!hasProcessedThisPageReload) {
+      hasProcessedThisPageReload = true;
       currentRefreshCount += 1;
       localStorage.setItem('ash_refresh_count', String(currentRefreshCount));
-      sessionStorage.setItem('ash_reload_counted_this_load', 'true');
     }
 
-    // Modulo 5: index 0 to 4
-    // Shows on index 0 (1st refresh), index 2 (3rd refresh), and index 4 (5th refresh) -> Exactly 3 times out of 5 refreshes!
-    // Skips on index 1 (2nd refresh) and index 3 (4th refresh) -> 2 times out of 5 are silent!
+    // 3. Frequency Rule: In every 5 refreshes, show 3 times
+    // (currentRefreshCount - 1) % 5 gives 0, 1, 2, 3, 4
+    // Shows on:
+    //   Refresh 1 (cycle 0) -> SHOW
+    //   Refresh 2 (cycle 1) -> SKIP
+    //   Refresh 3 (cycle 2) -> SHOW
+    //   Refresh 4 (cycle 3) -> SKIP
+    //   Refresh 5 (cycle 4) -> SHOW
     const cycleIndex = (currentRefreshCount - 1) % 5;
     const shouldShowThisRefresh = (cycleIndex === 0 || cycleIndex === 2 || cycleIndex === 4);
 
     if (!shouldShowThisRefresh) {
-      return; // Skip this refresh
+      console.log(`[Arab Signature Promo] Refresh #${currentRefreshCount} (cycle step ${cycleIndex + 1}/5) -> SKIP`);
+      return;
     }
 
-    // If popup already showed once on this specific page load, don't repeat
-    if (sessionStorage.getItem('ash_promo_shown_this_load')) {
+    // If popup already showed or is showing on this reload, do not repeat
+    if (hasShownOnThisReload) {
       return;
     }
 
     // Don't trigger if externally blocked (booking modal open or staff portal)
     if (isBlocked) return;
 
-    // 3. Category Rotation Rule:
-    // "in every 5 times it shows 1 should be hotel suites and 2 for kitchecn and 2 for drinks"
-    // 5-item rotation: ['kitchen', 'drinks', 'suite', 'kitchen', 'drinks']
-    // In this 5-show sequence:
-    //   - kitchen: 2 times (index 0, 3)
-    //   - drinks: 2 times (index 1, 4)
-    //   - suite: 1 time (index 2)
+    // 4. Content Rotation Rule:
+    // In every 5 times it shows: 1 for hotel suites, 2 for kitchen, 2 for drinks
+    // Sequence: ['kitchen', 'drinks', 'suite', 'kitchen', 'drinks']
     const PROMO_ROTATION = ['kitchen', 'drinks', 'suite', 'kitchen', 'drinks'];
     const currentShownCount = Number(localStorage.getItem('ash_promo_shown_count') || 0);
     const chosenType = PROMO_ROTATION[currentShownCount % 5];
 
-    // 4. Timing Rule:
-    // Wait between 5 and 8 seconds after page load before displaying (organic non-intrusive timing)
-    const randomDelay = Math.floor(Math.random() * 2500) + 5500; // 5.5s to 8.0s
+    console.log(`[Arab Signature Promo] Refresh #${currentRefreshCount} (cycle step ${cycleIndex + 1}/5) -> SHOW (${chosenType}) in 5s`);
+
+    // 5. Timing Rule: 5.0 seconds after page reload
+    const SHOW_DELAY_MS = 5000;
 
     const timer = setTimeout(() => {
-      if (isBlocked) return;
+      // If intro is still animating, wait a brief tick
+      const triggerModal = () => {
+        if (isBlocked) return;
+        setPromoType(chosenType);
 
-      setPromoType(chosenType);
+        if (chosenType === 'kitchen') {
+          setFoodPromo(generateRandomFoodCombo());
+        } else if (chosenType === 'drinks') {
+          setDrinksPromo(generateRandomDrinksPromo());
+        } else {
+          setSuitePromo(generateRandomSuitePromo());
+        }
 
-      if (chosenType === 'kitchen') {
-        setFoodPromo(generateRandomFoodCombo());
-      } else if (chosenType === 'drinks') {
-        setDrinksPromo(generateRandomDrinksPromo());
+        hasShownOnThisReload = true;
+        setIsOpen(true);
+        localStorage.setItem('ash_promo_shown_count', String(currentShownCount + 1));
+      };
+
+      if (isIntroActive) {
+        // Wait until intro finishes then show immediately
+        const pollIntro = setInterval(() => {
+          if (!isIntroActive) {
+            clearInterval(pollIntro);
+            triggerModal();
+          }
+        }, 300);
+        setTimeout(() => clearInterval(pollIntro), 5000);
       } else {
-        setSuitePromo(generateRandomSuitePromo());
+        triggerModal();
       }
-
-      setIsOpen(true);
-      // Mark as shown on this page load and increment total shown count
-      sessionStorage.setItem('ash_promo_shown_this_load', 'true');
-      localStorage.setItem('ash_promo_shown_count', String(currentShownCount + 1));
-    }, randomDelay);
+    }, SHOW_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, [isBlocked]);
+  }, [isBlocked, isIntroActive]);
 
   // Handle Close / Dismiss
   const handleClose = (userRequestedMute = false) => {
     setIsOpen(false);
-    sessionStorage.setItem('ash_promo_shown_this_load', 'true');
+    hasShownOnThisReload = true;
 
     if (userRequestedMute || dontShowToday) {
       localStorage.setItem('ash_promo_dismissed_until', String(Date.now() + 24 * 60 * 60 * 1000));

@@ -211,12 +211,13 @@ export default function App() {
         preselectedRoomId={preselectedRoom}
       />
 
-      {/* 5. Non-Intrusive Luxury Promo Popup (Food Combo OR Suites & Upcoming Event) */}
-      {!isPortalPage && !showWelcome && (
+      {/* 5. Non-Intrusive Luxury Promo Popup (Kitchen Combo OR Suites & Event OR Drinks) */}
+      {!isPortalPage && (
         <PromoPopupModal
           onNavigate={handleNavigate}
           onOpenBooking={handleOpenBooking}
           isBlocked={isBookingOpen}
+          isIntroActive={showWelcome}
         />
       )}
 
