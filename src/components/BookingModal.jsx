@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HOTEL_INFO } from '../data/hotelData';
 import { portalStore } from '../data/portalStore';
 import { X, Calendar, User, Phone, Mail, CheckCircle2, ShieldCheck, Download, Share2, ArrowRight } from 'lucide-react';
@@ -13,6 +13,12 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
   const [guestEmail, setGuestEmail] = useState('ibrahim.musa@example.com');
   const [bookingCode, setBookingCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    if (preselectedRoomId) {
+      setRoomId(preselectedRoomId);
+    }
+  }, [preselectedRoomId, isOpen]);
 
   if (!isOpen) return null;
 

@@ -4,7 +4,7 @@ import { portalStore } from '../data/portalStore';
 import { 
   Calendar, Users, ArrowRight, Star, ShieldCheck, Zap, Crown, 
   Car, Sparkles, Utensils, Waves, Phone, MapPin, Check, 
-  ChevronRight, Play, Clock, Share2, Award, Camera
+  ChevronRight, Play, Clock, Share2, Award, Camera, Building2, DoorOpen
 } from 'lucide-react';
 import PhotoGallerySection from '../components/PhotoGallerySection';
 
@@ -14,6 +14,7 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
   const [roomType, setRoomType] = useState('deluxe');
   const [rooms, setRooms] = useState(() => portalStore.getRoomRates());
   const [activeRoomPhotos, setActiveRoomPhotos] = useState({});
+  const [selectedBuilding, setSelectedBuilding] = useState('all'); // 'all' | 'main' | 'extension'
 
   // Listen for real-time room rate adjustments made by Admin
   useEffect(() => {
@@ -76,11 +77,11 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
             </button>
 
             <button
-              onClick={() => onOpenBooking('royal')}
+              onClick={() => onOpenBooking('suites')}
               className="px-7 py-4 rounded-2xl bg-white/10 text-white border border-white/20 hover:bg-white/20 backdrop-blur-md font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2"
             >
               <Crown size={15} className="text-[#d4af37]" />
-              <span>Royal Penthouse</span>
+              <span>Diplomatic Suites</span>
             </button>
 
             <button
@@ -224,97 +225,180 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
       </section>
 
       {/* 3. FEATURED SUITES PREVIEW */}
-      <section className="py-20 px-6 bg-[#17030c] border-y border-[#5c0725]/40">
-        <div className="max-w-7xl mx-auto space-y-10">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-            <div>
-              <span className="text-xs uppercase font-mono tracking-widest text-[#d4af37] block font-semibold">
-                5-STAR LUXURY ACCOMMODATIONS • 34 TOTAL ROOMS & SUITES
+      <section className="py-16 sm:py-20 px-4 sm:px-6 bg-[#17030c] border-y border-[#5c0725]/40">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
+            <div className="space-y-1.5">
+              <span className="text-[11px] sm:text-xs uppercase font-mono tracking-widest text-[#d4af37] block font-semibold">
+                34 LUXURY ROOMS & ARAB SUITES • 2 BUILDINGS (MAIN & EXTENSION)
               </span>
-              <h2 className="font-cinzel text-3xl sm:text-4xl font-extrabold tracking-wide mt-1">
-                Signature Arab Suites & Residences
+              <h2 className="font-cinzel text-2xl sm:text-4xl font-extrabold tracking-wide text-white">
+                Signature Arab Suites & Room Rates
               </h2>
             </div>
-            <button
-              onClick={() => onNavigate('suites')}
-              className="px-5 py-2.5 rounded-xl bg-[#5c0725] hover:bg-[#720a2f] text-white text-xs font-bold uppercase tracking-wider border border-[#d4af37]/40 flex items-center gap-2"
-            >
-              <span>View All 34 Rooms & 4 Categories</span>
-              <ChevronRight size={14} />
-            </button>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { id: 'all', label: 'All 34 Rooms' },
+                { id: 'main', label: 'Main Building (20)' },
+                { id: 'extension', label: 'Extension Building (14)' }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setSelectedBuilding(tab.id)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                    selectedBuilding === tab.id
+                      ? 'bg-[#d4af37] text-black font-bold shadow-md shadow-[#d4af37]/20'
+                      : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+
+              <button
+                onClick={() => onNavigate('suites')}
+                className="px-4 py-2 rounded-xl bg-[#5c0725] hover:bg-[#720a2f] text-[#f3e5ab] text-xs font-bold uppercase tracking-wider border border-[#d4af37]/40 flex items-center gap-1.5"
+              >
+                <span>Full Rate Board</span>
+                <ChevronRight size={14} />
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {rooms.map((room) => {
-              const roomGallery = room.gallery && room.gallery.length > 0 ? room.gallery : [room.image];
-              const currentPhoto = activeRoomPhotos[room.id] || room.image;
-              return (
-                <div
-                  key={room.id}
-                  className="rounded-3xl overflow-hidden border border-[#d4af37]/30 bg-[#1f050f]/80 shadow-xl flex flex-col justify-between group hover:-translate-y-1 transition-all"
-                >
-                  <div className="relative h-60 overflow-hidden bg-black">
-                    <img
-                      src={currentPhoto}
-                      alt={room.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                    />
-                    <div className="absolute top-3 left-3 bg-[#5c0725] text-[#f3e5ab] text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow">
-                      {room.category}
-                    </div>
-                    <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md text-[#d4af37] text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 border border-white/10">
-                      <Star size={11} fill="#d4af37" /> {room.rating}
-                    </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {rooms
+              .filter((room) => {
+                if (selectedBuilding === 'main') return room.mainBuildingRooms && room.mainBuildingRooms.length > 0;
+                if (selectedBuilding === 'extension') return room.extensionBuildingRooms && room.extensionBuildingRooms.length > 0;
+                return true;
+              })
+              .map((room) => {
+                const roomGallery = room.gallery && room.gallery.length > 0 ? room.gallery : [room.image];
+                const currentPhoto = activeRoomPhotos[room.id] || room.image;
+                const hasMain = room.mainBuildingRooms && room.mainBuildingRooms.length > 0;
+                const hasExt = room.extensionBuildingRooms && room.extensionBuildingRooms.length > 0;
+                const countInSelection =
+                  selectedBuilding === 'main'
+                    ? room.mainBuildingRooms?.length || 0
+                    : selectedBuilding === 'extension'
+                    ? room.extensionBuildingRooms?.length || 0
+                    : room.totalRooms || (room.roomNumbers ? room.roomNumbers.length : 0);
 
-                    {/* Multi-Angle Vivid HDR Thumbnail Switcher */}
-                    {roomGallery.length > 1 && (
-                      <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 bg-black/70 backdrop-blur-md p-1 rounded-xl border border-white/15">
-                        {roomGallery.map((imgUrl, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveRoomPhotos((prev) => ({ ...prev, [room.id]: imgUrl }));
-                            }}
-                            className={`w-7 h-5 rounded-md overflow-hidden border transition-all ${
-                              currentPhoto === imgUrl
-                                ? 'border-[#d4af37] scale-105 ring-1 ring-[#d4af37]'
-                                : 'border-white/20 opacity-70 hover:opacity-100'
-                            }`}
-                            title={`View Angle ${idx + 1}`}
-                          >
-                            <img src={imgUrl} alt="" className="w-full h-full object-cover" />
-                          </button>
-                        ))}
+                return (
+                  <div
+                    key={room.id}
+                    className="rounded-3xl overflow-hidden border border-[#d4af37]/30 bg-[#1f050f]/90 shadow-xl flex flex-col justify-between group hover:-translate-y-1 hover:border-[#d4af37] transition-all duration-300"
+                  >
+                    <div className="relative h-56 sm:h-60 overflow-hidden bg-black">
+                      <img
+                        src={currentPhoto}
+                        alt={room.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                      />
+                      <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                        <span className="bg-[#5c0725] text-[#f3e5ab] border border-[#d4af37]/40 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow">
+                          {room.boardTitle || room.category}
+                        </span>
+                        <span className="bg-black/75 backdrop-blur-md text-white text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15">
+                          {countInSelection} {countInSelection === 1 ? 'Room' : 'Rooms'}
+                        </span>
                       </div>
-                    )}
-                  </div>
-
-                  <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                    <div>
-                      <h3 className="font-cinzel text-lg font-bold truncate group-hover:text-[#d4af37] transition-colors">
-                        {room.name}
-                      </h3>
-                      <p className="text-xs text-gray-300 mt-1 line-clamp-2">{room.description}</p>
-                    </div>
-
-                    <div className="pt-2 flex items-center justify-between border-t border-white/10">
-                      <div>
-                        <span className="text-[10px] uppercase text-gray-400 block">Nightly Rate</span>
-                        <div className="text-lg font-extrabold text-[#d4af37]">{room.priceFormatted}</div>
+                      <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md text-[#d4af37] text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 border border-white/10">
+                        <Star size={11} fill="#d4af37" /> {room.rating}
                       </div>
-                      <button
-                        onClick={() => onOpenBooking(room.id)}
-                        className={`px-4 py-2.5 rounded-xl ${goldGradient} font-bold text-xs uppercase tracking-wider shadow-md hover:opacity-95`}
-                      >
-                        Reserve
-                      </button>
+
+                      {/* Multi-Angle Vivid HDR Thumbnail Switcher */}
+                      {roomGallery.length > 1 && (
+                        <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 bg-black/70 backdrop-blur-md p-1 rounded-xl border border-white/15">
+                          {roomGallery.map((imgUrl, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveRoomPhotos((prev) => ({ ...prev, [room.id]: imgUrl }));
+                              }}
+                              className={`w-7 h-5 rounded-md overflow-hidden border transition-all ${
+                                currentPhoto === imgUrl
+                                  ? 'border-[#d4af37] scale-105 ring-1 ring-[#d4af37]'
+                                  : 'border-white/20 opacity-70 hover:opacity-100'
+                              }`}
+                              title={`View Angle ${idx + 1}`}
+                            >
+                              <img src={imgUrl} alt="" className="w-full h-full object-cover" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                      <div className="space-y-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h3 className="font-cinzel text-lg font-bold text-white group-hover:text-[#d4af37] transition-colors">
+                              {room.name}
+                            </h3>
+                            <span className="text-[11px] text-gray-400 block">{room.bed} • {room.size}</span>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="text-lg font-extrabold text-[#d4af37] font-mono">{room.priceFormatted}</div>
+                            <span className="text-[10px] uppercase text-gray-400 block">per night</span>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">{room.description}</p>
+
+                        {/* Building & Room Number Pills */}
+                        <div className="p-2.5 rounded-xl bg-black/45 border border-white/10 space-y-1.5 text-[10px] font-mono">
+                          {hasMain && (selectedBuilding === 'all' || selectedBuilding === 'main') && (
+                            <div className="flex flex-wrap items-center justify-between gap-1">
+                              <span className="text-gray-300">Main Bldg ({room.mainBuildingRooms.length}):</span>
+                              <div className="flex flex-wrap gap-1">
+                                {room.mainBuildingRooms.map((n) => (
+                                  <span key={n} className="px-1.5 py-0.5 rounded bg-[#5c0725]/60 text-[#f3e5ab] border border-[#d4af37]/30">
+                                    #{n}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {hasExt && (selectedBuilding === 'all' || selectedBuilding === 'extension') && (
+                            <div className="flex flex-wrap items-center justify-between gap-1">
+                              <span className="text-gray-300">Extension ({room.extensionBuildingRooms.length}):</span>
+                              <div className="flex flex-wrap gap-1">
+                                {room.extensionBuildingRooms.map((n) => (
+                                  <span key={n} className="px-1.5 py-0.5 rounded bg-[#d4af37]/15 text-[#d4af37] border border-[#d4af37]/30">
+                                    #{n}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex items-center justify-between border-t border-white/10 gap-2">
+                        <button
+                          onClick={() => onNavigate('suites')}
+                          className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-semibold border border-white/10 transition-all"
+                        >
+                          Details
+                        </button>
+                        <button
+                          onClick={() => onOpenBooking(room.id)}
+                          className={`flex-1 py-2.5 px-4 rounded-xl ${goldGradient} font-extrabold text-xs uppercase tracking-wider shadow-md hover:opacity-95 flex items-center justify-center gap-1.5`}
+                        >
+                          <span>Reserve {room.category}</span>
+                          <ArrowRight size={13} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </div>
       </section>
