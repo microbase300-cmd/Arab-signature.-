@@ -3,6 +3,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import BookingModal from './components/BookingModal';
 import WelcomeIntro from './components/WelcomeIntro';
+import PromoPopupModal from './components/PromoPopupModal';
 import { portalStore } from './data/portalStore';
 
 // Dedicated Multi-Page Views (Design 1 Luxury Arabesque Theme)
@@ -210,7 +211,16 @@ export default function App() {
         preselectedRoomId={preselectedRoom}
       />
 
-      {/* 5. Arab Signature AI Concierge (Lightweight & Zero-Vercel Cost) */}
+      {/* 5. Non-Intrusive Luxury Promo Popup (Food Combo OR Suites & Upcoming Event) */}
+      {!isPortalPage && !showWelcome && (
+        <PromoPopupModal
+          onNavigate={handleNavigate}
+          onOpenBooking={handleOpenBooking}
+          isBlocked={isBookingOpen}
+        />
+      )}
+
+      {/* 6. Arab Signature AI Concierge (Lightweight & Zero-Vercel Cost) */}
       {!isPortalPage && (
         <HotelAiChat
           onOpenBooking={handleOpenBooking}
