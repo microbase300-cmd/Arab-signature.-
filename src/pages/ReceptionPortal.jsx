@@ -4,7 +4,7 @@ import {
   Building2, BedDouble, Calendar, User, Phone, CheckCircle2, Clock, 
   Search, Filter, Plus, Printer, MessageSquare, LogOut, ArrowLeft, 
   Sparkles, RefreshCw, Key, ShieldCheck, Check, AlertCircle, X, ChevronRight,
-  TrendingUp, DoorOpen, Sparkle, Utensils, Lock, Wine
+  TrendingUp, DoorOpen, Sparkle, Utensils, Lock, Wine, Bell, Volume2, VolumeX
 } from 'lucide-react';
 
 export default function ReceptionPortal({ onNavigate }) {
@@ -23,6 +23,53 @@ export default function ReceptionPortal({ onNavigate }) {
   const [isWalkInOpen, setIsWalkInOpen] = useState(false);
   const [selectedReceiptBooking, setSelectedReceiptBooking] = useState(null);
   const [feedbackMsg, setFeedbackMsg] = useState('');
+
+  // Incoming Real-Time Reservation Alert & Sound State
+  const [incomingAlert, setIncomingAlert] = useState(null);
+  const [isSoundMuted, setIsSoundMuted] = useState(false);
+  const isMutedRef = React.useRef(isSoundMuted);
+  useEffect(() => {
+    isMutedRef.current = isSoundMuted;
+  }, [isSoundMuted]);
+
+  // Front Desk Concierge Brass Bell Sound Synthesizer (Web Audio API - Zero External Audio Files)
+  const playReceptionDeskBeep = () => {
+    if (isMutedRef.current) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
+      const playTone = (freq, delay, dur) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+
+        gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+        gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + delay + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + dur);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + dur);
+      };
+
+      // Triple Harmonic Hotel Front Desk Brass Chime (Crystal Bell Sound)
+      playTone(880, 0, 0.45);        // Note A5
+      playTone(1174.66, 0.16, 0.65); // Note D6
+      playTone(1760, 0.32, 0.75);    // Note A6
+    } catch (err) {
+      console.log('[Reception Sound Notice]:', err);
+    }
+  };
 
   // Walk-in form state
   const [walkInForm, setWalkInForm] = useState({
@@ -73,8 +120,17 @@ export default function ReceptionPortal({ onNavigate }) {
     }, 1000);
 
     // 3. Listen for live incoming bookings & price adjustments in real time
+    const handleBookingsSync = (e) => {
+      refreshData();
+      if (e && e.detail && e.detail.isNewReservation && e.detail.newBooking) {
+        // Play luxury concierge desk bell chime beep
+        playReceptionDeskBeep();
+        // Display prominent alert banner at top of reception screen
+        setIncomingAlert(e.detail.newBooking);
+      }
+    };
     const handleLiveSync = () => refreshData();
-    window.addEventListener('ash_bookings_updated', handleLiveSync);
+    window.addEventListener('ash_bookings_updated', handleBookingsSync);
     window.addEventListener('ash_rates_updated', handleLiveSync);
     window.addEventListener('ash_rooms_updated', handleLiveSync);
     window.addEventListener('ash_menu_updated', handleLiveSync);
@@ -83,7 +139,7 @@ export default function ReceptionPortal({ onNavigate }) {
 
     return () => {
       clearInterval(timer);
-      window.removeEventListener('ash_bookings_updated', handleLiveSync);
+      window.removeEventListener('ash_bookings_updated', handleBookingsSync);
       window.removeEventListener('ash_rates_updated', handleLiveSync);
       window.removeEventListener('ash_rooms_updated', handleLiveSync);
       window.removeEventListener('ash_menu_updated', handleLiveSync);
@@ -319,6 +375,29 @@ export default function ReceptionPortal({ onNavigate }) {
               <span className="hidden sm:inline">Menu Prices</span>
             </button>
 
+            {/* Test Front Desk Bell Sound / Audio Mute */}
+            <button
+              onClick={() => {
+                if (isSoundMuted) {
+                  setIsSoundMuted(false);
+                  showToast('Concierge Bell Chime Unmuted 🔔');
+                  setTimeout(() => playReceptionDeskBeep(), 100);
+                } else {
+                  playReceptionDeskBeep();
+                  showToast('Testing Front Desk Bell Chime... 🔔');
+                }
+              }}
+              className={`p-2 sm:px-3 sm:py-2 rounded-xl text-xs font-medium border flex items-center gap-1.5 transition-all ${
+                isSoundMuted 
+                  ? 'bg-rose-950/40 border-rose-500/30 text-rose-300' 
+                  : 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border-white/10'
+              }`}
+              title={isSoundMuted ? "Audio Muted - Click to Unmute" : "Test Front Desk Bell Sound"}
+            >
+              {isSoundMuted ? <VolumeX size={15} className="text-rose-400" /> : <Volume2 size={15} className="text-[#d4af37]" />}
+              <span className="hidden sm:inline">{isSoundMuted ? 'Muted' : 'Test Bell'}</span>
+            </button>
+
             {/* Back to Guest Website */}
             <button
               onClick={() => onNavigate('home')}
@@ -341,6 +420,58 @@ export default function ReceptionPortal({ onNavigate }) {
         </div>
 
       </header>
+
+      {/* Real-Time Incoming Online Reservation Alert Banner with Sound */}
+      {incomingAlert && (
+        <div className="bg-gradient-to-r from-amber-500 via-[#d4af37] to-amber-600 text-black px-4 sm:px-8 py-3.5 shadow-2xl flex flex-wrap items-center justify-between gap-3 border-b-2 border-black/30 animate-pulse">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center flex-shrink-0">
+              <Bell size={22} className="text-black stroke-[2.5] animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold text-xs tracking-wider uppercase bg-black text-amber-300 px-2.5 py-0.5 rounded-full font-mono shadow-sm">
+                  🔔 NEW ONLINE RESERVATION PAID & CONFIRMED!
+                </span>
+                <span className="text-xs font-mono font-bold text-black/90">({incomingAlert.id})</span>
+              </div>
+              <p className="text-xs sm:text-sm font-semibold text-black mt-1">
+                Guest: <span className="underline font-bold text-black">{incomingAlert.guestName}</span> &bull; 
+                Auto-Assigned: <span className="bg-black/90 text-amber-300 px-2 py-0.5 rounded-md font-mono font-bold">Room #{incomingAlert.roomNumber}</span> ({incomingAlert.roomName || incomingAlert.roomType}) &bull; 
+                Paid: <span className="font-bold">₦{Number(incomingAlert.amount).toLocaleString()}</span> ({incomingAlert.nights} {incomingAlert.nights === 1 ? 'night' : 'nights'})
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => playReceptionDeskBeep()}
+              className="px-3 py-1.5 rounded-xl bg-black/15 hover:bg-black/25 text-black font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              title="Replay concierge bell chime"
+            >
+              <Volume2 size={15} />
+              <span>Re-chime</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('ledger');
+                setSearchQuery(incomingAlert.guestName);
+                setIncomingAlert(null);
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-black text-white hover:bg-black/85 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+            >
+              <Key size={14} className="text-[#d4af37]" />
+              <span>View In Ledger</span>
+            </button>
+            <button
+              onClick={() => setIncomingAlert(null)}
+              className="p-1.5 rounded-xl bg-black/20 hover:bg-black/30 text-black transition-colors cursor-pointer"
+              title="Acknowledge & dismiss alert"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Toast Notification Banner */}
       {feedbackMsg && (
@@ -523,6 +654,22 @@ export default function ReceptionPortal({ onNavigate }) {
                   }`}
                 >
                   Extension Building (14 Rooms • 100 Wing)
+                </button>
+
+                {/* Production Mode Action: Reset All Rooms to Available */}
+                <button
+                  onClick={() => {
+                    if (window.confirm("Move all 34 rooms into PRODUCTION VACANT & AVAILABLE mode? This clears test guest assignments and readies all 34 rooms across both wings for live guests.")) {
+                      portalStore.resetAllRoomsToAvailable();
+                      refreshData();
+                      showToast("All 34 suites are now 100% AVAILABLE in Production Mode!");
+                    }
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 font-semibold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ml-auto"
+                  title="Reset all 34 rooms across both buildings to available"
+                >
+                  <CheckCircle2 size={13} className="text-emerald-400" />
+                  <span>Make All Rooms Available</span>
                 </button>
               </div>
             </div>

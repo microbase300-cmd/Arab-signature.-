@@ -6,24 +6,24 @@ const STORAGE_KEYS = {
   USERS: 'ash_portal_staff_users',
   LOGIN_LOGS: 'ash_portal_login_attempts',
   BOOKINGS: 'ash_portal_bookings_v7',
-  ROOMS: 'ash_portal_rooms_inventory_v7',
+  ROOMS: 'ash_portal_rooms_inventory_v9',
   ROOM_RATES: 'ash_portal_room_rates_v3',
   DINING_MENU: 'ash_portal_dining_menu_v4',
   HOTEL_CONFIG: 'ash_portal_hotel_config',
   ACTIVITY_LOG: 'ash_portal_activity_log',
 };
 
-// 1. Initial Room Inventory (34 Authentic Rooms Across 2 Buildings in Nsugbe, Onitsha)
+// 1. Initial Room Inventory (34 Authentic Rooms Across 2 Buildings in Nsugbe, Onitsha - All Available for Production)
 const INITIAL_ROOMS_INVENTORY = [
   // ==========================================
   // MAIN BUILDING (20 Rooms total • 600 Wing)
   // Super Exec (₦60k), Exec (₦50k), Superior (₦40k), Deluxe (₦35k), Standard (₦30k)
   // ==========================================
-  { roomNumber: "601", building: "Main Building", floor: "Main Building", type: "executive", name: "Executive Room", price: 50000, status: "reserved", currentGuest: "Alhaji Ibrahim Musa", checkOut: "2026-10-23" },
+  { roomNumber: "601", building: "Main Building", floor: "Main Building", type: "executive", name: "Executive Room", price: 50000, status: "available", currentGuest: null, checkOut: null },
   { roomNumber: "602", building: "Main Building", floor: "Main Building", type: "deluxe", name: "Deluxe Room", price: 35000, status: "available", currentGuest: null, checkOut: null },
   { roomNumber: "603", building: "Main Building", floor: "Main Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
   { roomNumber: "604", building: "Main Building", floor: "Main Building", type: "deluxe", name: "Deluxe Room", price: 35000, status: "available", currentGuest: null, checkOut: null },
-  { roomNumber: "605", building: "Main Building", floor: "Main Building", type: "super-executive", name: "Super Executive Room", price: 60000, status: "occupied", currentGuest: "Senator Chuka Nwosu", checkOut: "2026-10-23" },
+  { roomNumber: "605", building: "Main Building", floor: "Main Building", type: "super-executive", name: "Super Executive Room", price: 60000, status: "available", currentGuest: null, checkOut: null },
   { roomNumber: "606", building: "Main Building", floor: "Main Building", type: "deluxe", name: "Deluxe Room", price: 35000, status: "available", currentGuest: null, checkOut: null },
   { roomNumber: "607", building: "Main Building", floor: "Main Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
   { roomNumber: "608", building: "Main Building", floor: "Main Building", type: "deluxe", name: "Deluxe Room", price: 35000, status: "available", currentGuest: null, checkOut: null },
@@ -38,19 +38,19 @@ const INITIAL_ROOMS_INVENTORY = [
   { roomNumber: "617", building: "Main Building", floor: "Main Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
   { roomNumber: "618", building: "Main Building", floor: "Main Building", type: "standard", name: "Standard Room", price: 30000, status: "available", currentGuest: null, checkOut: null },
   { roomNumber: "619", building: "Main Building", floor: "Main Building", type: "executive", name: "Executive Room", price: 50000, status: "available", currentGuest: null, checkOut: null },
-  { roomNumber: "620", building: "Main Building", floor: "Main Building", type: "deluxe", name: "Deluxe Room", price: 35000, status: "cleaning", currentGuest: null, checkOut: null },
+  { roomNumber: "620", building: "Main Building", floor: "Main Building", type: "deluxe", name: "Deluxe Room", price: 35000, status: "available", currentGuest: null, checkOut: null },
 
   // ==========================================
   // EXTENSION BUILDING (14 Rooms total • 100 Wing)
   // Suites (₦120k), Super-Exec (₦60k), Exec (₦50k), Superior (₦40k)
   // ==========================================
-  { roomNumber: "101", building: "Extension Building", floor: "Extension Building", type: "superior", name: "Superior Room", price: 40000, status: "occupied", currentGuest: "Dr. Ngozi Adeleke", checkOut: "2026-10-22" },
+  { roomNumber: "101", building: "Extension Building", floor: "Extension Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
   { roomNumber: "102", building: "Extension Building", floor: "Extension Building", type: "super-executive", name: "Super Executive Room", price: 60000, status: "available", currentGuest: null, checkOut: null },
   { roomNumber: "103", building: "Extension Building", floor: "Extension Building", type: "executive", name: "Executive Room", price: 50000, status: "available", currentGuest: null, checkOut: null },
   { roomNumber: "104", building: "Extension Building", floor: "Extension Building", type: "executive", name: "Executive Room", price: 50000, status: "available", currentGuest: null, checkOut: null },
   { roomNumber: "105", building: "Extension Building", floor: "Extension Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
   { roomNumber: "106", building: "Extension Building", floor: "Extension Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
-  { roomNumber: "107", building: "Extension Building", floor: "Extension Building", type: "suites", name: "Diplomatic Suite", price: 120000, status: "occupied", currentGuest: "Chief Emeka Obi", checkOut: "2026-10-24" },
+  { roomNumber: "107", building: "Extension Building", floor: "Extension Building", type: "suites", name: "Diplomatic Suite", price: 120000, status: "available", currentGuest: null, checkOut: null },
   { roomNumber: "108", building: "Extension Building", floor: "Extension Building", type: "superior", name: "Superior Room", price: 40000, status: "available", currentGuest: null, checkOut: null },
   { roomNumber: "109", building: "Extension Building", floor: "Extension Building", type: "super-executive", name: "Super Executive Room", price: 60000, status: "available", currentGuest: null, checkOut: null },
   { roomNumber: "110", building: "Extension Building", floor: "Extension Building", type: "executive", name: "Executive Room", price: 50000, status: "available", currentGuest: null, checkOut: null },
@@ -1676,6 +1676,18 @@ export const portalStore = {
 
   addBooking(bookingData) {
     const bookings = this.getBookings();
+    const rooms = this.getRooms();
+
+    // 1. Automatically assign an available room matching the roomType if not specified
+    let assignedRoomNumber = bookingData.roomNumber;
+    if (!assignedRoomNumber || assignedRoomNumber === "Unassigned") {
+      const availableMatch = rooms.find(
+        r => r.type === bookingData.roomType && r.status === 'available'
+      );
+      if (availableMatch) {
+        assignedRoomNumber = availableMatch.roomNumber;
+      }
+    }
     
     // Payment is automatically confirmed when Paystack processes it (or POS/Cash at front desk)
     const newBooking = {
@@ -1685,30 +1697,66 @@ export const portalStore = {
       email: bookingData.email || "",
       roomType: bookingData.roomType || "deluxe",
       roomName: bookingData.roomName || "Arab Deluxe Suite",
-      roomNumber: bookingData.roomNumber || "Unassigned",
+      roomNumber: assignedRoomNumber || "Unassigned",
       checkIn: bookingData.checkIn || new Date().toISOString().split('T')[0],
       checkOut: bookingData.checkOut || "",
       nights: bookingData.nights || 1,
       amount: bookingData.amount || 45000,
       status: bookingData.status || "Confirmed",
-      paymentMethod: bookingData.paymentMethod || "Paystack (Auto-Confirmed)",
+      paymentMethod: bookingData.paymentMethod || "Paystack (Online Verified)",
       paymentStatus: "Paid", // Automatically confirmed by Paystack
+      paystackReference: bookingData.paystackReference || ('REF-' + Date.now()),
       backendVerified: true,
       verifiedAt: new Date().toLocaleString(),
       source: bookingData.source || "Direct Website (Paystack)",
       createdAt: new Date().toLocaleString()
     };
 
+    // 2. Automatically mark the assigned room as "reserved" in inventory
+    if (assignedRoomNumber && assignedRoomNumber !== "Unassigned") {
+      this.updateRoomStatus(assignedRoomNumber, 'reserved', newBooking.guestName);
+    }
+
     const updated = [newBooking, ...bookings];
     setLocalItem(STORAGE_KEYS.BOOKINGS, updated);
-    this.logActivity(`New reservation booked: ${newBooking.id} for ${newBooking.guestName} - Payment Automatically Confirmed by Paystack`);
+    this.logActivity(`New reservation confirmed: ${newBooking.id} for ${newBooking.guestName} - Room #${newBooking.roomNumber} automatically reserved via Paystack`);
     
-    // Broadcast live update so receptionist screen updates in real time
+    // 3. Broadcast live update with audio/visual alert signal for Receptionist desk
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('ash_bookings_updated', { detail: updated }));
+      window.dispatchEvent(new CustomEvent('ash_bookings_updated', { 
+        detail: {
+          bookings: updated,
+          newBooking,
+          assignedRoomNumber: newBooking.roomNumber,
+          isNewReservation: true
+        } 
+      }));
     }
 
     return newBooking;
+  },
+
+  // Reset all 34 rooms to 100% available (Production clean state)
+  resetAllRoomsToAvailable() {
+    const cleanRooms = INITIAL_ROOMS_INVENTORY.map(r => ({
+      ...r,
+      status: "available",
+      currentGuest: null,
+      checkOut: null
+    }));
+    setLocalItem(STORAGE_KEYS.ROOMS, cleanRooms);
+    setLocalItem('ash_portal_rooms_inventory', cleanRooms);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_rooms_updated', { detail: cleanRooms }));
+      const payload = JSON.stringify({ rooms: cleanRooms, updatedAt: Date.now() });
+      fetch('https://mantledb.sh/v2/arab-signature-hotel-34rooms-prod-v1/inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      }).catch(() => {});
+    }
+    this.logActivity('All 34 hotel rooms reset to AVAILABLE for production');
+    return cleanRooms;
   },
 
   // Confirm payment manual audit if ever needed
@@ -1823,7 +1871,7 @@ export const portalStore = {
       const payload = JSON.stringify({ rooms: updated, updatedAt: Date.now() });
       
       // Direct Primary: MantleDB (100% Client-side, 0 Vercel Serverless Function calls)
-      fetch('https://mantledb.sh/v2/arab-signature-hotel-34rooms-v2/inventory', {
+      fetch('https://mantledb.sh/v2/arab-signature-hotel-34rooms-prod-v1/inventory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: payload
@@ -1867,7 +1915,7 @@ export const portalStore = {
       const ctrl = new AbortController();
       const timeoutId = setTimeout(() => ctrl.abort(), 1500);
 
-      const res = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-34rooms-v2/inventory?_t=${Date.now()}`, {
+      const res = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-34rooms-prod-v1/inventory?_t=${Date.now()}`, {
         cache: 'no-store',
         signal: ctrl.signal
       });

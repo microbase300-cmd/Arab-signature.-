@@ -36,6 +36,7 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
   const [guestEmail, setGuestEmail] = useState('ibrahim.musa@example.com');
   const [bookingCode, setBookingCode] = useState('');
   const [paystackReference, setPaystackReference] = useState('');
+  const [assignedRoomNumber, setAssignedRoomNumber] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const [copiedRef, setCopiedRef] = useState(false);
@@ -100,7 +101,7 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
     setPaystackReference(reference);
 
     // Save into central hotel portal store
-    portalStore.addBooking({
+    const savedBooking = portalStore.addBooking({
       id: code,
       guestName: guestName,
       phone: guestPhone,
@@ -118,6 +119,10 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
       backendVerified: true,
       source: "Direct Website"
     });
+
+    if (savedBooking && savedBooking.roomNumber) {
+      setAssignedRoomNumber(savedBooking.roomNumber);
+    }
 
     // Optional background verification call to /api/verify-payment
     if (isRealPaystack && typeof window !== 'undefined') {
@@ -195,6 +200,7 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
       `👤 Guest Name: ${guestName}\n` +
       `📱 Phone: ${guestPhone}\n` +
       `🏨 Room: ${selectedRoom.name} (${selectedRoom.buildingLabel || 'Arab Signature Wing'})\n` +
+      (assignedRoomNumber && assignedRoomNumber !== 'Unassigned' ? `🔑 Assigned Suite: Room #${assignedRoomNumber}\n` : '') +
       `📅 Check-in: ${checkIn} (2:00 PM)\n` +
       `📅 Check-out: ${checkOut} (12:00 PM)\n` +
       `🌙 Duration: ${nights} ${nights === 1 ? 'Night' : 'Nights'}\n` +
@@ -551,6 +557,17 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
                   <div>
                     <span className="text-gray-400 text-[10px]">ROOM TYPE</span>
                     <div className="font-semibold text-white truncate">{selectedRoom.name}</div>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 text-[10px]">RESERVED SUITE</span>
+                    <div className="font-bold text-amber-300 font-mono text-xs flex items-center gap-1">
+                      <Key size={12} className="text-[#d4af37]" />
+                      <span>{assignedRoomNumber && assignedRoomNumber !== 'Unassigned' ? `Room #${assignedRoomNumber}` : 'Auto-Reserved'}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 text-[10px]">BUILDING WING</span>
+                    <div className="font-semibold text-gray-300 truncate">{selectedRoom.buildingLabel || 'Main Wing'}</div>
                   </div>
                   <div>
                     <span className="text-gray-400 text-[10px]">CHECK-IN</span>
