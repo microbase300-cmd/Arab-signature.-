@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { portalStore } from '../data/portalStore';
 import { 
+  getPaystackPublicKey, 
+  setPaystackPublicKey, 
+  getPaystackMode 
+} from '../utils/paystack';
+import { 
   ShieldCheck, DollarSign, TrendingUp, BedDouble, Settings, 
   FileText, Activity, Save, ArrowLeft, LogOut, CheckCircle2, 
   AlertTriangle, Lock, Users, Phone, MapPin, Printer, RefreshCw, 
   Sparkles, KeyRound, Clock, Edit3, ChevronRight, UserCheck, 
   AlertCircle, ShieldAlert, Key, Check, Eye, EyeOff, Utensils,
-  Wine, Plus, Trash2, Search, X, Flame, GlassWater, Beer
+  Wine, Plus, Trash2, Search, X, Flame, GlassWater, Beer, CreditCard, ExternalLink
 } from 'lucide-react';
 
 export default function AdminPortal({ onNavigate }) {
@@ -47,6 +52,22 @@ export default function AdminPortal({ onNavigate }) {
     name: ''
   });
   const [showReceptionPass, setShowReceptionPass] = useState(false);
+
+  // Paystack Gateway Configuration State
+  const [adminPaystackKey, setAdminPaystackKey] = useState(getPaystackPublicKey());
+  const [adminPaystackStatus, setAdminPaystackStatus] = useState(getPaystackMode());
+  const [paystackSaveSuccess, setPaystackSaveSuccess] = useState(false);
+
+  const handleAdminSavePaystackKey = () => {
+    setPaystackPublicKey(adminPaystackKey.trim());
+    setAdminPaystackStatus(getPaystackMode());
+    setPaystackSaveSuccess(true);
+    setFeedbackMsg('Paystack Gateway settings saved successfully.');
+    setTimeout(() => {
+      setPaystackSaveSuccess(false);
+      setFeedbackMsg('');
+    }, 3000);
+  };
 
   // Editable Hotel Config State
   const [configEdits, setConfigEdits] = useState({
@@ -836,6 +857,94 @@ export default function AdminPortal({ onNavigate }) {
                 <Printer size={14} className="text-[#d4af37]" />
                 <span>Print Ledger</span>
               </button>
+            </div>
+
+            {/* Paystack Gateway Configuration & Staging / Production Switcher */}
+            <div className="p-5 rounded-2xl bg-[#0f1712] border border-emerald-500/30 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                    <CreditCard size={20} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-cinzel font-bold text-sm text-white">Paystack Payment Gateway</h4>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${adminPaystackStatus.badgeClass}`}>
+                        {adminPaystackStatus.label}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Configure your Paystack Public Key for online room reservations and guest deposits.
+                    </p>
+                  </div>
+                </div>
+
+                <a
+                  href="https://dashboard.paystack.com/#/settings/developer"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-emerald-400 text-xs font-semibold flex items-center gap-1.5 transition-all self-start sm:self-auto"
+                >
+                  <span>Paystack Dashboard</span>
+                  <ExternalLink size={12} />
+                </a>
+              </div>
+
+              {/* Key Input & Environment Switch */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end pt-2 border-t border-emerald-500/20">
+                <div className="md:col-span-2 space-y-1">
+                  <label className="block text-xs font-semibold text-gray-300">
+                    Active Paystack Public Key (Client Checkout)
+                  </label>
+                  <input
+                    type="text"
+                    value={adminPaystackKey}
+                    onChange={(e) => setAdminPaystackKey(e.target.value)}
+                    placeholder="pk_test_... (Staging) or pk_live_... (Production)"
+                    className="w-full bg-black/60 border border-white/20 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:border-emerald-400 focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAdminSavePaystackKey}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-950/40"
+                  >
+                    <Check size={14} />
+                    <span>{paystackSaveSuccess ? 'Saved!' : 'Save Gateway Key'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdminPaystackKey('');
+                      setPaystackPublicKey('');
+                      setAdminPaystackStatus(getPaystackMode());
+                      setFeedbackMsg('Paystack key cleared. Reverted to .env default.');
+                      setTimeout(() => setFeedbackMsg(''), 3000);
+                    }}
+                    className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white text-xs font-medium"
+                    title="Clear key and reset to .env default"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+
+              {/* Deployment Guide Banner */}
+              <div className="p-3 rounded-xl bg-black/40 border border-white/5 text-[11px] text-gray-300 space-y-1">
+                <div className="font-bold text-[#f3e5ab] flex items-center gap-1.5">
+                  <Sparkles size={12} className="text-[#d4af37]" />
+                  <span>Staging to Production Guide:</span>
+                </div>
+                <p className="text-gray-400 leading-relaxed">
+                  • <strong>Current Testing Phase:</strong> Use your personal Paystack Test Key (<code className="text-sky-300">pk_test_...</code>) to test payments with Paystack test cards (<code className="text-white">4084 0840 8408 4084</code>, CVV <code className="text-white">408</code>, PIN <code className="text-white">3310</code>).
+                </p>
+                <p className="text-gray-400 leading-relaxed">
+                  • <strong>Moving to Production Domain:</strong> Replace with the client's Live Key (<code className="text-emerald-300">pk_live_...</code>). In Vercel, simply add <code className="text-[#d4af37]">VITE_PAYSTACK_PUBLIC_KEY</code> in Project Settings &gt; Environment Variables.
+                </p>
+              </div>
             </div>
 
             {/* Table */}
