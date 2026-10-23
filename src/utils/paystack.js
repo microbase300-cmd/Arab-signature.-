@@ -6,8 +6,9 @@
  */
 
 const STORAGE_KEY = 'ash_paystack_public_key';
+const DEFAULT_TEST_KEY = 'pk_test_7a3148ac31cd90f872262152c5e88bdac3d3125c';
 
-// 1. Get Active Paystack Public Key (Priority: localStorage override -> .env -> null)
+// 1. Get Active Paystack Public Key (Priority: localStorage override -> .env -> fallback test key)
 export function getPaystackPublicKey() {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -21,7 +22,7 @@ export function getPaystackPublicKey() {
     return envKey.trim();
   }
 
-  return '';
+  return DEFAULT_TEST_KEY;
 }
 
 // 2. Save / Override Paystack Public Key in Browser
