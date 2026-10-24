@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { portalStore } from '../data/portalStore';
 import { 
   Building2, BedDouble, Calendar, User, Phone, CheckCircle2, Clock, 
-  Search, Filter, Plus, Printer, MessageSquare, LogOut, ArrowLeft, 
+  Search, Filter, Plus, Printer, MessageSquare, LogOut, ArrowLeft, ArrowRight, 
   Sparkles, RefreshCw, Key, ShieldCheck, Check, AlertCircle, X, ChevronRight,
   TrendingUp, DoorOpen, Sparkle, Utensils, Lock, Wine, Bell, Volume2, VolumeX
 } from 'lucide-react';
