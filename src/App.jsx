@@ -3,6 +3,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import BookingModal from './components/BookingModal';
 import GuestSessionPassModal from './components/GuestSessionPassModal';
+import CustomerDashboardModal from './components/CustomerDashboardModal';
 import WelcomeIntro from './components/WelcomeIntro';
 import PromoPopupModal from './components/PromoPopupModal';
 import { portalStore } from './data/portalStore';
@@ -31,6 +32,7 @@ export default function App() {
   const [preselectedRoom, setPreselectedRoom] = useState('deluxe');
   const [showWelcome, setShowWelcome] = useState(true);
   const [isGuestPassOpen, setIsGuestPassOpen] = useState(false);
+  const [isCustomerDashboardOpen, setIsCustomerDashboardOpen] = useState(false);
 
   // Synchronize multi-page navigation with browser URL hash & clean URL query parameters
   useEffect(() => {
@@ -95,6 +97,14 @@ export default function App() {
       if (rawHash === 'portal-login') {
         setCurrentPage('reception-login');
         window.location.hash = 'reception-login';
+        return;
+      }
+
+      // Customer Guest Portal & Stay History Access (#guest-portal, #dashboard, #my-booking)
+      if (['guest-portal', 'dashboard', 'my-booking', 'customer-dashboard'].includes(rawHash)) {
+        setIsCustomerDashboardOpen(true);
+        setCurrentPage('home');
+        window.history.replaceState({}, document.title, window.location.pathname);
         return;
       }
 
@@ -190,6 +200,7 @@ export default function App() {
           onNavigate={handleNavigate}
           onOpenBooking={handleOpenBooking}
           onOpenGuestPass={() => setIsGuestPassOpen(true)}
+          onOpenCustomerDashboard={() => setIsCustomerDashboardOpen(true)}
         />
       )}
 
@@ -220,6 +231,14 @@ export default function App() {
         isOpen={isGuestPassOpen}
         onClose={() => setIsGuestPassOpen(false)}
         onNavigate={handleNavigate}
+      />
+
+      {/* 4c. Customer Dashboard & Returning Guest History Modal */}
+      <CustomerDashboardModal
+        isOpen={isCustomerDashboardOpen}
+        onClose={() => setIsCustomerDashboardOpen(false)}
+        onNavigate={handleNavigate}
+        onOpenBooking={handleOpenBooking}
       />
 
       {/* 5. Non-Intrusive Luxury Promo Popup (Kitchen Combo OR Suites & Event OR Drinks) */}

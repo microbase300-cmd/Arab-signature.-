@@ -48,11 +48,15 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
   const [checkIn, setCheckIn] = useState(todayStr());
   const [checkOut, setCheckOut] = useState(tomorrowStr());
 
-  // Guest Registration Details (pre-fill from existing session if available, else clean inputs)
-  const existingSession = portalStore.getGuestSession();
-  const [guestName, setGuestName] = useState(existingSession?.guestName || '');
-  const [guestPhone, setGuestPhone] = useState(existingSession?.phone || '');
-  const [guestEmail, setGuestEmail] = useState(existingSession?.email || '');
+  // Guest Registration Details (pre-fill from active customer session or guest session)
+  const existingCust = portalStore.getCustomerSession();
+  const existingGuest = portalStore.getGuestSession();
+  const [guestName, setGuestName] = useState(existingCust?.guestName || existingGuest?.guestName || '');
+  const [guestPhone, setGuestPhone] = useState(existingCust?.phone || existingGuest?.phone || '');
+  const [guestEmail, setGuestEmail] = useState(existingCust?.email || existingGuest?.email || '');
+  const [returningGuestInfo, setReturningGuestInfo] = useState(() => {
+    return portalStore.detectReturningCustomer(existingCust?.phone || existingGuest?.phone || '');
+  });
   const [numGuests, setNumGuests] = useState('1 Adult');
   const [specialRequests, setSpecialRequests] = useState('');
 
@@ -416,6 +420,35 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                 </div>
               )}
 
+              {/* Returning Customer Recognition Banner */}
+              {returningGuestInfo && (
+                <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/20 via-[#d4af37]/15 to-[#5c0725]/20 border border-[#d4af37]/50 text-xs flex items-center justify-between gap-2.5 animate-fadeIn">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={16} className="text-[#d4af37] shrink-0" />
+                    <div>
+                      <strong className="text-white block font-semibold">
+                        Welcome Back, {returningGuestInfo.previousGuestName}!
+                      </strong>
+                      <span className="text-[11px] text-[#f3e5ab]">
+                        Returning VIP Patron • {returningGuestInfo.totalPreviousStays} lifetime {returningGuestInfo.totalPreviousStays === 1 ? 'stay' : 'stays'} recorded
+                      </span>
+                    </div>
+                  </div>
+                  {(!guestName || !guestEmail) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (returningGuestInfo.previousGuestName) setGuestName(returningGuestInfo.previousGuestName);
+                        if (returningGuestInfo.previousEmail) setGuestEmail(returningGuestInfo.previousEmail);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-[#d4af37] hover:bg-[#ffe58f] text-black font-extrabold text-[10px] uppercase tracking-wider shrink-0 transition-all cursor-pointer shadow"
+                    >
+                      Auto-Fill
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* Guest Inputs */}
               <div className="space-y-3">
                 <div>
@@ -441,7 +474,12 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                       type="tel"
                       required
                       value={guestPhone}
-                      onChange={(e) => setGuestPhone(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setGuestPhone(val);
+                        const match = portalStore.detectReturningCustomer(val);
+                        if (match) setReturningGuestInfo(match);
+                      }}
                       placeholder="e.g. 0803 123 4567"
                       className="w-full bg-black/50 border border-white/20 rounded-xl px-3.5 py-2.5 text-white text-xs focus:border-[#d4af37] focus:outline-none"
                     />
@@ -455,7 +493,14 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                       type="email"
                       required
                       value={guestEmail}
-                      onChange={(e) => setGuestEmail(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setGuestEmail(val);
+                        if (!returningGuestInfo) {
+                          const match = portalStore.detectReturningCustomer(val);
+                          if (match) setReturningGuestInfo(match);
+                        }
+                      }}
                       placeholder="e.g. emeka.okafor@example.com"
                       className="w-full bg-black/50 border border-white/20 rounded-xl px-3.5 py-2.5 text-white text-xs focus:border-[#d4af37] focus:outline-none"
                     />

@@ -13,6 +13,7 @@ const STORAGE_KEYS = {
   ACTIVITY_LOG: 'ash_portal_activity_log',
   INTERCOM_CHAT: 'ash_portal_intercom_chat_v1',
   GUEST_SESSION: 'ash_active_guest_session_v2',
+  CUSTOMER_SESSION: 'ash_customer_portal_session_v1',
 };
 
 // 1. Initial Room Inventory (34 Authentic Rooms Across 2 Buildings in Nsugbe, Onitsha - All Available for Production)
@@ -2668,6 +2669,184 @@ export const portalStore = {
         keepalive: true
       }).catch(() => {});
     } catch (e) {}
+  },
+
+
+  // ==============================================================
+  // CUSTOMER DASHBOARD & RETURNING GUEST IDENTITY TRACKING
+  // ==============================================================
+
+  normalizePhone(phone) {
+    if (!phone) return '';
+    const digits = String(phone).replace(/\D/g, '');
+    if (digits.startsWith('234')) return digits.slice(3);
+    if (digits.startsWith('0')) return digits.slice(1);
+    return digits;
+  },
+
+  findBookingByCode(code) {
+    if (!code) return null;
+    const clean = String(code).trim().toUpperCase();
+    const bookings = this.getBookings();
+    return bookings.find(b => {
+      const bId = String(b.id || '').toUpperCase();
+      return bId === clean || bId === `ASH-${clean}` || bId.replace('ASH-', '') === clean.replace('ASH-', '');
+    }) || null;
+  },
+
+  getCustomerHistoryByBookingCode(bookingCode) {
+    const primaryBooking = this.findBookingByCode(bookingCode);
+    if (!primaryBooking) return null;
+
+    const normPhone = this.normalizePhone(primaryBooking.phone);
+    const normEmail = (primaryBooking.email || '').trim().toLowerCase();
+    const guestName = (primaryBooking.guestName || '').trim().toLowerCase();
+
+    const allBookings = this.getBookings();
+
+    // Match all bookings for this customer across lifetime records
+    const matchingStays = allBookings.filter(b => {
+      if (b.id === primaryBooking.id) return true;
+      if (normPhone && normPhone.length >= 7 && this.normalizePhone(b.phone) === normPhone) return true;
+      if (normEmail && normEmail.includes('@') && (b.email || '').trim().toLowerCase() === normEmail) return true;
+      if (guestName.length > 4 && (b.guestName || '').trim().toLowerCase() === guestName) return true;
+      return false;
+    });
+
+    // Sort descending by checkIn or createdAt
+    matchingStays.sort((a, b) => new Date(b.checkIn || b.createdAt || 0) - new Date(a.checkIn || a.createdAt || 0));
+
+    // Analytics
+    const totalStays = matchingStays.length;
+    const totalNights = matchingStays.reduce((sum, s) => sum + (Number(s.nights) || 1), 0);
+    const totalSpent = matchingStays.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+
+    // VIP Loyalty Tier evaluation
+    let vipTier = 'First-Time Arab Guest';
+    let vipBadgeClass = 'bg-gray-500/20 text-gray-300 border-gray-500/40';
+    let vipPrivilege = 'Standard Guest Folio Access';
+
+    if (totalStays >= 8) {
+      vipTier = 'Platinum Royal Patron';
+      vipBadgeClass = 'bg-purple-500/20 text-purple-300 border-purple-500/50 shadow-purple-500/20';
+      vipPrivilege = 'Complimentary Suite Upgrade (Upon Availability) & 10% Lifetime Loyalty Privilege';
+    } else if (totalStays >= 4) {
+      vipTier = 'Gold Elite Arab VIP';
+      vipBadgeClass = 'bg-amber-500/20 text-[#f3e5ab] border-amber-500/50 shadow-amber-500/20';
+      vipPrivilege = 'Complimentary Morning Buffet & VIP Poolside Cabana Access';
+    } else if (totalStays >= 2) {
+      vipTier = 'Silver Return Guest';
+      vipBadgeClass = 'bg-sky-500/20 text-sky-300 border-sky-500/50 shadow-sky-500/20';
+      vipPrivilege = 'Complimentary Welcome Drink & Late 1:00 PM Checkout Courtesy';
+    }
+
+    const isPrimaryCleared = ['Completed', 'Checked Out', 'Bill Cleared', 'Settled'].includes(primaryBooking.status);
+
+    return {
+      primaryBooking,
+      guestName: primaryBooking.guestName,
+      phone: primaryBooking.phone,
+      email: primaryBooking.email,
+      allStays: matchingStays,
+      totalStays,
+      totalNights,
+      totalSpent,
+      isReturningGuest: totalStays > 1,
+      vipTier,
+      vipBadgeClass,
+      vipPrivilege,
+      isPrimaryCleared,
+      activeStay: matchingStays.find(s => ['Checked In', 'Confirmed'].includes(s.status)) || null
+    };
+  },
+
+  loginCustomer(bookingCode) {
+    const profile = this.getCustomerHistoryByBookingCode(bookingCode);
+    if (!profile) {
+      return { 
+        success: false, 
+        error: `Booking code '${bookingCode}' was not found in our central reservation registry. Please check your reservation receipt (e.g. ASH-9421) or contact our 24/7 Front Desk.` 
+      };
+    }
+
+    const sessionData = {
+      bookingId: profile.primaryBooking.id,
+      guestName: profile.guestName,
+      phone: profile.phone,
+      email: profile.email,
+      loginTime: new Date().toISOString()
+    };
+
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem(STORAGE_KEYS.CUSTOMER_SESSION, JSON.stringify(sessionData));
+        localStorage.setItem(STORAGE_KEYS.CUSTOMER_SESSION, JSON.stringify(sessionData));
+      } catch (e) {}
+      window.dispatchEvent(new CustomEvent('ash_customer_session_updated', { detail: profile }));
+    }
+
+    this.logActivity(`Customer logged into Guest Portal: ${profile.guestName} via ${profile.primaryBooking.id}`);
+    return { success: true, profile };
+  },
+
+  getCustomerSession() {
+    if (typeof window === 'undefined') return null;
+    try {
+      let raw = sessionStorage.getItem(STORAGE_KEYS.CUSTOMER_SESSION);
+      if (!raw) raw = localStorage.getItem(STORAGE_KEYS.CUSTOMER_SESSION);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.bookingId) {
+          return this.getCustomerHistoryByBookingCode(parsed.bookingId);
+        }
+      }
+    } catch (e) {}
+    return null;
+  },
+
+  logoutCustomer() {
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem(STORAGE_KEYS.CUSTOMER_SESSION);
+        localStorage.removeItem(STORAGE_KEYS.CUSTOMER_SESSION);
+      } catch (e) {}
+      window.dispatchEvent(new CustomEvent('ash_customer_session_updated', { detail: null }));
+    }
+    this.logActivity('Customer logged out from Guest Portal');
+  },
+
+  subscribeCustomerSession(callback) {
+    if (typeof window === 'undefined') return () => {};
+    const handler = (e) => callback(e.detail);
+    window.addEventListener('ash_customer_session_updated', handler);
+    return () => window.removeEventListener('ash_customer_session_updated', handler);
+  },
+
+  detectReturningCustomer(phoneOrEmail) {
+    if (!phoneOrEmail || String(phoneOrEmail).trim().length < 4) return null;
+    const clean = String(phoneOrEmail).trim();
+    const normPhone = this.normalizePhone(clean);
+    const normEmail = clean.toLowerCase();
+
+    const bookings = this.getBookings();
+    const matches = bookings.filter(b => {
+      if (normPhone && normPhone.length >= 7 && this.normalizePhone(b.phone) === normPhone) return true;
+      if (normEmail && normEmail.includes('@') && (b.email || '').trim().toLowerCase() === normEmail) return true;
+      return false;
+    });
+
+    if (matches.length > 0) {
+      const latest = matches[0];
+      return {
+        isReturning: true,
+        previousGuestName: latest.guestName,
+        previousPhone: latest.phone,
+        previousEmail: latest.email,
+        totalPreviousStays: matches.length,
+        favoriteRoomType: latest.roomName
+      };
+    }
+    return null;
   },
 
   logActivity(msg) {
