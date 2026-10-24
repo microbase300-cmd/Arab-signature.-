@@ -3,11 +3,25 @@ import { portalStore } from '../data/portalStore';
 import { KeyRound, Lock, User, Eye, EyeOff, ArrowRight, ArrowLeft, AlertCircle, Building2 } from 'lucide-react';
 
 export default function ReceptionLogin({ onNavigate }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [selectedDesk, setSelectedDesk] = useState('Main Building'); // 'Main Building' | 'Extension Building'
+  const [username, setUsername] = useState('main@arabsignature.com');
+  const [password, setPassword] = useState('reception2026');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleSelectDesk = (desk) => {
+    setSelectedDesk(desk);
+    setError('');
+    const recUser = portalStore.getReceptionistUser(desk);
+    if (desk === 'Main Building') {
+      setUsername(recUser?.username || 'main@arabsignature.com');
+      setPassword(recUser?.password || 'reception2026');
+    } else {
+      setUsername(recUser?.username || 'extension@arabsignature.com');
+      setPassword(recUser?.password || 'extension2026');
+    }
+  };
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -23,14 +37,15 @@ export default function ReceptionLogin({ onNavigate }) {
         setIsLoading(false);
         setError(err.message || 'Access Denied: Invalid Front Desk Reception credentials.');
       }
-    }, 600);
+    }, 500);
   };
 
-  const handleQuickFill = () => {
-    setError('');
-    const receptionUser = portalStore.getReceptionistUser();
-    setUsername(receptionUser ? receptionUser.username : 'reception@arabsignature.com');
-    setPassword(receptionUser ? receptionUser.password : 'reception2026');
+  const handleQuickFillMain = () => {
+    handleSelectDesk('Main Building');
+  };
+
+  const handleQuickFillExtension = () => {
+    handleSelectDesk('Extension Building');
   };
 
   return (
@@ -73,6 +88,58 @@ export default function ReceptionLogin({ onNavigate }) {
             <p className="text-xs text-gray-400 mt-1">
               Arab Signature Hotel & Suites • Nsugbe, Onitsha
             </p>
+          </div>
+        </div>
+
+        {/* Dual Building Desk Selector Tabs */}
+        <div className="space-y-2">
+          <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block text-center">
+            Select Your Assigned Front Desk
+          </label>
+          <div className="grid grid-cols-2 gap-2 p-1.5 rounded-2xl bg-black/60 border border-white/10 text-xs">
+            <button
+              type="button"
+              onClick={() => handleSelectDesk('Main Building')}
+              className={`py-2.5 px-2 rounded-xl font-semibold flex flex-col items-center justify-center gap-1 transition-all ${
+                selectedDesk === 'Main Building'
+                  ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black shadow-md font-bold'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                <Building2 size={14} />
+                <span>Main Building</span>
+              </div>
+              <span className={`text-[9px] ${selectedDesk === 'Main Building' ? 'text-black/80 font-mono font-bold' : 'text-gray-500'}`}>
+                Rooms 601 – 620
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSelectDesk('Extension Building')}
+              className={`py-2.5 px-2 rounded-xl font-semibold flex flex-col items-center justify-center gap-1 transition-all ${
+                selectedDesk === 'Extension Building'
+                  ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black shadow-md font-bold'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                <Building2 size={14} />
+                <span>Extension Wing</span>
+              </div>
+              <span className={`text-[9px] ${selectedDesk === 'Extension Building' ? 'text-black/80 font-mono font-bold' : 'text-gray-500'}`}>
+                Rooms 101 – 114
+              </span>
+            </button>
+          </div>
+
+          <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-[11px] text-gray-300 leading-relaxed text-center">
+            {selectedDesk === 'Main Building' ? (
+              <span>🏢 <strong>Main Building Desk:</strong> You have check-in & room control for <strong>Rooms 601–620</strong>, plus live view-only visibility of Extension rooms.</span>
+            ) : (
+              <span>🏛️ <strong>Extension Desk:</strong> You have check-in & room control for <strong>Rooms 101–114</strong>, plus live view-only visibility of Main Building rooms.</span>
+            )}
           </div>
         </div>
 
@@ -151,12 +218,24 @@ export default function ReceptionLogin({ onNavigate }) {
           <div className="text-[11px] text-gray-400">
             Assigned to front desk staff. Shift activities and logins are recorded.
           </div>
-          <button
-            onClick={handleQuickFill}
-            className="px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[#d4af37] text-xs font-medium border border-[#d4af37]/20 transition-all"
-          >
-            Autofill Receptionist Credentials (Test)
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+            <button
+              type="button"
+              onClick={handleQuickFillMain}
+              className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#d4af37] text-[11px] font-medium border border-[#d4af37]/30 transition-all flex items-center justify-center gap-1.5"
+            >
+              <Building2 size={12} />
+              <span>Fill Main Desk (600 Wing)</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleQuickFillExtension}
+              className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-sky-300 text-[11px] font-medium border border-sky-400/30 transition-all flex items-center justify-center gap-1.5"
+            >
+              <Building2 size={12} />
+              <span>Fill Extension Desk (100 Wing)</span>
+            </button>
+          </div>
         </div>
 
       </div>

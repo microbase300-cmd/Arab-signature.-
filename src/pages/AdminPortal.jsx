@@ -45,13 +45,27 @@ export default function AdminPortal({ onNavigate }) {
     isSignature: false
   });
 
-  // Editable Receptionist Credentials
+  // Editable Receptionist Credentials (Dual Desk Management)
+  const [selectedStaffDesk, setSelectedStaffDesk] = useState('Main Building'); // 'Main Building' | 'Extension Building'
   const [receptionForm, setReceptionForm] = useState({
     username: '',
     password: '',
     name: ''
   });
   const [showReceptionPass, setShowReceptionPass] = useState(false);
+
+  const handleSelectStaffDesk = (deskBuilding) => {
+    setSelectedStaffDesk(deskBuilding);
+    const staff = portalStore.getReceptionistUser(deskBuilding);
+    setReceptionUser(staff);
+    if (staff) {
+      setReceptionForm({
+        username: staff.username,
+        password: staff.password,
+        name: staff.name
+      });
+    }
+  };
 
   // Paystack Gateway Configuration State
   const [adminPaystackKey, setAdminPaystackKey] = useState(getPaystackPublicKey());
@@ -88,7 +102,7 @@ export default function AdminPortal({ onNavigate }) {
     const currentConfig = portalStore.getHotelConfig();
     const currentLogs = portalStore.getActivityLogs();
     const currentLoginAttempts = portalStore.getLoginAttempts();
-    const currentReception = portalStore.getReceptionistUser();
+    const currentReception = portalStore.getReceptionistUser(selectedStaffDesk);
     const currentDining = portalStore.getDiningMenu();
 
     setRooms(currentRooms);
@@ -264,7 +278,7 @@ export default function AdminPortal({ onNavigate }) {
     }
   };
 
-  // 2. Save Updated Receptionist Credentials (ADMIN CONTROL)
+  // 2. Save Updated Receptionist Credentials (ADMIN CONTROL FOR DUAL DESKS)
   const handleSaveReceptionCredentials = (e) => {
     e.preventDefault();
     if (!receptionForm.username || !receptionForm.password) {
@@ -273,12 +287,13 @@ export default function AdminPortal({ onNavigate }) {
     }
 
     portalStore.updateReceptionistCredentials(
+      selectedStaffDesk,
       receptionForm.username,
       receptionForm.password,
       receptionForm.name
     );
     refreshData();
-    showToast(`Receptionist login updated to '${receptionForm.username}' with new password.`);
+    showToast(`${selectedStaffDesk} Receptionist login updated to '${receptionForm.username}' with new password.`);
   };
 
   // 3. Confirm Payment by Backend / Admin Audit (ADMIN CONTROL)
@@ -1026,7 +1041,7 @@ export default function AdminPortal({ onNavigate }) {
         )}
 
         {/* ======================================================== */}
-        {/* 6. TAB CONTENT: RECEPTIONIST LOGIN CREDENTIALS MANAGER */}
+        {/* 6. TAB CONTENT: FRONT DESK STAFF CREDENTIALS (DUAL DESK) */}
         {/* ======================================================== */}
         {activeTab === 'receptionist' && (
           <div className="max-w-2xl space-y-6">
@@ -1038,27 +1053,60 @@ export default function AdminPortal({ onNavigate }) {
                   <div className="flex items-center gap-2">
                     <UserCheck size={18} className="text-[#d4af37]" />
                     <h3 className="font-cinzel font-bold text-lg text-white">
-                      Receptionist Login Credentials
+                      Front Desk Staff & Reception Credentials
                     </h3>
                   </div>
                   <p className="text-xs text-gray-400 mt-1">
-                    As Executive General Manager, you have full control to change the front desk login username and password anytime.
+                    Manage login credentials and operational access for both hotel building front desk terminals.
                   </p>
                 </div>
 
                 <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold">
-                  Account Active
+                  Dual Terminal Ready
                 </span>
+              </div>
+
+              {/* Desk Selection Tabs */}
+              <div className="grid grid-cols-2 gap-2 p-1 bg-black/60 rounded-2xl border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => handleSelectStaffDesk('Main Building')}
+                  className={`py-2.5 px-3 rounded-xl text-xs font-semibold transition-all flex flex-col items-center gap-0.5 ${
+                    selectedStaffDesk === 'Main Building'
+                      ? 'bg-gradient-to-r from-[#5c0725] to-[#7a0a32] text-[#f3e5ab] border border-[#d4af37]/60 shadow-lg'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <span className="font-bold">Main Building Desk</span>
+                  <span className="text-[10px] opacity-80 font-mono">Rooms 601–620 (20 Rooms)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectStaffDesk('Extension Building')}
+                  className={`py-2.5 px-3 rounded-xl text-xs font-semibold transition-all flex flex-col items-center gap-0.5 ${
+                    selectedStaffDesk === 'Extension Building'
+                      ? 'bg-gradient-to-r from-[#1e1b4b] to-[#312e81] text-sky-200 border border-sky-400/50 shadow-lg'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <span className="font-bold">Extension Wing Desk</span>
+                  <span className="text-[10px] opacity-80 font-mono">Rooms 101–114 (14 Rooms)</span>
+                </button>
               </div>
 
               {/* Current Active Credentials Info Box */}
               <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-2 text-xs">
-                <span className="text-[11px] font-semibold text-[#f3e5ab] uppercase tracking-wider block">
-                  Current Front Desk Login Information:
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-[#f3e5ab] uppercase tracking-wider block">
+                    Active Login ({selectedStaffDesk === 'Main Building' ? 'Main Desk • 600 Wing' : 'Extension Desk • 100 Wing'}):
+                  </span>
+                  <span className="text-[10px] text-[#d4af37] font-semibold uppercase tracking-wider">
+                    {selectedStaffDesk === 'Main Building' ? '600 Wing Exclusive Control' : '100 Wing Exclusive Control'}
+                  </span>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-gray-300">
                   <div>
-                    <span className="text-gray-500">Username: </span>
+                    <span className="text-gray-500">Username / Email: </span>
                     <span className="font-mono text-white font-semibold">{receptionUser?.username}</span>
                   </div>
                   <div>
@@ -1066,8 +1114,9 @@ export default function AdminPortal({ onNavigate }) {
                     <span className="font-mono text-[#f3e5ab] font-semibold">{receptionUser?.password}</span>
                   </div>
                 </div>
-                <div className="text-[10px] text-gray-500 pt-1">
-                  Private Reception Gate: <span className="text-gray-300 font-mono">http://localhost:5173/#reception-login</span>
+                <div className="text-[10px] text-gray-400 pt-1 border-t border-white/5 flex flex-wrap items-center justify-between gap-1">
+                  <span>Front Desk Portal URL: <span className="text-gray-200 font-mono">http://localhost:5173/#reception-login</span></span>
+                  <span className="text-amber-400/80">Cross-Wing Visibility: Read-Only Overview Enabled</span>
                 </div>
               </div>
 
@@ -1075,11 +1124,13 @@ export default function AdminPortal({ onNavigate }) {
               <form onSubmit={handleSaveReceptionCredentials} className="space-y-4 text-xs">
                 
                 <div className="space-y-1.5">
-                  <label className="text-gray-300 font-medium">Front Desk Staff / Concierge Name</label>
+                  <label className="text-gray-300 font-medium">
+                    Concierge / Staff Label for {selectedStaffDesk === 'Main Building' ? 'Main Desk' : 'Extension Desk'}
+                  </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Lead Front Desk Concierge Desk 1"
+                    placeholder={selectedStaffDesk === 'Main Building' ? "e.g. Lead Concierge (Main Building)" : "e.g. Front Desk Officer (Extension Wing)"}
                     value={receptionForm.name}
                     onChange={(e) => setReceptionForm({ ...receptionForm, name: e.target.value })}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
@@ -1091,7 +1142,7 @@ export default function AdminPortal({ onNavigate }) {
                   <input
                     type="text"
                     required
-                    placeholder="reception@arabsignature.com"
+                    placeholder={selectedStaffDesk === 'Main Building' ? "main@arabsignature.com" : "extension@arabsignature.com"}
                     value={receptionForm.username}
                     onChange={(e) => setReceptionForm({ ...receptionForm, username: e.target.value })}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
@@ -1104,7 +1155,7 @@ export default function AdminPortal({ onNavigate }) {
                     <input
                       type={showReceptionPass ? 'text' : 'password'}
                       required
-                      placeholder="Enter new password for front desk"
+                      placeholder="Enter new password for this front desk"
                       value={receptionForm.password}
                       onChange={(e) => setReceptionForm({ ...receptionForm, password: e.target.value })}
                       className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 font-mono focus:outline-none focus:border-[#d4af37]"
@@ -1118,7 +1169,7 @@ export default function AdminPortal({ onNavigate }) {
                     </button>
                   </div>
                   <p className="text-[10px] text-gray-500">
-                    Front desk staff will immediately need to use this new password to sign into `#reception-login`.
+                    Front desk staff at the {selectedStaffDesk} will immediately need this new password to access `#reception-login`.
                   </p>
                 </div>
 
@@ -1128,7 +1179,7 @@ export default function AdminPortal({ onNavigate }) {
                     className="w-full py-3 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#d4af37]/20 hover:scale-[1.01] transition-all flex items-center justify-center gap-2"
                   >
                     <Save size={15} />
-                    <span>Save & Update Receptionist Login</span>
+                    <span>Save {selectedStaffDesk === 'Main Building' ? 'Main Desk' : 'Extension Desk'} Login Credentials</span>
                   </button>
                 </div>
 

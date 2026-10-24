@@ -88,6 +88,9 @@ export default function ReceptionPortal({ onNavigate }) {
   // Building Filter: 'all' | 'Main Building' | 'Extension Building'
   const [selectedBuilding, setSelectedBuilding] = useState('all');
 
+  // Ledger Building Filter: 'all' | 'Main Building' | 'Extension Building'
+  const [ledgerBuildingFilter, setLedgerBuildingFilter] = useState('all');
+
   // Current live time
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
 
@@ -99,6 +102,45 @@ export default function ReceptionPortal({ onNavigate }) {
     setDiningMenu(portalStore.getDiningMenu());
   };
 
+  // Helper to determine if current logged-in receptionist is assigned to this building
+  const isMyBuilding = (bldgName) => {
+    if (!currentUser?.buildingAccess || currentUser.buildingAccess === 'all') return true;
+    return currentUser.buildingAccess === bldgName;
+  };
+
+  const isDeskRoom = (room) => {
+    if (!currentUser?.buildingAccess || currentUser.buildingAccess === 'all') return true;
+    return (room.building === currentUser.buildingAccess || room.floor === currentUser.buildingAccess);
+  };
+
+  // Helper to determine which building a booking belongs to
+  const getBookingBuilding = (b) => {
+    if (b.roomNumber) {
+      const r = rooms.find(room => room.roomNumber === b.roomNumber);
+      if (r?.building) return r.building;
+      if (String(b.roomNumber).startsWith('6')) return 'Main Building';
+      if (String(b.roomNumber).startsWith('1')) return 'Extension Building';
+    }
+    if (b.roomName) {
+      if (b.roomName.toLowerCase().includes('extension') || b.roomName.toLowerCase().includes('diplomatic')) return 'Extension Building';
+      if (b.roomName.toLowerCase().includes('main')) return 'Main Building';
+    }
+    return 'Main Building';
+  };
+
+  const isDeskBooking = (b) => {
+    if (!currentUser?.buildingAccess || currentUser.buildingAccess === 'all') return true;
+    return getBookingBuilding(b) === currentUser.buildingAccess;
+  };
+
+  const handleOpenNewWalkIn = () => {
+    const deskRooms = rooms.filter(r => isDeskRoom(r));
+    const firstAvailableRoom = deskRooms.find(r => r.status === 'available') || deskRooms[0];
+    const initialType = firstAvailableRoom?.type || (currentUser?.buildingAccess === 'Extension Building' ? 'superior' : 'deluxe');
+    handleRoomTypeChange(initialType);
+    setIsWalkInOpen(true);
+  };
+
   useEffect(() => {
     // 1. Check Auth (Requires Reception or Admin session)
     const user = portalStore.getCurrentUser();
@@ -107,6 +149,9 @@ export default function ReceptionPortal({ onNavigate }) {
       return;
     }
     setCurrentUser(user);
+    if (user.buildingAccess && user.buildingAccess !== 'all') {
+      setSelectedBuilding(user.buildingAccess);
+    }
     refreshData();
 
     // 1.1 Sync latest room inventory from Cloud
@@ -160,21 +205,38 @@ export default function ReceptionPortal({ onNavigate }) {
     onNavigate('reception-login');
   };
 
-  // Quick Room Status Toggle
+  // Quick Room Status Toggle (Enforces Building Operational Permissions)
   const handleUpdateRoomStatus = (roomNumber, newStatus, guestName = null) => {
+    const targetRoom = rooms.find(r => r.roomNumber === roomNumber);
+    const targetBuilding = targetRoom?.building || targetRoom?.floor;
+    if (currentUser?.buildingAccess && currentUser.buildingAccess !== 'all' && targetBuilding && currentUser.buildingAccess !== targetBuilding) {
+      showToast(`Access Restricted: Room #${roomNumber} is in ${targetBuilding}. Only ${targetBuilding} Desk can modify this room.`);
+      return;
+    }
     portalStore.updateRoomStatus(roomNumber, newStatus, guestName);
     refreshData();
     showToast(`Room ${roomNumber} updated to ${newStatus.toUpperCase()}`);
   };
 
-  // Check In / Check Out from ledger
+  // Check In / Check Out from ledger (Enforces Building Operational Permissions)
   const handleToggleBookingStatus = (booking) => {
+    const targetRoom = rooms.find(r => r.roomNumber === booking.roomNumber);
+    const targetBuilding = targetRoom?.building || targetRoom?.floor || (booking.roomNumber?.startsWith('6') ? 'Main Building' : 'Extension Building');
+    if (currentUser?.buildingAccess && currentUser.buildingAccess !== 'all' && targetBuilding && currentUser.buildingAccess !== targetBuilding) {
+      showToast(`Access Restricted: Booking #${booking.id} is in ${targetBuilding}. Handled by ${targetBuilding} Desk.`);
+      return;
+    }
+
     if (booking.status === 'Confirmed') {
       // Find an available room if unassigned
       let assignedRoom = booking.roomNumber;
       if (!assignedRoom || assignedRoom === 'Unassigned') {
-        const availableRoom = rooms.find(r => r.type === booking.roomType && r.status === 'available');
-        assignedRoom = availableRoom ? availableRoom.roomNumber : '102';
+        const availableRoom = rooms.find(r => 
+          r.type === booking.roomType && 
+          r.status === 'available' &&
+          isDeskRoom(r)
+        );
+        assignedRoom = availableRoom ? availableRoom.roomNumber : (currentUser?.buildingAccess === 'Extension Building' ? '102' : '602');
       }
       portalStore.updateBookingStatus(booking.id, 'Checked In', assignedRoom);
       refreshData();
@@ -186,11 +248,15 @@ export default function ReceptionPortal({ onNavigate }) {
     }
   };
 
-  // Walk-in room change handler
+  // Walk-in room change handler (Restricted to receptionist's building)
   const handleRoomTypeChange = (type) => {
     const rateObj = rates.find(r => r.id === type);
     const price = rateObj ? rateObj.price : 45000;
-    const availableRoomsOfType = rooms.filter(r => r.type === type && r.status === 'available');
+    const availableRoomsOfType = rooms.filter(r => 
+      r.type === type && 
+      r.status === 'available' &&
+      isDeskRoom(r)
+    );
     
     setWalkInForm(prev => ({
       ...prev,
@@ -233,13 +299,20 @@ export default function ReceptionPortal({ onNavigate }) {
     // Auto-select room if not chosen
     let selectedRoomNum = walkInForm.roomNumber;
     if (!selectedRoomNum) {
-      const avail = rooms.find(r => r.type === walkInForm.roomType && r.status === 'available');
+      const avail = rooms.find(r => r.type === walkInForm.roomType && r.status === 'available' && isDeskRoom(r));
       if (avail) {
         selectedRoomNum = avail.roomNumber;
       } else {
-        alert("No vacant room available in this category. Please select another category.");
+        alert("No vacant room available in this category for your desk. Please select another category.");
         return;
       }
+    }
+
+    // Verify room belongs to this receptionist's desk
+    const targetRoom = rooms.find(r => r.roomNumber === selectedRoomNum);
+    if (targetRoom && !isDeskRoom(targetRoom)) {
+      alert(`Access Restricted: Room #${selectedRoomNum} belongs to ${targetRoom.building || 'another building'}. Your terminal only manages ${currentUser?.buildingLabel || 'your assigned wing'}.`);
+      return;
     }
 
     const newBooking = portalStore.addBooking({
@@ -301,7 +374,11 @@ export default function ReceptionPortal({ onNavigate }) {
       statusFilter === 'all' || 
       b.status.toLowerCase() === statusFilter.toLowerCase();
 
-    return matchesSearch && matchesStatus;
+    const matchesBuilding = 
+      ledgerBuildingFilter === 'all' || 
+      getBookingBuilding(b) === ledgerBuildingFilter;
+
+    return matchesSearch && matchesStatus && matchesBuilding;
   });
 
   // Calculate quick stats
@@ -324,13 +401,19 @@ export default function ReceptionPortal({ onNavigate }) {
             <img src="/logo.jpg" alt="Option 1 Monogram" className="w-full h-full object-cover scale-110" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="font-cinzel font-bold text-base sm:text-lg text-white tracking-wide">
                 Front Desk Operations
               </h1>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[10px] font-semibold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Live Shift
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1.5 border ${
+                currentUser?.buildingAccess === 'Extension Building'
+                  ? 'bg-sky-500/20 border-sky-500/40 text-sky-300'
+                  : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                  currentUser?.buildingAccess === 'Extension Building' ? 'bg-sky-400' : 'bg-emerald-400'
+                }`} />
+                <span>{currentUser?.buildingLabel || 'Main Building (600 Wing)'}</span>
               </span>
             </div>
             <p className="text-[11px] text-gray-400">
@@ -355,10 +438,7 @@ export default function ReceptionPortal({ onNavigate }) {
             
             {/* New Walk-In Booking Trigger */}
             <button
-              onClick={() => {
-                handleRoomTypeChange('deluxe');
-                setIsWalkInOpen(true);
-              }}
+              onClick={handleOpenNewWalkIn}
               className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-semibold text-xs flex items-center gap-1.5 shadow-lg shadow-[#d4af37]/20 hover:scale-102 active:scale-98 transition-all"
             >
               <Plus size={15} className="stroke-[2.5]" />
@@ -422,56 +502,70 @@ export default function ReceptionPortal({ onNavigate }) {
       </header>
 
       {/* Real-Time Incoming Online Reservation Alert Banner with Sound */}
-      {incomingAlert && (
-        <div className="bg-gradient-to-r from-amber-500 via-[#d4af37] to-amber-600 text-black px-4 sm:px-8 py-3.5 shadow-2xl flex flex-wrap items-center justify-between gap-3 border-b-2 border-black/30 animate-pulse">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center flex-shrink-0">
-              <Bell size={22} className="text-black stroke-[2.5] animate-bounce" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-extrabold text-xs tracking-wider uppercase bg-black text-amber-300 px-2.5 py-0.5 rounded-full font-mono shadow-sm">
-                  🔔 NEW ONLINE RESERVATION PAID & CONFIRMED!
-                </span>
-                <span className="text-xs font-mono font-bold text-black/90">({incomingAlert.id})</span>
+      {incomingAlert && (() => {
+        const isAlertForMyDesk = !currentUser?.buildingAccess || currentUser.buildingAccess === 'all' || 
+          (currentUser.buildingAccess === 'Main Building' ? incomingAlert.roomNumber?.startsWith('6') : incomingAlert.roomNumber?.startsWith('1'));
+
+        return (
+          <div className={`text-black px-4 sm:px-8 py-3.5 shadow-2xl flex flex-wrap items-center justify-between gap-3 border-b-2 border-black/30 ${
+            isAlertForMyDesk
+              ? 'bg-gradient-to-r from-amber-500 via-[#d4af37] to-amber-600 animate-pulse'
+              : 'bg-gradient-to-r from-sky-400 via-sky-300 to-indigo-300'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center flex-shrink-0">
+                <Bell size={22} className={`text-black stroke-[2.5] ${isAlertForMyDesk ? 'animate-bounce' : ''}`} />
               </div>
-              <p className="text-xs sm:text-sm font-semibold text-black mt-1">
-                Guest: <span className="underline font-bold text-black">{incomingAlert.guestName}</span> &bull; 
-                Auto-Assigned: <span className="bg-black/90 text-amber-300 px-2 py-0.5 rounded-md font-mono font-bold">Room #{incomingAlert.roomNumber}</span> ({incomingAlert.roomName || incomingAlert.roomType}) &bull; 
-                Paid: <span className="font-bold">₦{Number(incomingAlert.amount).toLocaleString()}</span> ({incomingAlert.nights} {incomingAlert.nights === 1 ? 'night' : 'nights'})
-              </p>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-extrabold text-xs tracking-wider uppercase bg-black text-amber-300 px-2.5 py-0.5 rounded-full font-mono shadow-sm">
+                    {isAlertForMyDesk ? '🔔 NEW RESERVATION PAID FOR YOUR DESK!' : 'ℹ️ CROSS-BUILDING RESERVATION NOTICE'}
+                  </span>
+                  <span className="text-xs font-mono font-bold text-black/90">({incomingAlert.id})</span>
+                </div>
+                <p className="text-xs sm:text-sm font-semibold text-black mt-1">
+                  Guest: <span className="underline font-bold text-black">{incomingAlert.guestName}</span> &bull; 
+                  Auto-Assigned: <span className="bg-black/90 text-amber-300 px-2 py-0.5 rounded-md font-mono font-bold">Room #{incomingAlert.roomNumber}</span> ({incomingAlert.roomName || incomingAlert.roomType}) &bull; 
+                  Paid: <span className="font-bold">₦{Number(incomingAlert.amount).toLocaleString()}</span> ({incomingAlert.nights} {incomingAlert.nights === 1 ? 'night' : 'nights'})
+                  {!isAlertForMyDesk && (
+                    <span className="ml-2 font-mono text-[11px] bg-black/20 px-2 py-0.5 rounded text-black font-bold">
+                      Handled by {incomingAlert.roomNumber?.startsWith('6') ? 'Main Building' : 'Extension'} Desk
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => playReceptionDeskBeep()}
+                className="px-3 py-1.5 rounded-xl bg-black/15 hover:bg-black/25 text-black font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Replay concierge bell chime"
+              >
+                <Volume2 size={15} />
+                <span>Re-chime</span>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('ledger');
+                  setSearchQuery(incomingAlert.guestName);
+                  setIncomingAlert(null);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-black text-white hover:bg-black/85 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+              >
+                <Key size={14} className="text-[#d4af37]" />
+                <span>View In Ledger</span>
+              </button>
+              <button
+                onClick={() => setIncomingAlert(null)}
+                className="p-1.5 rounded-xl bg-black/20 hover:bg-black/30 text-black transition-colors cursor-pointer"
+                title="Acknowledge & dismiss alert"
+              >
+                <X size={18} />
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => playReceptionDeskBeep()}
-              className="px-3 py-1.5 rounded-xl bg-black/15 hover:bg-black/25 text-black font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-              title="Replay concierge bell chime"
-            >
-              <Volume2 size={15} />
-              <span>Re-chime</span>
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('ledger');
-                setSearchQuery(incomingAlert.guestName);
-                setIncomingAlert(null);
-              }}
-              className="px-3.5 py-1.5 rounded-xl bg-black text-white hover:bg-black/85 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
-            >
-              <Key size={14} className="text-[#d4af37]" />
-              <span>View In Ledger</span>
-            </button>
-            <button
-              onClick={() => setIncomingAlert(null)}
-              className="p-1.5 rounded-xl bg-black/20 hover:bg-black/30 text-black transition-colors cursor-pointer"
-              title="Acknowledge & dismiss alert"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Toast Notification Banner */}
       {feedbackMsg && (
@@ -656,20 +750,27 @@ export default function ReceptionPortal({ onNavigate }) {
                   Extension Building (14 Rooms • 100 Wing)
                 </button>
 
-                {/* Production Mode Action: Reset All Rooms to Available */}
+                {/* Production Mode Action: Reset Rooms to Available */}
                 <button
                   onClick={() => {
-                    if (window.confirm("Move all 34 rooms into PRODUCTION VACANT & AVAILABLE mode? This clears test guest assignments and readies all 34 rooms across both wings for live guests.")) {
-                      portalStore.resetAllRoomsToAvailable();
+                    const isAll = !currentUser?.buildingAccess || currentUser.buildingAccess === 'all';
+                    const targetBldg = isAll ? 'all' : currentUser.buildingAccess;
+                    const bldgLabel = isAll ? 'all 34 rooms across both wings' : `all ${targetBldg === 'Main Building' ? '20 Main Building' : '14 Extension Wing'} rooms`;
+                    if (window.confirm(`Move ${bldgLabel} into PRODUCTION VACANT & AVAILABLE mode? This clears test guest assignments and readies all rooms for live guests.`)) {
+                      if (isAll) {
+                        portalStore.resetAllRoomsToAvailable();
+                      } else {
+                        portalStore.resetRoomsByBuilding(targetBldg);
+                      }
                       refreshData();
-                      showToast("All 34 suites are now 100% AVAILABLE in Production Mode!");
+                      showToast(`${isAll ? 'All 34 suites' : targetBldg + ' suites'} are now 100% AVAILABLE in Production Mode!`);
                     }
                   }}
                   className="px-3.5 py-1.5 rounded-xl bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 font-semibold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ml-auto"
-                  title="Reset all 34 rooms across both buildings to available"
+                  title="Reset rooms to available for production"
                 >
                   <CheckCircle2 size={13} className="text-emerald-400" />
-                  <span>Make All Rooms Available</span>
+                  <span>Make {!currentUser?.buildingAccess || currentUser.buildingAccess === 'all' ? 'All Rooms' : currentUser.buildingAccess === 'Main Building' ? 'Main (20 Rooms)' : 'Extension (14 Rooms)'} Available</span>
                 </button>
               </div>
             </div>
@@ -695,6 +796,7 @@ export default function ReceptionPortal({ onNavigate }) {
                 if (bldgRooms.length === 0) return null;
                 const vacantCount = bldgRooms.filter(r => r.status === 'available').length;
                 const occupiedCount = bldgRooms.filter(r => r.status === 'occupied').length;
+                const isDeskBuilding = isMyBuilding(bldg.name);
 
                 return (
                   <div key={bldg.name} className="space-y-3 pt-2">
@@ -702,13 +804,24 @@ export default function ReceptionPortal({ onNavigate }) {
                       <div className="flex items-center gap-2.5">
                         <Building2 size={18} className="text-[#d4af37]" />
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-cinzel font-bold text-sm sm:text-base text-white uppercase">
                               {bldg.name}
                             </h3>
                             <span className="px-2 py-0.5 rounded-full bg-[#d4af37]/20 border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] font-mono">
                               {bldg.wing}
                             </span>
+                            {isDeskBuilding ? (
+                              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-mono font-bold flex items-center gap-1">
+                                <CheckCircle2 size={11} className="text-emerald-400" />
+                                <span>Your Assigned Wing (Full Control)</span>
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-mono font-bold flex items-center gap-1">
+                                <Lock size={11} className="text-amber-400" />
+                                <span>Cross-Building View (Managed by {bldg.name} Desk)</span>
+                              </span>
+                            )}
                           </div>
                           <p className="text-[11px] text-[#f3e5ab]/80 font-mono mt-0.5">
                             Rates: {bldg.ratesNote}
@@ -728,6 +841,15 @@ export default function ReceptionPortal({ onNavigate }) {
                         </span>
                       </div>
                     </div>
+
+                    {!isDeskBuilding && (
+                      <div className="p-3 rounded-2xl bg-[#241304]/80 border border-amber-500/30 text-xs text-amber-200/90 flex items-center gap-2.5">
+                        <Lock size={16} className="text-[#d4af37] flex-shrink-0" />
+                        <span className="leading-relaxed">
+                          <strong>Cross-Building Availability:</strong> You can view all real-time room statuses below to assist guests inquiring about <strong>{bldg.name}</strong>. Full guest check-in, key handover, and room modifications for this wing are restricted to the <strong>{bldg.name} Front Desk</strong>.
+                        </span>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       {bldgRooms.map((room) => {
@@ -812,83 +934,106 @@ export default function ReceptionPortal({ onNavigate }) {
                             )}
                           </div>
 
-                          {/* Quick Actions */}
-                          <div className="pt-2 border-t border-white/10 flex flex-col gap-1.5">
-                            {isOccupied && (
-                              <div className="flex items-center gap-1.5">
+                          {/* Quick Actions (Active for Assigned Desk, View-Only for other wing) */}
+                          {isDeskBuilding ? (
+                            <div className="pt-2 border-t border-white/10 flex flex-col gap-1.5">
+                              {isOccupied && (
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => handleUpdateRoomStatus(room.roomNumber, 'available')}
+                                    className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 text-[11px] font-semibold transition-all flex items-center justify-center gap-1"
+                                    title="Check out guest and immediately mark suite available"
+                                  >
+                                    <Check size={12} />
+                                    <span>Make Available</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleUpdateRoomStatus(room.roomNumber, 'cleaning')}
+                                    className="py-1.5 px-2.5 rounded-lg bg-amber-950/60 hover:bg-amber-900 border border-amber-500/40 text-amber-200 text-[11px] font-medium transition-all"
+                                    title="Send to Housekeeping / Cleaning"
+                                  >
+                                    Clean
+                                  </button>
+                                </div>
+                              )}
+
+                              {isCleaning && (
                                 <button
                                   onClick={() => handleUpdateRoomStatus(room.roomNumber, 'available')}
-                                  className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 text-[11px] font-semibold transition-all flex items-center justify-center gap-1"
-                                  title="Check out guest and immediately mark suite available"
+                                  className="w-full py-1.5 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 text-xs font-semibold transition-all flex items-center justify-center gap-1"
                                 >
                                   <Check size={12} />
-                                  <span>Make Available</span>
+                                  <span>Mark Clean & Available</span>
                                 </button>
-                                <button
-                                  onClick={() => handleUpdateRoomStatus(room.roomNumber, 'cleaning')}
-                                  className="py-1.5 px-2.5 rounded-lg bg-amber-950/60 hover:bg-amber-900 border border-amber-500/40 text-amber-200 text-[11px] font-medium transition-all"
-                                  title="Send to Housekeeping / Cleaning"
-                                >
-                                  Clean
-                                </button>
-                              </div>
-                            )}
+                              )}
 
-                            {isCleaning && (
-                              <button
-                                onClick={() => handleUpdateRoomStatus(room.roomNumber, 'available')}
-                                className="w-full py-1.5 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 text-xs font-semibold transition-all flex items-center justify-center gap-1"
-                              >
-                                <Check size={12} />
-                                <span>Mark Clean & Available</span>
-                              </button>
-                            )}
+                              {isAvailable && (
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => {
+                                      setWalkInForm(prev => ({
+                                        ...prev,
+                                        roomType: room.type,
+                                        roomNumber: room.roomNumber,
+                                        amount: room.price
+                                      }));
+                                      setIsWalkInOpen(true);
+                                    }}
+                                    className="flex-1 py-1.5 px-2 rounded-lg bg-[#5c0725]/60 hover:bg-[#5c0725] border border-[#d4af37]/40 text-[#f3e5ab] text-xs font-medium transition-all flex items-center justify-center gap-1"
+                                  >
+                                    <Key size={12} className="text-[#d4af37]" />
+                                    <span>Assign Walk-In</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleUpdateRoomStatus(room.roomNumber, 'occupied', 'Walk-In Guest')}
+                                    className="py-1.5 px-2 rounded-lg bg-rose-950/50 hover:bg-rose-900/70 border border-rose-500/30 text-rose-200 text-[10px] font-medium transition-all"
+                                    title="Quick mark as Occupied"
+                                  >
+                                    Occupy
+                                  </button>
+                                </div>
+                              )}
 
-                            {isAvailable && (
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  onClick={() => {
-                                    setWalkInForm(prev => ({
-                                      ...prev,
-                                      roomType: room.type,
-                                      roomNumber: room.roomNumber,
-                                      amount: room.price
-                                    }));
-                                    setIsWalkInOpen(true);
-                                  }}
-                                  className="flex-1 py-1.5 px-2 rounded-lg bg-[#5c0725]/60 hover:bg-[#5c0725] border border-[#d4af37]/40 text-[#f3e5ab] text-xs font-medium transition-all flex items-center justify-center gap-1"
-                                >
-                                  <Key size={12} className="text-[#d4af37]" />
-                                  <span>Assign Walk-In</span>
-                                </button>
-                                <button
-                                  onClick={() => handleUpdateRoomStatus(room.roomNumber, 'occupied', 'Walk-In Guest')}
-                                  className="py-1.5 px-2 rounded-lg bg-rose-950/50 hover:bg-rose-900/70 border border-rose-500/30 text-rose-200 text-[10px] font-medium transition-all"
-                                  title="Quick mark as Occupied"
-                                >
-                                  Occupy
-                                </button>
+                              {isReserved && (
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => handleUpdateRoomStatus(room.roomNumber, 'occupied', room.currentGuest)}
+                                    className="flex-1 py-1.5 px-2 rounded-lg bg-sky-950/60 hover:bg-sky-900 border border-sky-500/40 text-sky-200 text-[11px] font-medium transition-all"
+                                  >
+                                    Check In
+                                  </button>
+                                  <button
+                                    onClick={() => handleUpdateRoomStatus(room.roomNumber, 'available')}
+                                    className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 text-[11px] font-semibold transition-all flex items-center justify-center gap-1"
+                                  >
+                                    <Check size={11} />
+                                    <span>Make Available</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            /* Cross-Building View Only Info */
+                            <div className="pt-2 border-t border-white/10">
+                              <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-1.5 text-gray-400 text-[11px]">
+                                  <Lock size={12} className="text-[#d4af37]" />
+                                  <span>{bldg.name} Desk</span>
+                                </div>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                                  isAvailable 
+                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' 
+                                    : isOccupied 
+                                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                                    : isCleaning
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                    : 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+                                }`}>
+                                  {isAvailable ? 'VACANT & READY' : room.status.toUpperCase()}
+                                </span>
                               </div>
-                            )}
-
-                            {isReserved && (
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  onClick={() => handleUpdateRoomStatus(room.roomNumber, 'occupied', room.currentGuest)}
-                                  className="flex-1 py-1.5 px-2 rounded-lg bg-sky-950/60 hover:bg-sky-900 border border-sky-500/40 text-sky-200 text-[11px] font-medium transition-all"
-                                >
-                                  Check In
-                                </button>
-                                <button
-                                  onClick={() => handleUpdateRoomStatus(room.roomNumber, 'available')}
-                                  className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 text-[11px] font-semibold transition-all flex items-center justify-center gap-1"
-                                >
-                                  <Check size={11} />
-                                  <span>Make Available</span>
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
 
                         </div>
                       );
@@ -905,25 +1050,62 @@ export default function ReceptionPortal({ onNavigate }) {
         {activeTab === 'ledger' && (
           <div className="space-y-4">
             
-            {/* Status Filter Pills */}
-            <div className="flex flex-wrap items-center gap-2 pb-2">
-              <span className="text-xs text-gray-400 mr-2 flex items-center gap-1">
-                <Filter size={13} />
-                <span>Filter:</span>
-              </span>
-              {['all', 'Confirmed', 'Checked In', 'Completed', 'Cancelled'].map((st) => (
+            {/* Status & Wing Filter Pills */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-gray-400 mr-1 flex items-center gap-1">
+                  <Filter size={13} />
+                  <span>Status:</span>
+                </span>
+                {['all', 'Confirmed', 'Checked In', 'Completed', 'Cancelled'].map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setStatusFilter(st)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                      statusFilter === st
+                        ? 'bg-[#5c0725] text-[#f3e5ab] border border-[#d4af37]'
+                        : 'bg-white/5 text-gray-400 hover:text-white border border-white/10'
+                    }`}
+                  >
+                    {st === 'all' ? 'All Bookings' : st}
+                  </button>
+                ))}
+              </div>
+
+              {/* Building / Wing Filter */}
+              <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-xl border border-white/10 text-xs">
+                <Building2 size={13} className="text-[#d4af37] ml-2 mr-1" />
                 <button
-                  key={st}
-                  onClick={() => setStatusFilter(st)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                    statusFilter === st
-                      ? 'bg-[#5c0725] text-[#f3e5ab] border border-[#d4af37]'
-                      : 'bg-white/5 text-gray-400 hover:text-white border border-white/10'
+                  onClick={() => setLedgerBuildingFilter('all')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                    ledgerBuildingFilter === 'all'
+                      ? 'bg-[#5c0725] text-[#f3e5ab] border border-[#d4af37]/40 font-semibold'
+                      : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  {st === 'all' ? 'All Bookings' : st}
+                  Both Wings
                 </button>
-              ))}
+                <button
+                  onClick={() => setLedgerBuildingFilter('Main Building')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                    ledgerBuildingFilter === 'Main Building'
+                      ? 'bg-[#5c0725] text-[#f3e5ab] border border-[#d4af37]/40 font-semibold'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Main (600 Wing)
+                </button>
+                <button
+                  onClick={() => setLedgerBuildingFilter('Extension Building')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                    ledgerBuildingFilter === 'Extension Building'
+                      ? 'bg-[#5c0725] text-[#f3e5ab] border border-[#d4af37]/40 font-semibold'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Extension (100 Wing)
+                </button>
+              </div>
             </div>
 
             {/* Bookings Table */}
@@ -978,8 +1160,15 @@ export default function ReceptionPortal({ onNavigate }) {
                           {/* Suite */}
                           <td className="py-3.5 px-4">
                             <div className="font-medium text-gray-200">{b.roomName}</div>
-                            <div className="text-[11px] text-[#d4af37] font-mono">
-                              Room: {b.roomNumber ? `#${b.roomNumber}` : 'Unassigned'}
+                            <div className="text-[11px] text-[#d4af37] font-mono flex items-center gap-2 mt-0.5">
+                              <span>Room: {b.roomNumber ? `#${b.roomNumber}` : 'Unassigned'}</span>
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-semibold border ${
+                                getBookingBuilding(b) === 'Main Building'
+                                  ? 'bg-[#5c0725]/50 text-[#f3e5ab] border-[#d4af37]/40'
+                                  : 'bg-indigo-950/60 text-indigo-300 border-indigo-500/40'
+                              }`}>
+                                {getBookingBuilding(b) === 'Main Building' ? 'Main (600 Wing)' : 'Ext (100 Wing)'}
+                              </span>
                             </div>
                           </td>
 
@@ -1035,34 +1224,46 @@ export default function ReceptionPortal({ onNavigate }) {
                           <td className="py-3.5 px-4 text-right">
                             <div className="flex items-center justify-end gap-1.5">
                               
-                              {/* Check In / Out Toggle Button */}
-                              {isConfirmed && b.paymentStatus === 'Paid' && (
-                                <button
-                                  onClick={() => handleToggleBookingStatus(b)}
-                                  className="px-2.5 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white text-[11px] font-semibold transition-all flex items-center gap-1"
-                                >
-                                  <Key size={12} />
-                                  <span>Check In</span>
-                                </button>
-                              )}
+                              {/* Check In / Out Toggle Button - Only operational if booking belongs to current receptionist desk */}
+                              {isDeskBooking(b) ? (
+                                <>
+                                  {isConfirmed && b.paymentStatus === 'Paid' && (
+                                    <button
+                                      onClick={() => handleToggleBookingStatus(b)}
+                                      className="px-2.5 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white text-[11px] font-semibold transition-all flex items-center gap-1"
+                                    >
+                                      <Key size={12} />
+                                      <span>Check In</span>
+                                    </button>
+                                  )}
 
-                              {isConfirmed && b.paymentStatus !== 'Paid' && (
+                                  {isConfirmed && b.paymentStatus !== 'Paid' && (
+                                    <span
+                                      className="px-2.5 py-1 rounded-lg bg-amber-950/40 border border-amber-500/30 text-amber-300 text-[10px] flex items-center gap-1 font-semibold cursor-help"
+                                      title="Check-in locked: Payment must be confirmed by backend or GM before issuing keys"
+                                    >
+                                      <Lock size={11} />
+                                      <span>Payment Pending</span>
+                                    </span>
+                                  )}
+
+                                  {isCheckedIn && (
+                                    <button
+                                      onClick={() => handleToggleBookingStatus(b)}
+                                      className="px-2.5 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white text-[11px] font-semibold transition-all"
+                                    >
+                                      <span>Check Out</span>
+                                    </button>
+                                  )}
+                                </>
+                              ) : (
                                 <span
-                                  className="px-2.5 py-1 rounded-lg bg-amber-950/40 border border-amber-500/30 text-amber-300 text-[10px] flex items-center gap-1 font-semibold cursor-help"
-                                  title="Check-in locked: Payment must be confirmed by backend or GM before issuing keys"
+                                  className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-400 text-[10px] flex items-center gap-1 font-mono"
+                                  title={`View Only: Managed exclusively by ${getBookingBuilding(b)} Reception Desk.`}
                                 >
-                                  <Lock size={11} />
-                                  <span>Payment Pending</span>
+                                  <Lock size={10} className="text-amber-400/80" />
+                                  <span>{getBookingBuilding(b) === 'Main Building' ? 'Main Desk' : 'Extension Desk'}</span>
                                 </span>
-                              )}
-
-                              {isCheckedIn && (
-                                <button
-                                  onClick={() => handleToggleBookingStatus(b)}
-                                  className="px-2.5 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white text-[11px] font-semibold transition-all"
-                                >
-                                  <span>Check Out</span>
-                                </button>
                               )}
 
                               {/* WhatsApp Direct Guest Notify */}
@@ -1194,11 +1395,13 @@ export default function ReceptionPortal({ onNavigate }) {
                     onChange={(e) => handleRoomTypeChange(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl bg-black/80 border border-white/15 text-white focus:outline-none focus:border-[#d4af37]"
                   >
-                    {rates.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name} (₦{r.price.toLocaleString()}/nt)
-                      </option>
-                    ))}
+                    {rates
+                      .filter(r => rooms.some(room => room.type === r.id && isDeskRoom(room)))
+                      .map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name} (₦{r.price.toLocaleString()}/nt)
+                        </option>
+                      ))}
                   </select>
                 </div>
 
@@ -1210,14 +1413,14 @@ export default function ReceptionPortal({ onNavigate }) {
                     className="w-full px-3 py-2.5 rounded-xl bg-black/80 border border-white/15 text-white focus:outline-none focus:border-[#d4af37]"
                   >
                     {rooms
-                      .filter(r => r.type === walkInForm.roomType && r.status === 'available')
+                      .filter(r => r.type === walkInForm.roomType && r.status === 'available' && isDeskRoom(r))
                       .map(r => (
                         <option key={r.roomNumber} value={r.roomNumber}>
                           Room #{r.roomNumber} • {r.building || r.floor} (₦{r.price.toLocaleString()})
                         </option>
                       ))}
-                    {rooms.filter(r => r.type === walkInForm.roomType && r.status === 'available').length === 0 && (
-                      <option value="">No vacant room in category</option>
+                    {rooms.filter(r => r.type === walkInForm.roomType && r.status === 'available' && isDeskRoom(r)).length === 0 && (
+                      <option value="">No vacant room for your desk</option>
                     )}
                   </select>
                 </div>

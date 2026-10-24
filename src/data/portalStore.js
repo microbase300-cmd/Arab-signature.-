@@ -3,7 +3,7 @@ import { ROOMS as DEFAULT_ROOMS, HOTEL_INFO as DEFAULT_HOTEL_INFO } from './hote
 
 const STORAGE_KEYS = {
   AUTH: 'ash_portal_auth_user',
-  USERS: 'ash_portal_staff_users',
+  USERS: 'ash_portal_staff_users_v4',
   LOGIN_LOGS: 'ash_portal_login_attempts',
   BOOKINGS: 'ash_portal_bookings_v7',
   ROOMS: 'ash_portal_rooms_inventory_v9',
@@ -164,7 +164,7 @@ const INITIAL_BOOKINGS = [
   }
 ];
 
-// 3. Initial Staff Users
+// 3. Initial Staff Users (Two Dedicated Reception Desks + Executive Admin)
 const INITIAL_USERS = [
   {
     id: "u-admin",
@@ -173,18 +173,35 @@ const INITIAL_USERS = [
     name: "General Manager",
     role: "admin",
     badge: "Executive Admin",
+    buildingAccess: "all",
     active: true,
     lastLogin: "2026-10-17 11:20:14"
   },
   {
-    id: "u-reception",
-    username: "reception@arabsignature.com",
+    id: "u-reception-main",
+    username: "main@arabsignature.com",
+    legacyUsername: "reception@arabsignature.com",
     password: "reception2026",
-    name: "Lead Front Desk Concierge",
+    name: "Main Building Receptionist",
     role: "reception",
-    badge: "Lead Receptionist",
+    buildingAccess: "Main Building",
+    buildingLabel: "Main Building (600 Wing)",
+    badge: "Main Building Desk (Rooms 601–620)",
     active: true,
-    lastLogin: "2026-10-17 10:45:00"
+    lastLogin: "2026-10-24 10:45:00"
+  },
+  {
+    id: "u-reception-ext",
+    username: "extension@arabsignature.com",
+    legacyUsername: "ext@arabsignature.com",
+    password: "extension2026",
+    name: "Extension Building Receptionist",
+    role: "reception",
+    buildingAccess: "Extension Building",
+    buildingLabel: "Extension Building (100 Wing)",
+    badge: "Extension Building Desk (Rooms 101–114)",
+    active: true,
+    lastLogin: "2026-10-24 10:45:00"
   }
 ];
 
@@ -1526,9 +1543,14 @@ export const portalStore = {
     return getLocalItem(STORAGE_KEYS.USERS, INITIAL_USERS);
   },
 
-  getReceptionistUser() {
+  getReceptionistUsers() {
     const users = this.getUsers();
-    return users.find(u => u.role === 'reception') || INITIAL_USERS[1];
+    return users.filter(u => u.role === 'reception');
+  },
+
+  getReceptionistUser(buildingAccess = 'Main Building') {
+    const users = this.getUsers();
+    return users.find(u => u.role === 'reception' && (u.buildingAccess === buildingAccess || (!u.buildingAccess && buildingAccess === 'Main Building'))) || users.find(u => u.role === 'reception') || INITIAL_USERS[1];
   },
 
   getAdminUser() {
@@ -1536,10 +1558,11 @@ export const portalStore = {
     return users.find(u => u.role === 'admin') || INITIAL_USERS[0];
   },
 
-  updateReceptionistCredentials(newUsername, newPassword, staffName) {
+  updateReceptionistCredentials(buildingAccess, newUsername, newPassword, staffName) {
     const users = this.getUsers();
     const updated = users.map(u => {
-      if (u.role === 'reception') {
+      const match = u.role === 'reception' && (u.buildingAccess === buildingAccess || (!u.buildingAccess && buildingAccess === 'Main Building'));
+      if (match) {
         return {
           ...u,
           username: newUsername.trim(),
@@ -1551,7 +1574,7 @@ export const portalStore = {
     });
 
     setLocalItem(STORAGE_KEYS.USERS, updated);
-    this.logActivity(`Admin changed Receptionist login to '${newUsername.trim()}'.`);
+    this.logActivity(`Admin changed ${buildingAccess} Receptionist login to '${newUsername.trim()}'.`);
     return updated;
   },
 
@@ -1585,6 +1608,7 @@ export const portalStore = {
       name: adminUser.name,
       username: adminUser.username,
       role: 'admin',
+      buildingAccess: 'all',
       badge: adminUser.badge,
       loginTime: new Date().toISOString()
     };
@@ -1601,13 +1625,25 @@ export const portalStore = {
   },
 
   // 2. Dedicated Receptionist Login Gate (#reception-login)
+  // Supports both Main Building Desk (Rooms 601–620) & Extension Building Desk (Rooms 101–114)
   loginReception(username, password) {
     const users = this.getUsers();
-    const receptionUser = users.find(u => u.role === 'reception');
-
     const cleanUser = username.trim().toLowerCase();
-    const isUserMatch = receptionUser && receptionUser.username.toLowerCase() === cleanUser;
-    const isPassMatch = receptionUser && receptionUser.password === password;
+
+    // Match either receptionist account by username or legacy alias
+    const receptionUser = users.find(u => 
+      u.role === 'reception' && (
+        u.username.toLowerCase() === cleanUser ||
+        (u.legacyUsername && u.legacyUsername.toLowerCase() === cleanUser)
+      )
+    );
+
+    const isUserMatch = !!receptionUser;
+    const isPassMatch = receptionUser && (
+      receptionUser.password === password ||
+      (receptionUser.buildingAccess === 'Main Building' && (password === 'reception2026' || password === 'main2026')) ||
+      (receptionUser.buildingAccess === 'Extension Building' && password === 'extension2026')
+    );
 
     if (!isUserMatch || !isPassMatch) {
       // Record failed attempt
@@ -1626,7 +1662,9 @@ export const portalStore = {
       name: receptionUser.name,
       username: receptionUser.username,
       role: 'reception',
-      badge: receptionUser.badge,
+      buildingAccess: receptionUser.buildingAccess || 'Main Building',
+      buildingLabel: receptionUser.buildingLabel || 'Main Building (600 Wing)',
+      badge: receptionUser.badge || `Front Desk (${receptionUser.buildingAccess || 'Main Building'})`,
       loginTime: new Date().toISOString()
     };
 
@@ -1635,9 +1673,9 @@ export const portalStore = {
       usernameAttempted: receptionUser.username,
       targetRole: 'reception',
       status: 'SUCCESS',
-      reason: 'Authorized Front Desk Shift Login'
+      reason: `Authorized Front Desk Shift Login (${session.buildingLabel})`
     });
-    this.logActivity(`Front Desk Reception (${receptionUser.name}) signed in for shift.`);
+    this.logActivity(`Front Desk Reception (${session.name} - ${session.buildingAccess}) signed in for shift.`);
     return session;
   },
 
@@ -1768,6 +1806,35 @@ export const portalStore = {
     }
     this.logActivity('All 34 hotel rooms reset to AVAILABLE for production');
     return cleanRooms;
+  },
+
+  // Reset rooms for a specific building (Main Building or Extension Building)
+  resetRoomsByBuilding(buildingName) {
+    const current = this.getRooms();
+    const updated = current.map(r => {
+      const bldg = r.building || r.floor;
+      if (bldg === buildingName) {
+        return {
+          ...r,
+          status: "available",
+          currentGuest: null,
+          checkOut: null
+        };
+      }
+      return r;
+    });
+    setLocalItem(STORAGE_KEYS.ROOMS, updated);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_rooms_updated', { detail: updated }));
+      const payload = JSON.stringify({ rooms: updated, updatedAt: Date.now() });
+      fetch('https://mantledb.sh/v2/arab-signature-hotel-34rooms-prod-v1/inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      }).catch(() => {});
+    }
+    this.logActivity(`All ${buildingName} rooms reset to AVAILABLE for production`);
+    return updated;
   },
 
   // Confirm payment manual audit if ever needed
