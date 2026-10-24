@@ -20,7 +20,7 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
     {
       id: "welcome-1",
       sender: "ai",
-      text: "Warm greetings and welcome to **Arab Signature Hotel & Suites**, Nsugbe, Onitsha! 👑\n\nI am **Amira**, your Royal AI Concierge. I can assist you with:\n• Checking **live room availability** right now\n• Securely tracking your **booking reference** (e.g. `ARS-BGD-7812` or `ARS-EXT-9421`)\n• Suite pricing, directions to Nsugbe, or dining menus.\n\nHow may I assist your stay today?",
+      text: "Warm greetings and welcome to **Arab Signature Hotel & Suites**, Nsugbe, Onitsha! 👑\n\nI am **Amira**, your Royal AI Concierge. I can assist you with:\n• Checking **live room availability** right now\n• Securely tracking your **booking reference** (e.g. `ARS-BGD-7812AB` or `ARS-EXT-9421XK`)\n• Suite pricing, directions to Nsugbe, or dining menus.\n\nHow may I assist your stay today?",
       suggestions: [
         "Check Available Suites",
         "Track My Booking Code",
@@ -402,7 +402,7 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
               <div className="relative flex items-center">
                 <input
                   type="text"
-                  placeholder="Ask Amira about rooms, rates, code (ARS-BGD-7812)..."
+                  placeholder="Ask Amira about rooms, rates, code (ARS-BGD-7812AB)..."
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}

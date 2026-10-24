@@ -346,7 +346,7 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                   <span className="flex items-center gap-1.5">
                     <Key size={14} className="text-[#d4af37]" /> Booking Number
                   </span>
-                  <span className="text-[11px] text-gray-400 font-normal">Format: ARS-BGD-XXXXX or ARS-EXT-XXXXX</span>
+                  <span className="text-[11px] text-gray-400 font-normal">Format: ARS-BGD-XXXXXX or ARS-EXT-XXXXXX</span>
                 </label>
                 
                 <div className="relative">
@@ -355,12 +355,12 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                     required
                     value={bookingCodeInput}
                     onChange={(e) => setBookingCodeInput(e.target.value.toUpperCase())}
-                    placeholder="e.g. ARS-EXT-9421 or ARS-BGD-7812"
+                    placeholder="e.g. ARS-EXT-9421XK or ARS-BGD-7812AB"
                     className="w-full bg-black/70 border border-white/20 rounded-xl px-4 py-3.5 text-white font-mono text-base uppercase tracking-wider focus:border-[#d4af37] focus:outline-none"
                   />
                   <button
                     type="button"
-                    onClick={() => setBookingCodeInput('ARS-EXT-9421')}
+                    onClick={() => setBookingCodeInput('ARS-EXT-9421XK')}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] px-2.5 py-1.5 rounded-lg bg-[#d4af37]/20 text-[#f3e5ab] hover:bg-[#d4af37]/30 border border-[#d4af37]/30 transition-all font-mono"
                   >
                     Sample Code
@@ -402,11 +402,11 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left">
                 <button
                   type="button"
-                  onClick={() => handleQuickLogin('ARS-EXT-9421')}
+                  onClick={() => handleQuickLogin('ARS-EXT-9421XK')}
                   className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-left transition-colors flex items-center justify-between"
                 >
                   <div>
-                    <strong className="text-[#f3e5ab] font-mono block">ARS-EXT-9421</strong>
+                    <strong className="text-[#f3e5ab] font-mono block">ARS-EXT-9421XK</strong>
                     <span className="text-[11px] text-gray-400">Chief Emeka Obi (Diplomatic Suite)</span>
                   </div>
                   <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Active</span>
@@ -414,36 +414,36 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
 
                 <button
                   type="button"
-                  onClick={() => handleQuickLogin('ARS-BGD-1840')}
+                  onClick={() => handleQuickLogin('ARS-BGD-7812AB')}
                   className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-left transition-colors flex items-center justify-between"
                 >
                   <div>
-                    <strong className="text-[#f3e5ab] font-mono block">ARS-BGD-1840</strong>
-                    <span className="text-[11px] text-gray-400">Chief Emeka Obi (Past Stay)</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/40">Bill Cleared</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('ARS-BGD-7812')}
-                  className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-left transition-colors flex items-center justify-between"
-                >
-                  <div>
-                    <strong className="text-[#f3e5ab] font-mono block">ARS-BGD-7812</strong>
-                    <span className="text-[11px] text-gray-400">Alhaji Ibrahim Musa</span>
+                    <strong className="text-[#f3e5ab] font-mono block">ARS-BGD-7812AB</strong>
+                    <span className="text-[11px] text-gray-400">Alhaji Ibrahim Musa (Executive)</span>
                   </div>
                   <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40">Confirmed</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => handleQuickLogin('ARS-BGD-6204')}
+                  onClick={() => handleQuickLogin('ARS-BGD-6204NW')}
                   className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-left transition-colors flex items-center justify-between"
                 >
                   <div>
-                    <strong className="text-[#f3e5ab] font-mono block">ARS-BGD-6204</strong>
-                    <span className="text-[11px] text-gray-400">Senator Chuka Nwosu</span>
+                    <strong className="text-[#f3e5ab] font-mono block">ARS-BGD-6204NW</strong>
+                    <span className="text-[11px] text-gray-400">Senator Chuka Nwosu (Super Exec)</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Active</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('ARS-EXT-4109DA')}
+                  className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-left transition-colors flex items-center justify-between"
+                >
+                  <div>
+                    <strong className="text-[#f3e5ab] font-mono block">ARS-EXT-4109DA</strong>
+                    <span className="text-[11px] text-gray-400">Dr. Ngozi Adeleke (Superior)</span>
                   </div>
                   <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Active</span>
                 </button>

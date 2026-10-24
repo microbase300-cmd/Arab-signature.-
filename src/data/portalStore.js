@@ -5,7 +5,7 @@ const STORAGE_KEYS = {
   AUTH: 'ash_portal_auth_user_v3',
   USERS: 'ash_portal_staff_users_v5',
   LOGIN_LOGS: 'ash_portal_login_attempts',
-  BOOKINGS: 'ash_portal_bookings_v8',
+  BOOKINGS: 'ash_portal_bookings_v9',
   ROOMS: 'ash_portal_rooms_inventory_v9',
   ROOM_RATES: 'ash_portal_room_rates_v3',
   DINING_MENU: 'ash_portal_dining_menu_v6',
@@ -66,7 +66,7 @@ const INITIAL_ROOMS_INVENTORY = [
 // 2. Pre-Seeded Real Bookings with Backend Confirmation status
 const INITIAL_BOOKINGS = [
   {
-    id: "ARS-EXT-9421",
+    id: "ARS-EXT-9421XK",
     guestName: "Chief Emeka Obi",
     phone: "0803 234 5678",
     email: "emeka.obi@nigerdelta.org",
@@ -86,7 +86,7 @@ const INITIAL_BOOKINGS = [
     createdAt: "2026-10-20 08:30"
   },
   {
-    id: "ARS-BGD-7812",
+    id: "ARS-BGD-7812AB",
     guestName: "Alhaji Ibrahim Musa",
     phone: "0812 578 6875",
     email: "ibrahim.musa@example.com",
@@ -106,7 +106,7 @@ const INITIAL_BOOKINGS = [
     createdAt: "2026-10-20 09:15"
   },
   {
-    id: "ARS-BGD-6204",
+    id: "ARS-BGD-6204NW",
     guestName: "Senator Chuka Nwosu",
     phone: "0802 999 1122",
     email: "nwosu.chuka@assembly.gov.ng",
@@ -126,7 +126,7 @@ const INITIAL_BOOKINGS = [
     createdAt: "2026-10-19 16:40"
   },
   {
-    id: "ARS-EXT-4109",
+    id: "ARS-EXT-4109DA",
     guestName: "Dr. Ngozi Adeleke",
     phone: "0806 555 4321",
     email: "dr.adeleke@medspecialist.com",
@@ -146,7 +146,7 @@ const INITIAL_BOOKINGS = [
     createdAt: "2026-10-20 07:10"
   },
   {
-    id: "ARS-BGD-3105",
+    id: "ARS-BGD-3105KI",
     guestName: "Arc. Kenneth Igwe",
     phone: "0814 888 2345",
     email: "kenneth.igwe@architects.ng",
@@ -1873,12 +1873,15 @@ export const portalStore = {
     const existingBookings = this.getBookings();
     const existingCodes = new Set(existingBookings.map(b => String(b.id || '').toUpperCase()));
 
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     let code = '';
     let attempts = 0;
     do {
-      // 5-digit high-entropy random sequence (10000 - 99999) ensuring unique 1-of-1 code
-      const randNum = Math.floor(10000 + Math.random() * 90000);
-      code = `${prefix}${randNum}`;
+      // 4-digit random sequence (1000 - 9999) + 2 random uppercase letters at the back
+      const randNum = Math.floor(1000 + Math.random() * 9000);
+      const letter1 = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+      const letter2 = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+      code = `${prefix}${randNum}${letter1}${letter2}`;
       attempts++;
     } while (existingCodes.has(code) && attempts < 10000);
 
@@ -2743,13 +2746,31 @@ export const portalStore = {
     if (!code) return null;
     const clean = String(code).trim().toUpperCase();
     const bookings = this.getBookings();
+    const alphaClean = clean.replace(/[^A-Z0-9]/g, '');
+
     return bookings.find(b => {
       const bId = String(b.id || '').toUpperCase();
       if (bId === clean) return true;
       if (bId === `ARS-BGD-${clean}` || bId === `ARS-EXT-${clean}` || bId === `ASH-${clean}`) return true;
+
       const strippedBId = bId.replace(/^(ARS-BGD-|ARS-EXT-|ASH-)/, '');
       const strippedClean = clean.replace(/^(ARS-BGD-|ARS-EXT-|ASH-)/, '');
       if (strippedBId && strippedClean && strippedBId === strippedClean) return true;
+
+      // Alphanumeric comparison without hyphens/spaces (e.g. ARS-BGD-7812-AB matches ARS-BGD-7812AB)
+      const alphaBId = bId.replace(/[^A-Z0-9]/g, '');
+      if (alphaBId && alphaClean && alphaBId === alphaClean) return true;
+
+      // Suffix alphanumeric comparison (e.g. 7812-AB matches 7812AB)
+      const alphaStrippedBId = strippedBId.replace(/[^A-Z0-9]/g, '');
+      const alphaStrippedClean = strippedClean.replace(/[^A-Z0-9]/g, '');
+      if (alphaStrippedBId && alphaStrippedClean && alphaStrippedBId === alphaStrippedClean) return true;
+
+      // Digits-only base comparison for backward compatibility
+      const bDigits = strippedBId.replace(/\D/g, '');
+      const cDigits = strippedClean.replace(/\D/g, '');
+      if (bDigits && cDigits && bDigits.length >= 4 && bDigits === cDigits) return true;
+
       return false;
     }) || null;
   },
@@ -2825,7 +2846,7 @@ export const portalStore = {
     if (!profile) {
       return { 
         success: false, 
-        error: `Booking code '${bookingCode}' was not found in our central reservation registry. Please check your reservation receipt (e.g. ARS-BGD-1840 or ARS-EXT-9421) or contact our 24/7 Front Desk.` 
+        error: `Booking code '${bookingCode}' was not found in our central reservation registry. Please check your reservation receipt (e.g. ARS-BGD-7812AB or ARS-EXT-9421XK) or contact our 24/7 Front Desk.` 
       };
     }
 

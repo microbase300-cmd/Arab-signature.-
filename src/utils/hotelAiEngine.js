@@ -187,15 +187,14 @@ export const hotelAiEngine = {
     // ========================================================
     // 2. SECURE BOOKING STATUS TRACKER (With Data Masking)
     // ========================================================
-    // Detect booking codes matching pattern like ARS-BGD-12345, ARS-EXT-12345, ASH-1234, or digits
-    const bookingCodeMatch = query.match(/(ars[-_](bgd|ext)[-_]\d+)|(ash[-_\s]?\d+)/i) || query.match(/\b\d{4,5}\b/);
+    // Detect booking codes matching pattern like ARS-BGD-1234AB, ARS-EXT-1234XK, ASH-1234, or digits+letters
+    const bookingCodeMatch = query.match(/(ars[-_]?(?:bgd|ext)[-_]?\d+[a-z]{0,2})|(ash[-_\s]?\d+[a-z]{0,2})|(\b\d{4,5}[a-z]{0,2}\b)/i);
 
     if (bookingCodeMatch && (query.includes("book") || query.includes("status") || query.includes("track") || query.includes("code") || query.includes("ars") || query.includes("ash") || query.includes("my reservation"))) {
       let codeToSearch = bookingCodeMatch[0].toUpperCase().replace(/\s/g, '');
-      const allBookings = aiBrainMemory.bookings || [];
-      const matchedBooking = allBookings.find(b => {
+      const matchedBooking = portalStore.findBookingByCode(codeToSearch) || (aiBrainMemory.bookings || []).find(b => {
         const bId = String(b.id || '').toUpperCase();
-        return bId === codeToSearch || bId.endsWith(codeToSearch) || bId.replace(/^(ARS-BGD-|ARS-EXT-|ASH-)/, '') === codeToSearch.replace(/^(ARS-BGD-|ARS-EXT-|ASH-)/, '');
+        return bId === codeToSearch || bId.replace(/[^A-Z0-9]/g, '') === codeToSearch.replace(/[^A-Z0-9]/g, '');
       });
 
       if (matchedBooking) {
@@ -230,7 +229,7 @@ export const hotelAiEngine = {
       } else {
         failedBookingLookupAttempts++;
         return {
-          text: `🔍 I am **Amira**, your Royal AI Concierge — I could not locate a confirmed reservation under reference code **${codeToSearch}**. Please double-check your receipt code (e.g., ARS-BGD-7812 or ARS-EXT-9421) or contact our Front Desk Concierge at 0812 578 6875.`,
+          text: `🔍 I am **Amira**, your Royal AI Concierge — I could not locate a confirmed reservation under reference code **${codeToSearch}**. Please double-check your receipt code (e.g., ARS-BGD-7812AB or ARS-EXT-9421XK) or contact our Front Desk Concierge at 0812 578 6875.`,
           suggestions: ["Check Available Suites", "Chat on WhatsApp"]
         };
       }
@@ -322,7 +321,7 @@ export const hotelAiEngine = {
     // ========================================================
       return {
         text: `Warm greetings! I am **Amira**, the Royal AI Concierge at **Arab Signature Hotel & Suites** in Nsugbe, Onitsha. We are an ultra-luxury hospitality retreat offering 34 handcrafted rooms and Arab suites, Olympic-grade poolside cabanas, Al-Sultan gourmet dining, and 24/7 uninterrupted power.\n\n` +
-              `You can ask me to check suite availability, track an existing reservation code (e.g. ARS-BGD-7812 or ARS-EXT-9421), or inquire about our location and amenities. For direct human assistance, click the **WhatsApp** button above or call our Front Desk Hotline at **0812 578 6875**.`,
+              `You can ask me to check suite availability, track an existing reservation code (e.g. ARS-BGD-7812AB or ARS-EXT-9421XK), or inquire about our location and amenities. For direct human assistance, click the **WhatsApp** button above or call our Front Desk Hotline at **0812 578 6875**.`,
         suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe", "Dining Menu"]
       };
     } catch (err) {
