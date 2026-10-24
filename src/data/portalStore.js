@@ -8,7 +8,7 @@ const STORAGE_KEYS = {
   BOOKINGS: 'ash_portal_bookings_v7',
   ROOMS: 'ash_portal_rooms_inventory_v9',
   ROOM_RATES: 'ash_portal_room_rates_v3',
-  DINING_MENU: 'ash_portal_dining_menu_v5',
+  DINING_MENU: 'ash_portal_dining_menu_v6',
   HOTEL_CONFIG: 'ash_portal_hotel_config',
   ACTIVITY_LOG: 'ash_portal_activity_log',
 };
@@ -764,11 +764,11 @@ export const INITIAL_DINING_MENU = [
   },
   {
     id: "drink-whitley-neill",
-    name: "Whitley Neill Handcrafted Gin",
+    name: "Whitley Neill Lemongrass & Ginger Gin",
     category: "spirits",
     categoryLabel: "Champagne, Cognac, Whiskey & Gin",
     type: "drinks",
-    desc: "Artisanal English handcrafted gin distilled with rare African and exotic botanicals, offering vibrant juniper and crisp citrus notes.",
+    desc: "Artisanal handcrafted English gin infused with fragrant lemongrass and warm natural ginger, delivering crisp citrus notes and a smooth spiced finish.",
     price: 50000,
     image: "/dining/drinks/drink-whitley-neill.jpg",
     isSignature: true,
