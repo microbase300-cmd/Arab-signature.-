@@ -133,7 +133,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
 
   const drinksSubcategories = [
     { id: 'all', label: 'All Drinks', icon: Wine },
-    { id: 'spirits', label: 'Champagne, Cognac & Whiskey', icon: Wine },
+    { id: 'spirits', label: 'Champagne, Cognac, Whiskey & Gin', icon: Wine },
     { id: 'wines', label: 'Fine Wines & Sparkling', icon: Sparkles },
     { id: 'beers', label: 'Beers & Refreshments (₦2,000)', icon: Beer },
     { id: 'softdrinks', label: 'Soft Drinks & Malts (₦1,000 - ₦1,500)', icon: Coffee },
@@ -476,7 +476,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                       VIP Bottle Service & Executive Cellar
                     </h3>
                     <span className="px-2 py-0.5 rounded-full bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#f3e5ab] text-[10px] font-mono uppercase">
-                      63 Curated Labels
+                      64 Curated Labels
                     </span>
                   </div>
                   <p className="text-xs text-gray-300 leading-relaxed max-w-3xl">
@@ -488,8 +488,8 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
               <div className="flex flex-wrap items-center gap-2 lg:flex-shrink-0">
                 <div className="px-3 py-1.5 rounded-xl bg-black/50 border border-[#d4af37]/30 text-[11px] font-mono flex items-center gap-1.5">
                   <Wine size={12} className="text-[#d4af37]" />
-                  <span className="text-gray-200">Spirits & Cognac:</span>
-                  <span className="text-[#f3e5ab] font-bold">19 Labels</span>
+                  <span className="text-gray-200">Spirits, Cognac & Gin:</span>
+                  <span className="text-[#f3e5ab] font-bold">20 Labels</span>
                 </div>
                 <div className="px-3 py-1.5 rounded-xl bg-black/50 border border-[#d4af37]/30 text-[11px] font-mono flex items-center gap-1.5">
                   <Sparkles size={12} className="text-[#d4af37]" />

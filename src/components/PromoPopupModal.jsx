@@ -206,7 +206,7 @@ const DRINKS_PROMOS = [
   },
   {
     id: "energy-bullet",
-    name: "Bullet Energy & Premium Vitality Boosters",
+    name: "Black Bullet Energy & Premium Boosters",
     category: "Energy & Mixers",
     price: 3000,
     promoPrice: 2500,
