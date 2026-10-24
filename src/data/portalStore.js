@@ -5,7 +5,7 @@ const STORAGE_KEYS = {
   AUTH: 'ash_portal_auth_user_v3',
   USERS: 'ash_portal_staff_users_v5',
   LOGIN_LOGS: 'ash_portal_login_attempts',
-  BOOKINGS: 'ash_portal_bookings_v9',
+  BOOKINGS: 'ash_portal_bookings_v10',
   ROOMS: 'ash_portal_rooms_inventory_v9',
   ROOM_RATES: 'ash_portal_room_rates_v3',
   DINING_MENU: 'ash_portal_dining_menu_v6',
@@ -84,6 +84,27 @@ const INITIAL_BOOKINGS = [
     verifiedAt: "2026-10-20 08:31",
     source: "Direct Website",
     createdAt: "2026-10-20 08:30"
+  },
+  {
+    id: "ARS-BGD-1840EM",
+    guestName: "Chief Emeka Obi",
+    phone: "0803 234 5678",
+    email: "emeka.obi@nigerdelta.org",
+    roomType: "executive",
+    roomName: "Executive Room (Main Building)",
+    roomNumber: "601",
+    checkIn: "2026-10-10",
+    checkOut: "2026-10-14",
+    nights: 4,
+    amount: 200000,
+    status: "Checked Out",
+    checkedOutAt: "2026-10-14 11:30",
+    paymentMethod: "Paystack (Online)",
+    paymentStatus: "Paid",
+    backendVerified: true,
+    verifiedAt: "2026-10-10 11:20",
+    source: "Direct Website",
+    createdAt: "2026-10-10 11:15"
   },
   {
     id: "ARS-BGD-7812AB",
@@ -2850,6 +2871,18 @@ export const portalStore = {
       };
     }
 
+    // If this specific reservation has checked out, mark as checked out and reject active login
+    const isCheckedOut = ['Checked Out', 'Completed', 'Bill Cleared', 'Settled'].includes(profile.primaryBooking.status);
+    if (isCheckedOut) {
+      return {
+        success: false,
+        isCheckedOut: true,
+        booking: profile.primaryBooking,
+        profile: profile,
+        error: `This user has checked out. Booking code '${profile.primaryBooking.id}' is now expired and invalid for suite access.`
+      };
+    }
+
     const sessionData = {
       bookingId: profile.primaryBooking.id,
       guestName: profile.guestName,
@@ -2868,6 +2901,47 @@ export const portalStore = {
 
     this.logActivity(`Customer logged into Guest Portal: ${profile.guestName} via ${profile.primaryBooking.id}`);
     return { success: true, profile };
+  },
+
+  checkOutBooking(bookingId) {
+    const bookings = this.getBookings();
+    let checkedOutBooking = null;
+
+    const updated = bookings.map(b => {
+      const bId = String(b.id || '').toUpperCase();
+      const targetId = String(bookingId || '').toUpperCase();
+      if (bId === targetId || bId.replace(/[^A-Z0-9]/g, '') === targetId.replace(/[^A-Z0-9]/g, '')) {
+        checkedOutBooking = {
+          ...b,
+          status: 'Checked Out',
+          checkedOutAt: new Date().toISOString()
+        };
+        return checkedOutBooking;
+      }
+      return b;
+    });
+
+    setLocalItem(STORAGE_KEYS.BOOKINGS, updated);
+
+    // Free assigned room in hotel inventory immediately
+    if (checkedOutBooking && checkedOutBooking.roomNumber && checkedOutBooking.roomNumber !== 'Unassigned') {
+      this.updateRoomStatus(checkedOutBooking.roomNumber, 'available', null);
+    }
+
+    // End active guest session if it was this booking
+    const activeSession = this.getGuestSession();
+    if (activeSession && (activeSession.bookingId === bookingId || activeSession.bookingId === checkedOutBooking?.id)) {
+      this.clearGuestSession();
+    }
+
+    // End customer portal session if it was this booking
+    const activeCust = this.getCustomerSession();
+    if (activeCust && (activeCust.primaryBooking?.id === bookingId || activeCust.primaryBooking?.id === checkedOutBooking?.id)) {
+      this.logoutCustomer();
+    }
+
+    this.logActivity(`Guest ${checkedOutBooking?.guestName || bookingId} checked out. Room ${checkedOutBooking?.roomNumber || ''} is now available.`);
+    return { success: true, booking: checkedOutBooking };
   },
 
   getCustomerSession() {

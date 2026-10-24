@@ -54,6 +54,9 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
   const [copiedCode, setCopiedCode] = useState(null);
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'history' | 'receipt'
   const [receiptStay, setReceiptStay] = useState(null);
+  const [checkedOutData, setCheckedOutData] = useState(null);
+  const [logoutNotice, setLogoutNotice] = useState(false);
+  const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
 
   // Sync profile on mount and subscribe to live changes
   useEffect(() => {
@@ -128,6 +131,8 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
   // -------------------------------------------------------------
   const executeLogin = (code) => {
     setLoginError('');
+    setCheckedOutData(null);
+    setLogoutNotice(false);
     setIsSubmitting(true);
 
     setTimeout(() => {
@@ -137,6 +142,7 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
       if (res.success) {
         setCustomerProfile(res.profile);
         setReceiptStay(res.profile.primaryBooking);
+        setCheckedOutData(null);
         setBookingCodeInput('');
         
         // Launch the personalized VIP Welcome Intro
@@ -145,7 +151,17 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
         setIntroStage('typing');
         setIntroExiting(false);
         setShowVipIntro(true);
+      } else if (res.isCheckedOut) {
+        // Explicit checked-out notice: "This user has checked out"
+        setCheckedOutData({
+          booking: res.booking,
+          profile: res.profile,
+          message: res.error
+        });
+        setCustomerProfile(null);
+        setReceiptStay(null);
       } else {
+        setCheckedOutData(null);
         setLoginError(res.error);
       }
     }, 350);
@@ -165,6 +181,26 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
     portalStore.logoutCustomer();
     setCustomerProfile(null);
     setReceiptStay(null);
+    setCheckedOutData(null);
+    setBookingCodeInput('');
+    setLogoutNotice(true);
+    setTimeout(() => setLogoutNotice(false), 6000);
+  };
+
+  const handleConfirmCheckout = () => {
+    if (!customerProfile?.primaryBooking?.id) return;
+    const bookingId = customerProfile.primaryBooking.id;
+    const res = portalStore.checkOutBooking(bookingId);
+    setShowCheckoutConfirm(false);
+    if (res.success) {
+      setCustomerProfile(null);
+      setReceiptStay(null);
+      setCheckedOutData({
+        booking: res.booking,
+        profile: portalStore.getCustomerHistoryByBookingCode(bookingId),
+        message: `This user has checked out. Booking code '${bookingId}' is now expired and room #${res.booking.roomNumber || ''} has been vacated.`
+      });
+    }
   };
 
   const handleCopy = (text, id) => {
@@ -302,11 +338,11 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
             {customerProfile && (
               <button
                 onClick={handleLogout}
-                className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-rose-500/20 text-gray-300 hover:text-rose-300 flex items-center gap-1 border border-white/10 transition-colors"
-                title="Switch to another booking code"
+                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-rose-600/30 to-red-600/30 hover:from-rose-600/50 hover:to-red-600/50 text-rose-200 hover:text-white flex items-center gap-1.5 border border-rose-500/40 text-xs font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer"
+                title="Log Out of Guest Portal"
               >
-                <LogOut size={12} />
-                <span>Switch Code</span>
+                <LogOut size={13} className="text-rose-300" />
+                <span>Log Out</span>
               </button>
             )}
           </div>
@@ -319,142 +355,266 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
       {!customerProfile ? (
         <div className="max-w-2xl mx-auto px-4 py-16 sm:py-24 space-y-8 animate-fadeIn">
           
-          <div className="text-center space-y-3">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#d4af37]/30 to-[#5c0725]/50 border border-[#d4af37]/50 flex items-center justify-center mx-auto text-[#f3e5ab] shadow-[0_0_35px_rgba(212,175,55,0.25)]">
-              <Key size={30} className="text-[#d4af37]" />
-            </div>
-            <h1 className="font-cinzel text-3xl sm:text-4xl font-extrabold text-[#f3e5ab] tracking-wider">
-              Guest Stay Portal
-            </h1>
-            <p className="text-xs sm:text-sm text-gray-300 max-w-md mx-auto leading-relaxed">
-              Enter your official reservation booking number to access your room details, Wi-Fi credentials, settled invoice folios, and returning customer stay history.
-            </p>
-          </div>
+          {/* ============================================================== */}
+          {/* SUB-VIEW A: "THIS USER HAS CHECKED OUT" SCREEN                  */}
+          {/* ============================================================== */}
+          {checkedOutData ? (
+            <div className="p-6 sm:p-9 rounded-3xl bg-gradient-to-br from-[#260a12] via-[#1a050d] to-[#100207] border-2 border-amber-500/50 shadow-[0_10px_40px_rgba(245,158,11,0.25)] text-center space-y-6 animate-fadeIn">
+              
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center mx-auto text-amber-400 shadow-lg">
+                <LogOut size={32} />
+              </div>
 
-          {/* Login Card */}
-          <div className="p-6 sm:p-8 rounded-3xl bg-[#16030c] border border-[#d4af37]/40 shadow-2xl space-y-6">
-            <form onSubmit={handleLoginSubmit} className="space-y-4">
-              {loginError && (
-                <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-start gap-2.5">
-                  <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-400" />
-                  <span>{loginError}</span>
+              <div className="space-y-2">
+                <span className="px-3.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-mono font-bold tracking-widest uppercase inline-block">
+                  RESERVATION CLOSED • CHECKED OUT
+                </span>
+                <h2 className="font-cinzel text-2xl sm:text-3xl font-extrabold text-white tracking-wide">
+                  This User Has Checked Out
+                </h2>
+                <p className="text-xs sm:text-sm text-gray-300 max-w-lg mx-auto leading-relaxed">
+                  The reservation under booking code <strong className="font-mono text-[#f3e5ab] font-bold">{checkedOutData.booking.id}</strong> has concluded and the guest has completed check-out.
+                </p>
+              </div>
+
+              {/* Archival Folio Summary */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-black/60 border border-white/10 text-left space-y-3 font-mono text-xs">
+                <div className="flex justify-between items-center border-b border-white/10 pb-2.5">
+                  <span className="text-gray-400">Registered Guest:</span>
+                  <span className="text-white font-bold font-sans text-sm">{checkedOutData.booking.guestName}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-white/10 pb-2.5">
+                  <span className="text-gray-400">Archived Suite:</span>
+                  <span className="text-gray-200">{checkedOutData.booking.roomName} (Room #{checkedOutData.booking.roomNumber || '—'})</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-white/10 pb-2.5">
+                  <span className="text-gray-400">Stay Period:</span>
+                  <span className="text-gray-200">{checkedOutData.booking.checkIn} → {checkedOutData.booking.checkOut} ({checkedOutData.booking.nights} Nights)</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-white/10 pb-2.5">
+                  <span className="text-gray-400">Billing Folio:</span>
+                  <span className="text-emerald-400 font-bold">₦{Number(checkedOutData.booking.amount).toLocaleString()} • Settled & Cleared</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Booking Code Status:</span>
+                  <span className="text-rose-400 font-bold flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                    Expired / Invalid for Room Entry
+                  </span>
+                </div>
+              </div>
+
+              {/* Returning Customer Memory Recognition (If new active reservation exists) */}
+              {checkedOutData.profile?.activeStay ? (
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#d4af37]/15 border-2 border-[#d4af37]/60 text-left space-y-2.5 shadow-xl">
+                  <div className="flex items-center gap-2 text-[#f3e5ab] font-bold text-xs uppercase tracking-wider">
+                    <Sparkles size={15} className="text-[#d4af37]" />
+                    <span>System Memory: Active Reservation Found for {checkedOutData.booking.guestName}!</span>
+                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    Our hotel registry recognizes you as a valued patron. You currently have a new confirmed reservation under booking code <strong className="font-mono text-white font-bold">{checkedOutData.profile.activeStay.id}</strong> ({checkedOutData.profile.activeStay.roomName}).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => executeLogin(checkedOutData.profile.activeStay.id)}
+                    className="w-full py-3.5 px-4 rounded-xl text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all hover:brightness-105 cursor-pointer shadow-lg mt-1"
+                    style={{
+                      background: 'linear-gradient(135deg, #ffe58f 0%, #d4af37 50%, #b8860b 100%)',
+                      color: '#000000',
+                      fontWeight: '900'
+                    }}
+                  >
+                    <span>Log In With Active Code ({checkedOutData.profile.activeStay.id})</span>
+                    <ArrowRight size={16} className="text-black stroke-[3]" />
+                  </button>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-400 text-center">
+                  ℹ️ This previous booking code cannot be used to unlock suites or request active room services. When you book a new stay, a new booking code will be issued and our system will remember your entire guest profile and stay history.
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs uppercase tracking-wider text-gray-300 mb-2 font-semibold flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Key size={14} className="text-[#d4af37]" /> Booking Number
-                  </span>
-                  <span className="text-[11px] text-gray-400 font-normal">Format: ARS-BGD-XXXXXX or ARS-EXT-XXXXXX</span>
-                </label>
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCheckedOutData(null);
+                    setBookingCodeInput('');
+                  }}
+                  className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <ArrowLeft size={14} />
+                  <span>Enter Another Code</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCheckedOutData(null);
+                    if (onOpenBooking) onOpenBooking('deluxe');
+                  }}
+                  className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa820a] hover:brightness-105 text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-lg"
+                >
+                  <Sparkles size={14} />
+                  <span>Book A New Suite</span>
+                </button>
+              </div>
+
+            </div>
+          ) : (
+            /* ============================================================== */
+            /* SUB-VIEW B: STANDARD LUXURY LOGIN GATE                          */
+            /* ============================================================== */
+            <>
+              <div className="text-center space-y-3">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#d4af37]/30 to-[#5c0725]/50 border border-[#d4af37]/50 flex items-center justify-center mx-auto text-[#f3e5ab] shadow-[0_0_35px_rgba(212,175,55,0.25)]">
+                  <Key size={30} className="text-[#d4af37]" />
+                </div>
+                <h1 className="font-cinzel text-3xl sm:text-4xl font-extrabold text-[#f3e5ab] tracking-wider">
+                  Guest Stay Portal
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-300 max-w-md mx-auto leading-relaxed">
+                  Enter your official reservation booking number to access your room details, Wi-Fi credentials, settled invoice folios, and returning customer stay history.
+                </p>
+              </div>
+
+              {/* Login Card */}
+              <div className="p-6 sm:p-8 rounded-3xl bg-[#16030c] border border-[#d4af37]/40 shadow-2xl space-y-6">
                 
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    value={bookingCodeInput}
-                    onChange={(e) => setBookingCodeInput(e.target.value.toUpperCase())}
-                    placeholder="e.g. ARS-EXT-9421XK or ARS-BGD-7812AB"
-                    className="w-full bg-black/70 border border-white/20 rounded-xl px-4 py-3.5 text-white font-mono text-base uppercase tracking-wider focus:border-[#d4af37] focus:outline-none"
-                  />
+                {/* Logout notification banner */}
+                {logoutNotice && (
+                  <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs flex items-start gap-2.5 animate-fadeIn">
+                    <CheckCircle2 size={16} className="shrink-0 mt-0.5 text-emerald-400" />
+                    <span>You have successfully logged out of the Guest Stay Portal. Enter your booking code anytime to log back in.</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleLoginSubmit} className="space-y-4">
+                  {loginError && (
+                    <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-start gap-2.5">
+                      <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-400" />
+                      <span>{loginError}</span>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-gray-300 mb-2 font-semibold flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Key size={14} className="text-[#d4af37]" /> Booking Number
+                      </span>
+                      <span className="text-[11px] text-gray-400 font-normal">Format: ARS-BGD-XXXXXX or ARS-EXT-XXXXXX</span>
+                    </label>
+                    
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        value={bookingCodeInput}
+                        onChange={(e) => setBookingCodeInput(e.target.value.toUpperCase())}
+                        placeholder="e.g. ARS-EXT-9421XK or ARS-BGD-7812AB"
+                        className="w-full bg-black/70 border border-white/20 rounded-xl px-4 py-3.5 text-white font-mono text-base uppercase tracking-wider focus:border-[#d4af37] focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setBookingCodeInput('ARS-EXT-9421XK')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] px-2.5 py-1.5 rounded-lg bg-[#d4af37]/20 text-[#f3e5ab] hover:bg-[#d4af37]/30 border border-[#d4af37]/30 transition-all font-mono"
+                      >
+                        Sample Code
+                      </button>
+                    </div>
+                  </div>
+
                   <button
-                    type="button"
-                    onClick={() => setBookingCodeInput('ARS-EXT-9421XK')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] px-2.5 py-1.5 rounded-lg bg-[#d4af37]/20 text-[#f3e5ab] hover:bg-[#d4af37]/30 border border-[#d4af37]/30 transition-all font-mono"
+                    type="submit"
+                    disabled={isSubmitting || !bookingCodeInput.trim()}
+                    className="w-full py-4 rounded-xl font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-2xl transition-all cursor-pointer hover:brightness-105 active:scale-[0.99] disabled:opacity-50"
+                    style={{
+                      background: 'linear-gradient(135deg, #ffe58f 0%, #d4af37 50%, #b8860b 100%)',
+                      color: '#000000',
+                      border: '2px solid #fff4cc',
+                      boxShadow: '0 6px 24px rgba(212, 175, 55, 0.45)',
+                      fontWeight: '900',
+                      letterSpacing: '0.04em'
+                    }}
                   >
-                    Sample Code
+                    {isSubmitting ? (
+                      <span className="flex items-center gap-2 text-black">
+                        <RefreshCw size={16} className="animate-spin" /> Verifying Reservation...
+                      </span>
+                    ) : (
+                      <>
+                        <span>Enter Guest Portal</span>
+                        <ArrowRight size={18} className="text-black stroke-[3]" />
+                      </>
+                    )}
                   </button>
+                </form>
+
+                {/* Quick Demo Test Codes */}
+                <div className="pt-4 border-t border-white/10 space-y-3">
+                  <span className="text-[11px] text-gray-400 uppercase tracking-widest block font-bold">
+                    Demo Reservation Codes For Instant Testing:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left">
+                    <button
+                      type="button"
+                      onClick={() => handleQuickLogin('ARS-EXT-9421XK')}
+                      className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-left transition-colors flex items-center justify-between"
+                    >
+                      <div>
+                        <strong className="text-[#f3e5ab] font-mono block">ARS-EXT-9421XK</strong>
+                        <span className="text-[11px] text-gray-400">Chief Emeka Obi (Diplomatic Suite)</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold">Active</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleQuickLogin('ARS-BGD-1840EM')}
+                      className="p-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs text-left transition-colors flex items-center justify-between"
+                      title="Test the 'This user has checked out' notice"
+                    >
+                      <div>
+                        <strong className="text-amber-300 font-mono block">ARS-BGD-1840EM</strong>
+                        <span className="text-[11px] text-gray-400">Chief Emeka Obi (Past Stay)</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/40 font-semibold">Checked Out</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleQuickLogin('ARS-BGD-7812AB')}
+                      className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-left transition-colors flex items-center justify-between"
+                    >
+                      <div>
+                        <strong className="text-[#f3e5ab] font-mono block">ARS-BGD-7812AB</strong>
+                        <span className="text-[11px] text-gray-400">Alhaji Ibrahim Musa (Executive)</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold">Confirmed</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleQuickLogin('ARS-BGD-6204NW')}
+                      className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-left transition-colors flex items-center justify-between"
+                    >
+                      <div>
+                        <strong className="text-[#f3e5ab] font-mono block">ARS-BGD-6204NW</strong>
+                        <span className="text-[11px] text-gray-400">Senator Chuka Nwosu (Super Exec)</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold">Active</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Assistance Note */}
+                <div className="text-center text-xs text-gray-400 pt-2 border-t border-white/10">
+                  Need assistance? WhatsApp Front Desk Concierge: <strong className="text-[#d4af37] font-mono">+234 812 578 6875</strong>
                 </div>
               </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting || !bookingCodeInput.trim()}
-                className="w-full py-4 rounded-xl font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-2xl transition-all cursor-pointer hover:brightness-105 active:scale-[0.99] disabled:opacity-50"
-                style={{
-                  background: 'linear-gradient(135deg, #ffe58f 0%, #d4af37 50%, #b8860b 100%)',
-                  color: '#000000',
-                  border: '2px solid #fff4cc',
-                  boxShadow: '0 6px 24px rgba(212, 175, 55, 0.45)',
-                  fontWeight: '900',
-                  letterSpacing: '0.04em'
-                }}
-              >
-                {isSubmitting ? (
-                  <span className="flex items-center gap-2 text-black">
-                    <RefreshCw size={16} className="animate-spin" /> Verifying Reservation...
-                  </span>
-                ) : (
-                  <>
-                    <span>Enter Guest Portal</span>
-                    <ArrowRight size={18} className="text-black stroke-[3]" />
-                  </>
-                )}
-              </button>
-            </form>
-
-            {/* Quick Demo Test Codes */}
-            <div className="pt-4 border-t border-white/10 space-y-3">
-              <span className="text-[11px] text-gray-400 uppercase tracking-widest block font-bold">
-                Demo Reservation Codes For Instant Testing:
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left">
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('ARS-EXT-9421XK')}
-                  className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-left transition-colors flex items-center justify-between"
-                >
-                  <div>
-                    <strong className="text-[#f3e5ab] font-mono block">ARS-EXT-9421XK</strong>
-                    <span className="text-[11px] text-gray-400">Chief Emeka Obi (Diplomatic Suite)</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Active</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('ARS-BGD-7812AB')}
-                  className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-left transition-colors flex items-center justify-between"
-                >
-                  <div>
-                    <strong className="text-[#f3e5ab] font-mono block">ARS-BGD-7812AB</strong>
-                    <span className="text-[11px] text-gray-400">Alhaji Ibrahim Musa (Executive)</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40">Confirmed</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('ARS-BGD-6204NW')}
-                  className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-left transition-colors flex items-center justify-between"
-                >
-                  <div>
-                    <strong className="text-[#f3e5ab] font-mono block">ARS-BGD-6204NW</strong>
-                    <span className="text-[11px] text-gray-400">Senator Chuka Nwosu (Super Exec)</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Active</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('ARS-EXT-4109DA')}
-                  className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-left transition-colors flex items-center justify-between"
-                >
-                  <div>
-                    <strong className="text-[#f3e5ab] font-mono block">ARS-EXT-4109DA</strong>
-                    <span className="text-[11px] text-gray-400">Dr. Ngozi Adeleke (Superior)</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Active</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Assistance Note */}
-            <div className="text-center text-xs text-gray-400 pt-2 border-t border-white/10">
-              Need assistance? WhatsApp Front Desk Concierge: <strong className="text-[#d4af37] font-mono">+234 812 578 6875</strong>
-            </div>
-          </div>
+            </>
+          )}
 
         </div>
       ) : (
@@ -529,6 +689,16 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                 >
                   <Sparkles size={14} className="text-black" />
                   <span>Book Next Stay</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="px-4 py-3 rounded-2xl bg-white/5 hover:bg-rose-500/25 text-gray-300 hover:text-rose-200 border border-white/15 hover:border-rose-500/40 text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-all shadow-lg active:scale-95"
+                  title="Log out of Guest Portal"
+                >
+                  <LogOut size={14} className="text-rose-400" />
+                  <span>Log Out</span>
                 </button>
               </div>
 
@@ -711,7 +881,7 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                   )}
 
                   {/* Quick Action Ribbon */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
                     <button
                       type="button"
                       onClick={() => handleWhatsAppConcierge(customerProfile.primaryBooking)}
@@ -725,7 +895,7 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                       onClick={() => onNavigate('dining')}
                       className="py-3 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-white/15 transition-all cursor-pointer"
                     >
-                      <Utensils size={15} className="text-[#d4af37]" /> In-Room Dining & Drinks
+                      <Utensils size={15} className="text-[#d4af37]" /> In-Room Dining
                     </button>
 
                     <button
@@ -736,8 +906,19 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                       }}
                       className="py-3 px-4 rounded-xl bg-[#d4af37]/20 hover:bg-[#d4af37]/30 text-[#f3e5ab] font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-[#d4af37]/40 transition-all cursor-pointer"
                     >
-                      <FileText size={15} /> View Folio Receipt
+                      <FileText size={15} /> Folio Receipt
                     </button>
+
+                    {!customerProfile.isPrimaryCleared && (
+                      <button
+                        type="button"
+                        onClick={() => setShowCheckoutConfirm(true)}
+                        className="py-3 px-4 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 hover:text-amber-200 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-amber-500/35 transition-all cursor-pointer"
+                        title="Check out and vacate this suite"
+                      >
+                        <LogOut size={15} className="text-amber-400" /> Front Desk Check Out
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -1006,6 +1187,55 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* Front Desk Check Out Confirmation Modal */}
+      {showCheckoutConfirm && customerProfile?.primaryBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+          <div className="max-w-md w-full bg-[#18030e] border border-amber-500/50 rounded-3xl p-6 sm:p-7 text-center space-y-4 shadow-2xl">
+            <div className="w-16 h-16 rounded-2xl bg-amber-500/15 text-amber-400 flex items-center justify-center mx-auto border border-amber-500/40 shadow-lg">
+              <LogOut size={30} />
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="text-[10px] uppercase font-mono tracking-widest text-amber-300 font-bold">
+                Front Desk Keycard & Room Check Out
+              </span>
+              <h3 className="font-cinzel text-xl sm:text-2xl font-bold text-white">
+                Check Out of Suite?
+              </h3>
+              <p className="text-xs text-gray-300 leading-relaxed">
+                Are you ready to complete your check-out from Room #{customerProfile.primaryBooking.roomNumber || '—'}?
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-black/60 border border-white/10 text-left text-xs font-mono text-gray-300 space-y-1">
+              <div>Booking Code: <strong className="text-[#f3e5ab]">{customerProfile.primaryBooking.id}</strong></div>
+              <div>Folio Balance: <strong className="text-emerald-400">₦0.00 (Settled)</strong></div>
+              <div className="text-rose-400 text-[11px] pt-1 border-t border-white/10">
+                ⚠️ Once checked out, this booking code will expire and become invalid.
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowCheckoutConfirm(false)}
+                className="flex-1 py-3 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmCheckout}
+                className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-extrabold text-xs uppercase tracking-wider transition-all shadow-lg cursor-pointer"
+              >
+                Confirm Check Out
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

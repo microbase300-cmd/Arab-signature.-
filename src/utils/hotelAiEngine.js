@@ -215,6 +215,21 @@ export const hotelAiEngine = {
           return clean.slice(0, 4) + " •••• " + clean.slice(-3);
         };
 
+        const isCheckedOut = ['Checked Out', 'Completed', 'Bill Cleared', 'Settled'].includes(matchedBooking.status);
+
+        if (isCheckedOut) {
+          return {
+            text: `🛎️ **Amira Reservation Verification (${matchedBooking.id}):**\n\n` +
+                  `• **Registered Guest:** ${maskName(matchedBooking.guestName)}\n` +
+                  `• **Suite Category:** ${matchedBooking.roomName}\n` +
+                  `• **Stay Dates:** ${matchedBooking.checkIn} → ${matchedBooking.checkOut} (${matchedBooking.nights} Night${matchedBooking.nights > 1 ? 's' : ''})\n` +
+                  `• **Reservation Status:** 🛑 **This user has checked out** (Stay concluded & bill cleared).\n` +
+                  `• **Settlement:** Paid & Verified in Full\n\n` +
+                  `⚠️ *Notice:* Booking code **${matchedBooking.id}** is now expired and invalid for room entry or active privileges. Our system remembers your guest loyalty profile — if you have made a new reservation, please check your new booking code!`,
+            suggestions: ["Book Another Suite", "Check Available Suites", "Chat with Front Desk on WhatsApp"]
+          };
+        }
+
         return {
           text: `🛎️ **Amira Reservation Verification (${matchedBooking.id}):**\n\n` +
                 `• **Registered Guest:** ${maskName(matchedBooking.guestName)}\n` +
