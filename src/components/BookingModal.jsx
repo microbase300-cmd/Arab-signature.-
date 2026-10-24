@@ -18,25 +18,52 @@ import {
   Download, 
   Share2, 
   ArrowRight, 
+  ArrowLeft,
   Key, 
   Check, 
   AlertCircle, 
   Copy, 
   Printer, 
-  Sparkles 
+  Sparkles,
+  Building2,
+  Users,
+  Clock,
+  Wifi,
+  FileText
 } from 'lucide-react';
 
-export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
-  const [step, setStep] = useState(1); // 1: Details & Dates, 2: Payment, 3: Success Confirmation
+export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpenGuestPass }) {
+  // Steps: 
+  // 1: Choose Suite & Dates
+  // 2: Fill Guest Information Before Paying
+  // 3: Paystack Checkout & Order Review
+  // 4: Payment Confirmed & Guest Session Active
+  const [step, setStep] = useState(1);
   const [roomId, setRoomId] = useState(preselectedRoomId || 'deluxe');
-  const [checkIn, setCheckIn] = useState('2026-10-23');
-  const [checkOut, setCheckOut] = useState('2026-10-25');
-  const [guestName, setGuestName] = useState('Alhaji Ibrahim Musa');
-  const [guestPhone, setGuestPhone] = useState('0812 578 6875');
-  const [guestEmail, setGuestEmail] = useState('ibrahim.musa@example.com');
+
+  // Dynamic current & next day dates
+  const todayStr = () => new Date().toISOString().split('T')[0];
+  const tomorrowStr = () => new Date(Date.now() + 86400000).toISOString().split('T')[0];
+
+  const [checkIn, setCheckIn] = useState(todayStr());
+  const [checkOut, setCheckOut] = useState(tomorrowStr());
+
+  // Guest Registration Details (pre-fill from existing session if available, else clean inputs)
+  const existingSession = portalStore.getGuestSession();
+  const [guestName, setGuestName] = useState(existingSession?.guestName || '');
+  const [guestPhone, setGuestPhone] = useState(existingSession?.phone || '');
+  const [guestEmail, setGuestEmail] = useState(existingSession?.email || '');
+  const [numGuests, setNumGuests] = useState('1 Adult');
+  const [specialRequests, setSpecialRequests] = useState('');
+
+  // Validation error state
+  const [formError, setFormError] = useState('');
+
+  // Booking & Session output state
   const [bookingCode, setBookingCode] = useState('');
   const [paystackReference, setPaystackReference] = useState('');
   const [assignedRoomNumber, setAssignedRoomNumber] = useState('');
+  const [createdSession, setCreatedSession] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const [copiedRef, setCopiedRef] = useState(false);
@@ -59,6 +86,7 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
       setKeyInput(activeKey);
       setGatewayStatus(getPaystackMode());
       setPaymentError('');
+      setFormError('');
     }
   }, [isOpen]);
 
@@ -94,18 +122,39 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
     }, 1500);
   };
 
-  // Complete Booking Persistence Helper
+  // Step 2 Validation: Ensure Guest fills info before proceeding to Paystack
+  const handleProceedToPayment = (e) => {
+    if (e) e.preventDefault();
+    setFormError('');
+
+    if (!guestName.trim()) {
+      setFormError('Please enter your Full Legal Name for official room reservation.');
+      return;
+    }
+    if (!guestPhone.trim() || guestPhone.trim().length < 8) {
+      setFormError('Please enter a valid Phone or WhatsApp Number.');
+      return;
+    }
+    if (!guestEmail.trim() || !guestEmail.includes('@') || !guestEmail.includes('.')) {
+      setFormError('Please enter a valid Email Address to receive your Paystack transaction receipt.');
+      return;
+    }
+
+    setStep(3);
+  };
+
+  // Complete Booking Persistence & Guest Session Creation
   const recordSuccessfulBooking = (reference, isRealPaystack = true) => {
     const code = 'ASH-' + Math.floor(1000 + Math.random() * 9000);
     setBookingCode(code);
     setPaystackReference(reference);
 
-    // Save into central hotel portal store
+    // 1. Save into central hotel portal store
     const savedBooking = portalStore.addBooking({
       id: code,
-      guestName: guestName,
-      phone: guestPhone,
-      email: guestEmail,
+      guestName: guestName.trim(),
+      phone: guestPhone.trim(),
+      email: guestEmail.trim(),
       roomType: selectedRoom.id,
       roomName: selectedRoom.name,
       checkIn: checkIn,
@@ -124,6 +173,10 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
       setAssignedRoomNumber(savedBooking.roomNumber);
     }
 
+    // 2. CREATE ACTIVE GUEST SESSION!
+    const session = portalStore.createGuestSession(savedBooking);
+    setCreatedSession(session);
+
     // Optional background verification call to /api/verify-payment
     if (isRealPaystack && typeof window !== 'undefined') {
       fetch(`/api/verify-payment?reference=${encodeURIComponent(reference)}`)
@@ -133,7 +186,7 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
     }
 
     setIsProcessing(false);
-    setStep(3);
+    setStep(4);
   };
 
   // Main Paystack Payment Trigger
@@ -151,10 +204,10 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
     setIsProcessing(true);
 
     payWithPaystack({
-      email: guestEmail,
+      email: guestEmail.trim(),
       amount: totalAmount,
-      guestName: guestName,
-      guestPhone: guestPhone,
+      guestName: guestName.trim(),
+      guestPhone: guestPhone.trim(),
       roomName: selectedRoom.name,
       checkIn: checkIn,
       checkOut: checkOut,
@@ -194,8 +247,9 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
 
   const handleWhatsAppSend = () => {
     const text = encodeURIComponent(
-      `Hello Arab Signature Hotel Reception, I just completed a room booking online!\n\n` +
+      `Hello Arab Signature Hotel Reception, I just completed a room reservation online!\n\n` +
       `📋 Official Booking Code: ${bookingCode}\n` +
+      (createdSession?.sessionId ? `🔑 Guest Session: ${createdSession.sessionId}\n` : '') +
       `💳 Paystack Reference: ${paystackReference}\n` +
       `👤 Guest Name: ${guestName}\n` +
       `📱 Phone: ${guestPhone}\n` +
@@ -205,7 +259,7 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
       `📅 Check-out: ${checkOut} (12:00 PM)\n` +
       `🌙 Duration: ${nights} ${nights === 1 ? 'Night' : 'Nights'}\n` +
       `💰 Amount Paid: ₦${totalAmount.toLocaleString()} via Paystack\n\n` +
-      `Kindly confirm my arrival. Thank you!`
+      `Kindly confirm my arrival and keycard pickup. Thank you!`
     );
     window.open(`https://wa.me/${HOTEL_INFO.whatsapp}?text=${text}`, '_blank');
   };
@@ -215,16 +269,21 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
       <div className="relative w-full max-w-lg bg-[#14121a] border border-[#d4af37]/30 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-[#420317] to-[#250210]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-[#420317] via-[#5c0725] to-[#250210]">
           <div>
-            <h3 className="font-cinzel text-lg font-bold text-[#f3e5ab]">
-              {step === 3 ? "Booking Confirmed" : "Reserve Your Suite"}
-            </h3>
-            <p className="text-xs text-gray-300">Arab Signature Hotel & Suites</p>
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full bg-white/10 text-[#f3e5ab] text-[10px] font-mono font-bold uppercase">
+                {step === 1 ? 'Step 1 of 3: Dates' : step === 2 ? 'Step 2 of 3: Guest Info' : step === 3 ? 'Step 3 of 3: Paystack' : 'Session Active'}
+              </span>
+              <h3 className="font-cinzel text-base sm:text-lg font-bold text-[#f3e5ab]">
+                {step === 4 ? "Booking Confirmed & Session Active" : "Reserve Your Suite"}
+              </h3>
+            </div>
+            <p className="text-[11px] text-gray-300 mt-0.5">Arab Signature Hotel & Suites • Nsugbe, Onitsha</p>
           </div>
           <button 
             onClick={onClose}
@@ -239,7 +298,7 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
         <div className="p-5 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5 text-sm">
 
           {/* ============================================================== */}
-          {/* STEP 1: ROOM SELECTION & GUEST DETAILS                         */}
+          {/* STEP 1: ROOM SELECTION & STAY DATES                           */}
           {/* ============================================================== */}
           {step === 1 && (
             <>
@@ -256,7 +315,7 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
                       onClick={() => setRoomId(room.id)}
                       className={`p-2.5 rounded-xl text-left border transition-all ${
                         roomId === room.id
-                          ? 'border-[#d4af37] bg-[#5c0725]/40 text-white shadow-md ring-1 ring-[#d4af37]'
+                          ? 'border-[#d4af37] bg-[#5c0725]/50 text-white shadow-md ring-1 ring-[#d4af37]'
                           : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/20'
                       }`}
                     >
@@ -271,68 +330,30 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
               {/* Dates */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
+                  <label className="block text-xs uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1 font-medium">
                     <Calendar size={13} className="text-[#d4af37]" /> Check-In
                   </label>
                   <input
                     type="date"
+                    min={todayStr()}
                     value={checkIn}
                     onChange={(e) => setCheckIn(e.target.value)}
-                    className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2 text-white text-xs focus:border-[#d4af37] focus:outline-none"
+                    className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2.5 text-white text-xs focus:border-[#d4af37] focus:outline-none"
                   />
+                  <span className="text-[10px] text-gray-500 mt-1 block">Check-in from 2:00 PM</span>
                 </div>
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
+                  <label className="block text-xs uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1 font-medium">
                     <Calendar size={13} className="text-[#d4af37]" /> Check-Out
                   </label>
                   <input
                     type="date"
+                    min={checkIn || todayStr()}
                     value={checkOut}
                     onChange={(e) => setCheckOut(e.target.value)}
-                    className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2 text-white text-xs focus:border-[#d4af37] focus:outline-none"
+                    className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2.5 text-white text-xs focus:border-[#d4af37] focus:outline-none"
                   />
-                </div>
-              </div>
-
-              {/* Guest Information */}
-              <div className="space-y-3 pt-2 border-t border-white/10">
-                <div>
-                  <label className="block text-xs uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
-                    <User size={13} className="text-[#d4af37]" /> Guest Full Name
-                  </label>
-                  <input
-                    type="text"
-                    value={guestName}
-                    onChange={(e) => setGuestName(e.target.value)}
-                    placeholder="Enter full name"
-                    className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2 text-white text-xs focus:border-[#d4af37] focus:outline-none"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
-                      <Phone size={13} className="text-[#d4af37]" /> WhatsApp Number
-                    </label>
-                    <input
-                      type="tel"
-                      value={guestPhone}
-                      onChange={(e) => setGuestPhone(e.target.value)}
-                      placeholder="e.g. 08031234567"
-                      className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2 text-white text-xs focus:border-[#d4af37] focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
-                      <Mail size={13} className="text-[#d4af37]" /> Email
-                    </label>
-                    <input
-                      type="email"
-                      value={guestEmail}
-                      onChange={(e) => setGuestEmail(e.target.value)}
-                      placeholder="For receipt"
-                      className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2 text-white text-xs focus:border-[#d4af37] focus:outline-none"
-                    />
-                  </div>
+                  <span className="text-[10px] text-gray-500 mt-1 block">Check-out by 12:00 PM</span>
                 </div>
               </div>
 
@@ -345,35 +366,158 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa820a] text-black font-semibold text-xs flex items-center gap-1.5 hover:opacity-95 shadow-lg shadow-[#d4af37]/20"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa820a] text-black font-bold text-xs flex items-center gap-1.5 hover:opacity-95 shadow-lg shadow-[#d4af37]/20"
                 >
-                  Proceed to Pay <ArrowRight size={14} />
+                  Continue to Guest Info <ArrowRight size={14} />
                 </button>
               </div>
             </>
           )}
 
           {/* ============================================================== */}
-          {/* STEP 2: PAYSTACK PAYMENT GATEWAY                               */}
+          {/* STEP 2: GUEST INFORMATION FORM (BEFORE PAYING AT PAYSTACK)     */}
           {/* ============================================================== */}
           {step === 2 && (
+            <form onSubmit={handleProceedToPayment} className="space-y-4">
+              <div className="p-3 rounded-2xl bg-[#5c0725]/20 border border-[#d4af37]/30 text-xs text-gray-300 flex items-start gap-2.5">
+                <FileText size={18} className="text-[#d4af37] flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-white block font-medium">Primary Guest Stay Information</strong>
+                  <span>Please fill in your contact information before proceeding to Paystack checkout. An encrypted guest reservation session will be generated upon payment.</span>
+                </div>
+              </div>
+
+              {/* Form Error Banner */}
+              {formError && (
+                <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-start gap-2">
+                  <AlertCircle size={15} className="shrink-0 mt-0.5 text-rose-400" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              {/* Guest Inputs */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs uppercase tracking-wider text-gray-300 mb-1.5 font-semibold flex items-center gap-1">
+                    <User size={13} className="text-[#d4af37]" /> Full Legal Name <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={guestName}
+                    onChange={(e) => setGuestName(e.target.value)}
+                    placeholder="e.g. Chief Emeka Okafor"
+                    className="w-full bg-black/50 border border-white/20 rounded-xl px-3.5 py-2.5 text-white text-xs focus:border-[#d4af37] focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-gray-300 mb-1.5 font-semibold flex items-center gap-1">
+                      <Phone size={13} className="text-[#d4af37]" /> WhatsApp / Phone <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={guestPhone}
+                      onChange={(e) => setGuestPhone(e.target.value)}
+                      placeholder="e.g. 0803 123 4567"
+                      className="w-full bg-black/50 border border-white/20 rounded-xl px-3.5 py-2.5 text-white text-xs focus:border-[#d4af37] focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-gray-300 mb-1.5 font-semibold flex items-center gap-1">
+                      <Mail size={13} className="text-[#d4af37]" /> Email Address <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={guestEmail}
+                      onChange={(e) => setGuestEmail(e.target.value)}
+                      placeholder="e.g. emeka.okafor@example.com"
+                      className="w-full bg-black/50 border border-white/20 rounded-xl px-3.5 py-2.5 text-white text-xs focus:border-[#d4af37] focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-gray-300 mb-1.5 font-semibold flex items-center gap-1">
+                      <Users size={13} className="text-[#d4af37]" /> Number of Guests
+                    </label>
+                    <select
+                      value={numGuests}
+                      onChange={(e) => setNumGuests(e.target.value)}
+                      className="w-full bg-[#1b0812] border border-white/20 rounded-xl px-3.5 py-2.5 text-white text-xs focus:border-[#d4af37] focus:outline-none cursor-pointer"
+                    >
+                      <option value="1 Adult">1 Adult</option>
+                      <option value="2 Adults">2 Adults</option>
+                      <option value="2 Adults + 1 Child">2 Adults + 1 Child</option>
+                      <option value="3 Adults">3 Adults (Suite Extra Bed)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-gray-300 mb-1.5 font-semibold flex items-center gap-1">
+                      <Clock size={13} className="text-[#d4af37]" /> Estimated Arrival
+                    </label>
+                    <input
+                      type="text"
+                      value={specialRequests}
+                      onChange={(e) => setSpecialRequests(e.target.value)}
+                      placeholder="e.g. 3:00 PM, extra pillows"
+                      className="w-full bg-black/50 border border-white/20 rounded-xl px-3.5 py-2.5 text-white text-xs focus:border-[#d4af37] focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                >
+                  <ArrowLeft size={14} /> Back
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa820a] text-black font-bold text-xs flex items-center gap-1.5 hover:opacity-95 shadow-lg shadow-[#d4af37]/20"
+                >
+                  Proceed to Payment <ArrowRight size={14} />
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* ============================================================== */}
+          {/* STEP 3: PAYSTACK PAYMENT GATEWAY                               */}
+          {/* ============================================================== */}
+          {step === 3 && (
             <div className="space-y-4">
               {/* Reservation Breakdown */}
               <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
                 <div className="flex justify-between text-xs text-gray-400">
-                  <span>Room:</span>
-                  <span className="text-white font-medium">{selectedRoom.name}</span>
+                  <span>Reserved Suite:</span>
+                  <span className="text-white font-medium">{selectedRoom.name} ({selectedRoom.buildingLabel || 'Main Wing'})</span>
                 </div>
                 <div className="flex justify-between text-xs text-gray-400">
                   <span>Duration:</span>
                   <span className="text-white font-medium">{checkIn} to {checkOut} ({nights} nights)</span>
                 </div>
                 <div className="flex justify-between text-xs text-gray-400">
-                  <span>Guest:</span>
-                  <span className="text-white font-medium">{guestName} ({guestPhone})</span>
+                  <span>Primary Guest:</span>
+                  <span className="text-[#f3e5ab] font-medium">{guestName} ({guestPhone})</span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>Receipt Email:</span>
+                  <span className="text-gray-300 font-mono text-[11px]">{guestEmail}</span>
                 </div>
                 <div className="pt-2 border-t border-white/10 flex justify-between text-sm font-bold">
-                  <span className="text-gray-300">Total Payable:</span>
+                  <span className="text-gray-300">Total Billed:</span>
                   <span className="text-[#d4af37]">₦{totalAmount.toLocaleString()}</span>
                 </div>
               </div>
@@ -434,7 +578,7 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
                   </button>
                 </div>
 
-                {/* Inline Paystack Key Input (For testing with own test key right now) */}
+                {/* Inline Paystack Key Input */}
                 {showKeyManager && (
                   <div className="p-3 rounded-xl bg-black/60 border border-emerald-500/40 text-left space-y-2 mt-2 animate-fadeIn">
                     <div className="flex items-center justify-between">
@@ -474,15 +618,11 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
                         </span>
                       )}
                     </div>
-
-                    <p className="text-[10px] text-gray-400 leading-normal">
-                      Use your <strong>pk_test_...</strong> key for development testing. When ready for production on the main domain, enter the client's <strong>pk_live_...</strong> key or set <code className="text-[#d4af37]">VITE_PAYSTACK_PUBLIC_KEY</code> in Vercel.
-                    </p>
                   </div>
                 )}
               </div>
 
-              {/* Instant Simulation Fallback (for instant test run without keys) */}
+              {/* Instant Simulation Fallback (for testing) */}
               <div className="text-center pt-1">
                 <button
                   type="button"
@@ -495,45 +635,53 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
 
               <button
                 type="button"
-                onClick={() => setStep(1)}
+                onClick={() => setStep(2)}
                 className="w-full text-center text-xs text-gray-400 hover:text-white pt-1"
               >
-                ← Back to edit dates or guest info
+                ← Back to edit guest information
               </button>
             </div>
           )}
 
           {/* ============================================================== */}
-          {/* STEP 3: OFFICIAL BOOKING PASS & RECEIPT                        */}
+          {/* STEP 4: PAYMENT CONFIRMED & GUEST SESSION CREATED!             */}
           {/* ============================================================== */}
-          {step === 3 && (
+          {step === 4 && (
             <div className="space-y-4 sm:space-y-5 text-center">
               <div className="w-14 h-14 mx-auto rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400">
                 <CheckCircle2 size={32} />
               </div>
 
               <div>
-                <span className="text-xs font-semibold tracking-wider text-emerald-400 uppercase">Payment Verified</span>
-                <h4 className="text-xl font-cinzel font-bold text-white mt-1">Room Reservation Confirmed!</h4>
-                <p className="text-xs text-gray-400 mt-1">Present this official booking code upon arrival at the front desk reception.</p>
+                <span className="text-xs font-semibold tracking-wider text-emerald-400 uppercase">Payment Verified via Paystack</span>
+                <h4 className="text-xl font-cinzel font-bold text-white mt-1">Guest Session Created & Confirmed!</h4>
+                <p className="text-xs text-gray-300 mt-1">Your reservation session is now active on the hotel network.</p>
               </div>
 
-              {/* Official Booking Pass Card */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-[#2d0513] to-[#120208] border-2 border-[#d4af37] text-left relative overflow-hidden shadow-2xl">
-                <div className="flex justify-between items-start">
+              {/* VIP Guest Session Card */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-[#2d0513] to-[#120208] border-2 border-[#d4af37] text-left relative overflow-hidden shadow-2xl space-y-3">
+                <div className="flex justify-between items-start flex-wrap gap-2">
                   <div>
-                    <span className="text-[10px] tracking-widest uppercase text-gray-400">OFFICIAL BOOKING CODE</span>
+                    <span className="text-[10px] tracking-widest uppercase text-emerald-400 font-bold flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      ACTIVE GUEST SESSION
+                    </span>
                     <div className="text-2xl sm:text-3xl font-mono font-extrabold text-[#f3e5ab] tracking-wider mt-0.5">
                       {bookingCode}
                     </div>
+                    {createdSession?.sessionId && (
+                      <span className="text-[10px] text-gray-400 font-mono block mt-0.5">
+                        Session: {createdSession.sessionId}
+                      </span>
+                    )}
                   </div>
                   <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                     PAID (Paystack)
                   </span>
                 </div>
 
-                {/* Paystack Verified Reference Row */}
-                <div className="mt-3 p-2 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between text-xs">
+                {/* Paystack Reference */}
+                <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between text-xs">
                   <div>
                     <span className="text-[10px] text-gray-400 uppercase tracking-wider block">Paystack Reference</span>
                     <span className="font-mono text-xs text-emerald-400 font-semibold">{paystackReference}</span>
@@ -542,24 +690,24 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
                     type="button"
                     onClick={handleCopyReference}
                     className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white flex items-center gap-1 text-[11px] transition-colors"
-                    title="Copy reference code"
                   >
                     {copiedRef ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
                     <span>{copiedRef ? 'Copied' : 'Copy'}</span>
                   </button>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-white/10 grid grid-cols-2 gap-2 text-xs">
+                {/* Stay Details */}
+                <div className="pt-2 border-t border-white/10 grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <span className="text-gray-400 text-[10px]">GUEST</span>
+                    <span className="text-gray-400 text-[10px]">PRIMARY GUEST</span>
                     <div className="font-semibold text-white truncate">{guestName}</div>
                   </div>
                   <div>
-                    <span className="text-gray-400 text-[10px]">ROOM TYPE</span>
+                    <span className="text-gray-400 text-[10px]">SUITE RESERVED</span>
                     <div className="font-semibold text-white truncate">{selectedRoom.name}</div>
                   </div>
                   <div>
-                    <span className="text-gray-400 text-[10px]">RESERVED SUITE</span>
+                    <span className="text-gray-400 text-[10px]">ASSIGNED ROOM</span>
                     <div className="font-bold text-amber-300 font-mono text-xs flex items-center gap-1">
                       <Key size={12} className="text-[#d4af37]" />
                       <span>{assignedRoomNumber && assignedRoomNumber !== 'Unassigned' ? `Room #${assignedRoomNumber}` : 'Auto-Reserved'}</span>
@@ -571,39 +719,67 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId }) {
                   </div>
                   <div>
                     <span className="text-gray-400 text-[10px]">CHECK-IN</span>
-                    <div className="font-semibold text-[#d4af37]">{checkIn} (2 PM)</div>
+                    <div className="font-semibold text-[#d4af37]">{checkIn} (2:00 PM)</div>
                   </div>
                   <div>
                     <span className="text-gray-400 text-[10px]">CHECK-OUT</span>
-                    <div className="font-semibold text-[#d4af37]">{checkOut} (12 PM)</div>
+                    <div className="font-semibold text-[#d4af37]">{checkOut} (12:00 PM)</div>
                   </div>
-                  <div>
-                    <span className="text-gray-400 text-[10px]">DURATION</span>
-                    <div className="font-semibold text-gray-300">{nights} {nights === 1 ? 'Night' : 'Nights'}</div>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 text-[10px]">AMOUNT PAID</span>
-                    <div className="font-semibold text-emerald-400">₦{totalAmount.toLocaleString()}</div>
+                </div>
+
+                {/* WiFi Credentials */}
+                <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-2">
+                    <Wifi size={14} className="text-sky-400 flex-shrink-0" />
+                    <div>
+                      <span className="text-gray-400 text-[10px] block">Wi-Fi Access:</span>
+                      <strong className="text-white">Arab_Signature_HighSpeed_Guest</strong> • Password: <code className="text-[#f3e5ab]">ArabSignatureVIP</code>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2 pt-1">
+                {onOpenGuestPass && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenGuestPass();
+                    }}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#d4af37]/20 hover:scale-[1.01] transition-all cursor-pointer"
+                  >
+                    <Key size={15} />
+                    <span>Open My Guest Stay Pass</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={handleWhatsAppSend}
-                  className="w-full py-3 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-black font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-98 cursor-pointer"
+                  className="w-full py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-black font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
                 >
-                  <Share2 size={16} /> Send Booking to Hotel WhatsApp
+                  <Share2 size={15} /> Send Arrival Notice to Hotel WhatsApp
                 </button>
-                <button
-                  type="button"
-                  onClick={handlePrintReceipt}
-                  className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
-                >
-                  <Printer size={14} /> Print / Save PDF Receipt
-                </button>
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handlePrintReceipt}
+                    className="py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Printer size={13} /> Print Folio Receipt
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white font-medium text-xs flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
             </div>
           )}

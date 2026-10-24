@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { portalStore } from '../data/portalStore';
 import Logo from './Logo';
 import { HOTEL_INFO } from '../data/hotelData';
-import { Award, Phone, Sparkles, Menu, X } from 'lucide-react';
+import { Award, Phone, Sparkles, Menu, X, Key } from 'lucide-react';
 
-export default function Navbar({ currentPage, onNavigate, onOpenBooking }) {
+export default function Navbar({ currentPage, onNavigate, onOpenBooking, onOpenGuestPass }) {
+  const [guestSession, setGuestSession] = useState(() => portalStore.getGuestSession());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const unsub = portalStore.subscribeGuestSession((session) => {
+      setGuestSession(session);
+    });
+    return unsub;
+  }, []);
 
   const navLinks = [
     { id: 'home', label: 'Home' },
@@ -69,6 +78,17 @@ export default function Navbar({ currentPage, onNavigate, onOpenBooking }) {
 
           {/* Right Action Tools */}
           <div className="hidden sm:flex items-center gap-3">
+            {guestSession && (
+              <button
+                onClick={onOpenGuestPass}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all bg-gradient-to-r from-amber-500/20 via-[#d4af37]/30 to-amber-600/20 text-[#f3e5ab] hover:bg-[#d4af37]/40 border border-[#d4af37]/60 shadow-lg shadow-[#d4af37]/10 animate-pulse"
+                title="Open Active Guest Stay Pass"
+              >
+                <Key size={14} className="text-[#d4af37]" />
+                <span>Room #{guestSession.roomNumber} Pass</span>
+              </button>
+            )}
+            
             <a
               href={`https://wa.me/${HOTEL_INFO.whatsapp}?text=Hello%20Arab%20Signature%20Hotel,%20I%20would%20like%20to%20inquire%20about%20suite%20reservations.`}
               target="_blank"
@@ -118,6 +138,19 @@ export default function Navbar({ currentPage, onNavigate, onOpenBooking }) {
             ))}
 
             <div className="pt-2 border-t border-white/10 space-y-2">
+            {guestSession && (
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (onOpenGuestPass) onOpenGuestPass();
+                }}
+                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#d4af37]/25 to-[#5c0725]/50 text-[#f3e5ab] font-bold text-xs uppercase tracking-wider text-center flex items-center justify-center gap-2 border border-[#d4af37]/50 shadow-md"
+              >
+                <Key size={14} className="text-[#d4af37]" />
+                <span>Active Guest Pass (Room #{guestSession.roomNumber})</span>
+              </button>
+            )}
+            
               <a
                 href={`https://wa.me/${HOTEL_INFO.whatsapp}?text=Hello%20Arab%20Signature%20Hotel,%20I%20would%20like%20to%20inquire%20about%20suite%20reservations.`}
                 target="_blank"

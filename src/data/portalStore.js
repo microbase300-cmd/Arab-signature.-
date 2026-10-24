@@ -12,6 +12,7 @@ const STORAGE_KEYS = {
   HOTEL_CONFIG: 'ash_portal_hotel_config',
   ACTIVITY_LOG: 'ash_portal_activity_log',
   INTERCOM_CHAT: 'ash_portal_intercom_chat_v1',
+  GUEST_SESSION: 'ash_active_guest_session_v2',
 };
 
 // 1. Initial Room Inventory (34 Authentic Rooms Across 2 Buildings in Nsugbe, Onitsha - All Available for Production)
@@ -2580,6 +2581,93 @@ export const portalStore = {
       if (bc) bc.removeEventListener('message', bcHandler);
       window.removeEventListener('storage', storageHandler);
     };
+  },
+
+  // --- GUEST RESERVATION SESSION MANAGEMENT ---
+  createGuestSession(booking) {
+    if (!booking) return null;
+    const session = {
+      sessionId: `ASH-VIP-${Math.random().toString(36).substring(2, 7).toUpperCase()}-${booking.id || Date.now()}`,
+      bookingId: booking.id,
+      guestName: booking.guestName,
+      phone: booking.phone,
+      email: booking.email,
+      roomType: booking.roomType,
+      roomName: booking.roomName,
+      roomNumber: booking.roomNumber,
+      building: (String(booking.roomNumber).startsWith('6') || (booking.roomName || '').toLowerCase().includes('main')) ? 'Main Building' : 'Extension Building',
+      buildingLabel: (String(booking.roomNumber).startsWith('6') || (booking.roomName || '').toLowerCase().includes('main')) ? 'Main Building (600 Wing)' : 'Extension Wing (100 Wing)',
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      nights: booking.nights,
+      amount: booking.amount,
+      paymentStatus: booking.paymentStatus || 'Paid',
+      paymentMethod: booking.paymentMethod || 'Paystack (Online Verified)',
+      paystackReference: booking.paystackReference,
+      status: booking.status || 'Confirmed',
+      wifiAccess: {
+        network: 'Arab_Signature_HighSpeed_Guest',
+        code: 'ArabSignatureVIP'
+      },
+      conciergeDeskPhone: '+234 812 578 6875',
+      createdAt: new Date().toISOString()
+    };
+
+    setLocalItem(STORAGE_KEYS.GUEST_SESSION, session);
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem('ash_guest_active_session', JSON.stringify(session));
+      } catch (e) {}
+      window.dispatchEvent(new CustomEvent('ash_guest_session_updated', { detail: session }));
+    }
+
+    this.logActivity(`Guest session generated for ${session.guestName} (${session.bookingId}) - Suite #${session.roomNumber}`);
+    this.syncGuestSessionToCloud(session);
+    return session;
+  },
+
+  getGuestSession() {
+    let session = null;
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = sessionStorage.getItem('ash_guest_active_session');
+        if (raw) session = JSON.parse(raw);
+      } catch (e) {}
+    }
+    if (!session) {
+      session = getLocalItem(STORAGE_KEYS.GUEST_SESSION, null);
+    }
+    return session;
+  },
+
+  clearGuestSession() {
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem('ash_guest_active_session');
+      } catch (e) {}
+      localStorage.removeItem(STORAGE_KEYS.GUEST_SESSION);
+      window.dispatchEvent(new CustomEvent('ash_guest_session_updated', { detail: null }));
+    }
+    this.logActivity('Guest session ended / signed out.');
+  },
+
+  subscribeGuestSession(callback) {
+    if (typeof window === 'undefined') return () => {};
+    const handler = (e) => callback(e.detail);
+    window.addEventListener('ash_guest_session_updated', handler);
+    return () => window.removeEventListener('ash_guest_session_updated', handler);
+  },
+
+  async syncGuestSessionToCloud(session) {
+    if (typeof window === 'undefined' || !session) return;
+    try {
+      fetch('https://mantledb.sh/v2/arab-signature-hotel-guest-sessions-v1/active', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session, updatedAt: Date.now() }),
+        keepalive: true
+      }).catch(() => {});
+    } catch (e) {}
   },
 
   logActivity(msg) {

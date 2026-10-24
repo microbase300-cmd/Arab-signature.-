@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import BookingModal from './components/BookingModal';
+import GuestSessionPassModal from './components/GuestSessionPassModal';
 import WelcomeIntro from './components/WelcomeIntro';
 import PromoPopupModal from './components/PromoPopupModal';
 import { portalStore } from './data/portalStore';
@@ -29,6 +30,7 @@ export default function App() {
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [preselectedRoom, setPreselectedRoom] = useState('deluxe');
   const [showWelcome, setShowWelcome] = useState(true);
+  const [isGuestPassOpen, setIsGuestPassOpen] = useState(false);
 
   // Synchronize multi-page navigation with browser URL hash & clean URL query parameters
   useEffect(() => {
@@ -187,6 +189,7 @@ export default function App() {
           currentPage={currentPage}
           onNavigate={handleNavigate}
           onOpenBooking={handleOpenBooking}
+          onOpenGuestPass={() => setIsGuestPassOpen(true)}
         />
       )}
 
@@ -209,6 +212,14 @@ export default function App() {
         isOpen={isBookingOpen}
         onClose={() => setIsBookingOpen(false)}
         preselectedRoomId={preselectedRoom}
+        onOpenGuestPass={() => setIsGuestPassOpen(true)}
+      />
+
+      {/* 4b. Active VIP Guest Stay Pass & Suite Folio Modal */}
+      <GuestSessionPassModal
+        isOpen={isGuestPassOpen}
+        onClose={() => setIsGuestPassOpen(false)}
+        onNavigate={handleNavigate}
       />
 
       {/* 5. Non-Intrusive Luxury Promo Popup (Kitchen Combo OR Suites & Event OR Drinks) */}
