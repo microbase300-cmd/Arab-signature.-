@@ -3,7 +3,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import BookingModal from './components/BookingModal';
 import GuestSessionPassModal from './components/GuestSessionPassModal';
-import CustomerDashboardModal from './components/CustomerDashboardModal';
+import CustomerDashboardPage from './pages/CustomerDashboardPage';
 import WelcomeIntro from './components/WelcomeIntro';
 import PromoPopupModal from './components/PromoPopupModal';
 import { portalStore } from './data/portalStore';
@@ -32,7 +32,6 @@ export default function App() {
   const [preselectedRoom, setPreselectedRoom] = useState('deluxe');
   const [showWelcome, setShowWelcome] = useState(true);
   const [isGuestPassOpen, setIsGuestPassOpen] = useState(false);
-  const [isCustomerDashboardOpen, setIsCustomerDashboardOpen] = useState(false);
 
   // Synchronize multi-page navigation with browser URL hash & clean URL query parameters
   useEffect(() => {
@@ -102,14 +101,12 @@ export default function App() {
 
       // Customer Guest Portal & Stay History Access (#guest-portal, #dashboard, #my-booking)
       if (['guest-portal', 'dashboard', 'my-booking', 'customer-dashboard'].includes(rawHash)) {
-        setIsCustomerDashboardOpen(true);
-        setCurrentPage('home');
-        window.history.replaceState({}, document.title, window.location.pathname);
+        setCurrentPage('guest-portal');
         return;
       }
 
       // Public multi-page views
-      const validPages = ['about', 'suites', 'amenities', 'dining', 'gallery', 'contact'];
+      const validPages = ['about', 'suites', 'amenities', 'dining', 'gallery', 'contact', 'guest-portal'];
       if (validPages.includes(rawHash)) {
         setCurrentPage(rawHash);
       } else {
@@ -154,6 +151,8 @@ export default function App() {
         return <ReceptionLogin onNavigate={handleNavigate} />;
       case 'reception':
         return <ReceptionPortal onNavigate={handleNavigate} />;
+      case 'guest-portal':
+        return <CustomerDashboardPage onNavigate={handleNavigate} onOpenBooking={handleOpenBooking} />;
       case 'about':
         return <AboutPage onNavigate={handleNavigate} onOpenBooking={handleOpenBooking} />;
       case 'suites':
@@ -200,7 +199,7 @@ export default function App() {
           onNavigate={handleNavigate}
           onOpenBooking={handleOpenBooking}
           onOpenGuestPass={() => setIsGuestPassOpen(true)}
-          onOpenCustomerDashboard={() => setIsCustomerDashboardOpen(true)}
+          onOpenCustomerDashboard={() => handleNavigate('guest-portal')}
         />
       )}
 
@@ -233,13 +232,7 @@ export default function App() {
         onNavigate={handleNavigate}
       />
 
-      {/* 4c. Customer Dashboard & Returning Guest History Modal */}
-      <CustomerDashboardModal
-        isOpen={isCustomerDashboardOpen}
-        onClose={() => setIsCustomerDashboardOpen(false)}
-        onNavigate={handleNavigate}
-        onOpenBooking={handleOpenBooking}
-      />
+
 
       {/* 5. Non-Intrusive Luxury Promo Popup (Kitchen Combo OR Suites & Event OR Drinks) */}
       {!isPortalPage && (

@@ -108,30 +108,19 @@ export default function Navbar({ currentPage, onNavigate, onOpenBooking, onOpenG
 
             <button
               onClick={() => onOpenBooking('deluxe')}
-              className="px-5 py-2.5 rounded-xl font-extrabold text-xs uppercase tracking-wider shadow-lg hover:brightness-105 transition-all flex items-center gap-1.5 cursor-pointer"
-              style={{
-                background: 'linear-gradient(135deg, #ffe58f 0%, #d4af37 50%, #b8860b 100%)',
-                color: '#000000',
-                border: '1px solid #fff4cc',
-                boxShadow: '0 4px 18px rgba(212, 175, 55, 0.45)',
-                fontWeight: '900'
-              }}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-[#d4af37]/20 hover:opacity-95 transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <Sparkles size={14} className="text-black" />
-              <span className="text-black font-extrabold">Book A Suite</span>
+              <Sparkles size={14} />
+              <span>Book A Suite</span>
             </button>
 
             {/* Customer Dashboard Button (Right after Book A Suite, matching luxury styling) */}
             <button
-              onClick={onOpenCustomerDashboard}
-              className="px-4 py-2.5 rounded-xl font-extrabold text-xs uppercase tracking-wider shadow-lg hover:brightness-110 transition-all flex items-center gap-1.5 cursor-pointer"
-              style={{
-                background: 'linear-gradient(135deg, #420317 0%, #5c0725 50%, #250210 100%)',
-                color: '#f3e5ab',
-                border: '1px solid rgba(212, 175, 55, 0.6)',
-                boxShadow: '0 4px 18px rgba(0, 0, 0, 0.45)',
-                fontWeight: '800'
+              onClick={() => {
+                if (onOpenCustomerDashboard) onOpenCustomerDashboard();
+                else onNavigate('guest-portal');
               }}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#420317] via-[#5c0725] to-[#250210] text-[#f3e5ab] font-bold text-xs uppercase tracking-wider border border-[#d4af37]/50 shadow-lg shadow-[#d4af37]/10 hover:border-[#d4af37] transition-all flex items-center gap-1.5 cursor-pointer"
               title="Customer Dashboard & Stay History"
             >
               <UserCheck size={14} className="text-[#d4af37]" />
@@ -196,14 +185,7 @@ export default function Navbar({ currentPage, onNavigate, onOpenBooking, onOpenG
                   setMobileMenuOpen(false);
                   onOpenBooking('deluxe');
                 }}
-                className="w-full py-3.5 rounded-xl text-black font-extrabold text-xs uppercase tracking-wider text-center block shadow-lg hover:brightness-105 transition-all cursor-pointer"
-                style={{
-                  background: 'linear-gradient(135deg, #ffe58f 0%, #d4af37 50%, #b8860b 100%)',
-                  color: '#000000',
-                  border: '1px solid #fff4cc',
-                  boxShadow: '0 4px 18px rgba(212, 175, 55, 0.45)',
-                  fontWeight: '900'
-                }}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa820a] text-black font-extrabold text-xs uppercase tracking-wider text-center block shadow-lg"
               >
                 Book A Suite Now
               </button>
@@ -212,12 +194,9 @@ export default function Navbar({ currentPage, onNavigate, onOpenBooking, onOpenG
                 onClick={() => {
                   setMobileMenuOpen(false);
                   if (onOpenCustomerDashboard) onOpenCustomerDashboard();
+                  else onNavigate('guest-portal');
                 }}
-                className="w-full py-3.5 rounded-xl text-[#f3e5ab] font-extrabold text-xs uppercase tracking-wider text-center flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer border border-[#d4af37]/50"
-                style={{
-                  background: 'linear-gradient(135deg, #420317 0%, #5c0725 50%, #250210 100%)',
-                  fontWeight: '800'
-                }}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-[#420317] to-[#250210] text-[#f3e5ab] font-bold text-xs uppercase tracking-wider text-center flex items-center justify-center gap-2 border border-[#d4af37]/40 shadow-md"
               >
                 <UserCheck size={15} className="text-[#d4af37]" />
                 <span>{customerSession ? `Guest Portal (${customerSession.guestName})` : 'Customer Portal & Stay History'}</span>
