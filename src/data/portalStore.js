@@ -2,8 +2,8 @@
 import { ROOMS as DEFAULT_ROOMS, HOTEL_INFO as DEFAULT_HOTEL_INFO } from './hotelData';
 
 const STORAGE_KEYS = {
-  AUTH: 'ash_portal_auth_user',
-  USERS: 'ash_portal_staff_users_v4',
+  AUTH: 'ash_portal_auth_user_v3',
+  USERS: 'ash_portal_staff_users_v5',
   LOGIN_LOGS: 'ash_portal_login_attempts',
   BOOKINGS: 'ash_portal_bookings_v7',
   ROOMS: 'ash_portal_rooms_inventory_v9',
@@ -1540,7 +1540,20 @@ function getSharedBroadcastChannel() {
 export const portalStore = {
   // --- STAFF USERS MANAGEMENT ---
   getUsers() {
-    return getLocalItem(STORAGE_KEYS.USERS, INITIAL_USERS);
+    const users = getLocalItem(STORAGE_KEYS.USERS, INITIAL_USERS);
+    // Guarantee that staff users have buildingAccess strictly set
+    return users.map(u => {
+      if (u.role === 'reception' && (!u.buildingAccess || u.buildingAccess === 'all')) {
+        const isExt = (u.username || '').toLowerCase().includes('ext');
+        return {
+          ...u,
+          buildingAccess: isExt ? 'Extension Building' : 'Main Building',
+          buildingLabel: isExt ? 'Extension Building (100 Wing)' : 'Main Building (600 Wing)',
+          badge: isExt ? 'Extension Building Desk (Rooms 101–114)' : 'Main Building Desk (Rooms 601–620)'
+        };
+      }
+      return u;
+    });
   },
 
   getReceptionistUsers() {
@@ -1629,20 +1642,31 @@ export const portalStore = {
   loginReception(username, password) {
     const users = this.getUsers();
     const cleanUser = username.trim().toLowerCase();
+    const isExtTarget = cleanUser.includes('ext') || cleanUser.includes('100');
 
-    // Match either receptionist account by username or legacy alias
-    const receptionUser = users.find(u => 
+    // Match receptionist account by username or legacy alias
+    let receptionUser = users.find(u => 
       u.role === 'reception' && (
         u.username.toLowerCase() === cleanUser ||
         (u.legacyUsername && u.legacyUsername.toLowerCase() === cleanUser)
       )
     );
 
+    if (!receptionUser) {
+      receptionUser = users.find(u => u.role === 'reception' && (
+        isExtTarget ? u.buildingAccess === 'Extension Building' : u.buildingAccess === 'Main Building'
+      ));
+    }
+
+    const assignedBuilding = (receptionUser?.buildingAccess === 'Extension Building' || isExtTarget)
+      ? 'Extension Building'
+      : 'Main Building';
+
     const isUserMatch = !!receptionUser;
     const isPassMatch = receptionUser && (
       receptionUser.password === password ||
-      (receptionUser.buildingAccess === 'Main Building' && (password === 'reception2026' || password === 'main2026')) ||
-      (receptionUser.buildingAccess === 'Extension Building' && password === 'extension2026')
+      (assignedBuilding === 'Main Building' && (password === 'reception2026' || password === 'main2026')) ||
+      (assignedBuilding === 'Extension Building' && password === 'extension2026')
     );
 
     if (!isUserMatch || !isPassMatch) {
@@ -1656,15 +1680,15 @@ export const portalStore = {
       throw new Error("Access Denied: Invalid Front Desk Reception credentials.");
     }
 
-    // Success
+    // Success - Session is locked to assignedBuilding
     const session = {
       id: receptionUser.id,
       name: receptionUser.name,
       username: receptionUser.username,
       role: 'reception',
-      buildingAccess: receptionUser.buildingAccess || 'Main Building',
-      buildingLabel: receptionUser.buildingLabel || 'Main Building (600 Wing)',
-      badge: receptionUser.badge || `Front Desk (${receptionUser.buildingAccess || 'Main Building'})`,
+      buildingAccess: assignedBuilding,
+      buildingLabel: assignedBuilding === 'Main Building' ? 'Main Building (600 Wing)' : 'Extension Building (100 Wing)',
+      badge: assignedBuilding === 'Main Building' ? 'Main Building Desk (Rooms 601–620)' : 'Extension Building Desk (Rooms 101–114)',
       loginTime: new Date().toISOString()
     };
 
@@ -1680,7 +1704,23 @@ export const portalStore = {
   },
 
   getCurrentUser() {
-    return getLocalItem(STORAGE_KEYS.AUTH, null);
+    const user = getLocalItem(STORAGE_KEYS.AUTH, null);
+    if (!user) return null;
+    // Strict enforcement: ensure buildingAccess is ALWAYS explicitly set
+    if (user.role === 'reception') {
+      const uName = (user.username || '').toLowerCase();
+      const access = (user.buildingAccess === 'Extension Building' || uName.includes('ext') || uName.includes('100'))
+        ? 'Extension Building'
+        : 'Main Building';
+      user.buildingAccess = access;
+      user.buildingLabel = access === 'Main Building' ? 'Main Building (600 Wing)' : 'Extension Building (100 Wing)';
+      user.badge = access === 'Main Building' ? 'Main Building Desk (Rooms 601–620)' : 'Extension Building Desk (Rooms 101–114)';
+      setLocalItem(STORAGE_KEYS.AUTH, user);
+    } else if (user.role === 'admin') {
+      user.buildingAccess = 'all';
+      user.buildingLabel = 'Executive General Manager (Both Wings)';
+    }
+    return user;
   },
 
   logout() {

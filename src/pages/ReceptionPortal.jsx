@@ -102,21 +102,37 @@ export default function ReceptionPortal({ onNavigate }) {
     setDiningMenu(portalStore.getDiningMenu());
   };
 
+  // Resolve receptionist's designated building with strict fallback:
+  // For receptionist roles, default is ALWAYS 'Main Building' unless explicitly Extension
+  const getDeskBuilding = () => {
+    if (currentUser?.role === 'admin') return 'all';
+    const access = currentUser?.buildingAccess;
+    if (access === 'Extension Building') return 'Extension Building';
+    if (access === 'Main Building') return 'Main Building';
+    const uName = (currentUser?.username || '').toLowerCase();
+    if (uName.includes('ext') || uName.includes('100')) return 'Extension Building';
+    return 'Main Building';
+  };
+
   // Helper to determine if current logged-in receptionist is assigned to this building
   const isMyBuilding = (bldgName) => {
-    if (!currentUser?.buildingAccess || currentUser.buildingAccess === 'all') return true;
-    return currentUser.buildingAccess === bldgName;
+    const desk = getDeskBuilding();
+    if (desk === 'all') return true;
+    return desk === bldgName;
   };
 
   const isDeskRoom = (room) => {
-    if (!currentUser?.buildingAccess || currentUser.buildingAccess === 'all') return true;
-    return (room.building === currentUser.buildingAccess || room.floor === currentUser.buildingAccess);
+    if (!room) return false;
+    const desk = getDeskBuilding();
+    if (desk === 'all') return true;
+    const roomBldg = room.building || room.floor || (String(room.roomNumber).startsWith('6') ? 'Main Building' : 'Extension Building');
+    return roomBldg === desk;
   };
 
   // Helper to determine which building a booking belongs to
   const getBookingBuilding = (b) => {
     if (b.roomNumber) {
-      const r = rooms.find(room => room.roomNumber === b.roomNumber);
+      const r = rooms.find(room => String(room.roomNumber) === String(b.roomNumber));
       if (r?.building) return r.building;
       if (String(b.roomNumber).startsWith('6')) return 'Main Building';
       if (String(b.roomNumber).startsWith('1')) return 'Extension Building';
@@ -129,14 +145,16 @@ export default function ReceptionPortal({ onNavigate }) {
   };
 
   const isDeskBooking = (b) => {
-    if (!currentUser?.buildingAccess || currentUser.buildingAccess === 'all') return true;
-    return getBookingBuilding(b) === currentUser.buildingAccess;
+    const desk = getDeskBuilding();
+    if (desk === 'all') return true;
+    return getBookingBuilding(b) === desk;
   };
 
   const handleOpenNewWalkIn = () => {
+    const desk = getDeskBuilding();
     const deskRooms = rooms.filter(r => isDeskRoom(r));
     const firstAvailableRoom = deskRooms.find(r => r.status === 'available') || deskRooms[0];
-    const initialType = firstAvailableRoom?.type || (currentUser?.buildingAccess === 'Extension Building' ? 'superior' : 'deluxe');
+    const initialType = firstAvailableRoom?.type || (desk === 'Extension Building' ? 'superior' : 'deluxe');
     handleRoomTypeChange(initialType);
     setIsWalkInOpen(true);
   };
@@ -149,9 +167,8 @@ export default function ReceptionPortal({ onNavigate }) {
       return;
     }
     setCurrentUser(user);
-    if (user.buildingAccess && user.buildingAccess !== 'all') {
-      setSelectedBuilding(user.buildingAccess);
-    }
+    const desk = user.role === 'admin' ? 'all' : (user.buildingAccess === 'Extension Building' || (user.username || '').toLowerCase().includes('ext') ? 'Extension Building' : 'Main Building');
+    setSelectedBuilding(desk);
     refreshData();
 
     // 1.1 Sync latest room inventory from Cloud
@@ -207,10 +224,9 @@ export default function ReceptionPortal({ onNavigate }) {
 
   // Quick Room Status Toggle (Enforces Building Operational Permissions)
   const handleUpdateRoomStatus = (roomNumber, newStatus, guestName = null) => {
-    const targetRoom = rooms.find(r => r.roomNumber === roomNumber);
-    const targetBuilding = targetRoom?.building || targetRoom?.floor;
-    if (currentUser?.buildingAccess && currentUser.buildingAccess !== 'all' && targetBuilding && currentUser.buildingAccess !== targetBuilding) {
-      showToast(`Access Restricted: Room #${roomNumber} is in ${targetBuilding}. Only ${targetBuilding} Desk can modify this room.`);
+    const targetRoom = rooms.find(r => String(r.roomNumber) === String(roomNumber));
+    if (targetRoom && !isDeskRoom(targetRoom)) {
+      showToast(`Access Restricted: Room #${roomNumber} is in ${targetRoom.building || 'another wing'}. Only that wing's desk can modify this room.`);
       return;
     }
     portalStore.updateRoomStatus(roomNumber, newStatus, guestName);
@@ -220,10 +236,8 @@ export default function ReceptionPortal({ onNavigate }) {
 
   // Check In / Check Out from ledger (Enforces Building Operational Permissions)
   const handleToggleBookingStatus = (booking) => {
-    const targetRoom = rooms.find(r => r.roomNumber === booking.roomNumber);
-    const targetBuilding = targetRoom?.building || targetRoom?.floor || (booking.roomNumber?.startsWith('6') ? 'Main Building' : 'Extension Building');
-    if (currentUser?.buildingAccess && currentUser.buildingAccess !== 'all' && targetBuilding && currentUser.buildingAccess !== targetBuilding) {
-      showToast(`Access Restricted: Booking #${booking.id} is in ${targetBuilding}. Handled by ${targetBuilding} Desk.`);
+    if (!isDeskBooking(booking)) {
+      showToast(`Access Restricted: Booking #${booking.id} belongs to ${getBookingBuilding(booking)}. Handled by ${getBookingBuilding(booking)} Desk.`);
       return;
     }
 
@@ -309,9 +323,10 @@ export default function ReceptionPortal({ onNavigate }) {
     }
 
     // Verify room belongs to this receptionist's desk
-    const targetRoom = rooms.find(r => r.roomNumber === selectedRoomNum);
-    if (targetRoom && !isDeskRoom(targetRoom)) {
-      alert(`Access Restricted: Room #${selectedRoomNum} belongs to ${targetRoom.building || 'another building'}. Your terminal only manages ${currentUser?.buildingLabel || 'your assigned wing'}.`);
+    const targetRoom = rooms.find(r => String(r.roomNumber) === String(selectedRoomNum));
+    if (!targetRoom || !isDeskRoom(targetRoom)) {
+      const desk = getDeskBuilding();
+      alert(`Access Denied: Room #${selectedRoomNum} belongs to ${targetRoom?.building || 'the other building'}. Your terminal only manages ${desk === 'Main Building' ? 'Main Building (Rooms 601–620)' : 'Extension Wing (Rooms 101–114)'}.`);
       return;
     }
 
@@ -406,14 +421,14 @@ export default function ReceptionPortal({ onNavigate }) {
                 Front Desk Operations
               </h1>
               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1.5 border ${
-                currentUser?.buildingAccess === 'Extension Building'
+                getDeskBuilding() === 'Extension Building'
                   ? 'bg-sky-500/20 border-sky-500/40 text-sky-300'
                   : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
               }`}>
                 <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${
-                  currentUser?.buildingAccess === 'Extension Building' ? 'bg-sky-400' : 'bg-emerald-400'
+                  getDeskBuilding() === 'Extension Building' ? 'bg-sky-400' : 'bg-emerald-400'
                 }`} />
-                <span>{currentUser?.buildingLabel || 'Main Building (600 Wing)'}</span>
+                <span>{getDeskBuilding() === 'Extension Building' ? 'Extension Building (100 Wing)' : 'Main Building (600 Wing)'}</span>
               </span>
             </div>
             <p className="text-[11px] text-gray-400">
@@ -753,24 +768,28 @@ export default function ReceptionPortal({ onNavigate }) {
                 {/* Production Mode Action: Reset Rooms to Available */}
                 <button
                   onClick={() => {
-                    const isAll = !currentUser?.buildingAccess || currentUser.buildingAccess === 'all';
-                    const targetBldg = isAll ? 'all' : currentUser.buildingAccess;
-                    const bldgLabel = isAll ? 'all 34 rooms across both wings' : `all ${targetBldg === 'Main Building' ? '20 Main Building' : '14 Extension Wing'} rooms`;
-                    if (window.confirm(`Move ${bldgLabel} into PRODUCTION VACANT & AVAILABLE mode? This clears test guest assignments and readies all rooms for live guests.`)) {
-                      if (isAll) {
+                    const desk = getDeskBuilding();
+                    const bldgLabel = desk === 'all' 
+                      ? 'all 34 rooms across both wings' 
+                      : desk === 'Main Building' 
+                      ? 'all 20 Main Building rooms (Rooms 601–620)' 
+                      : 'all 14 Extension Wing rooms (Rooms 101–114)';
+
+                    if (window.confirm(`Move ${bldgLabel} into PRODUCTION VACANT & AVAILABLE mode? This clears test guest assignments and readies rooms for live guests.`)) {
+                      if (desk === 'all') {
                         portalStore.resetAllRoomsToAvailable();
                       } else {
-                        portalStore.resetRoomsByBuilding(targetBldg);
+                        portalStore.resetRoomsByBuilding(desk);
                       }
                       refreshData();
-                      showToast(`${isAll ? 'All 34 suites' : targetBldg + ' suites'} are now 100% AVAILABLE in Production Mode!`);
+                      showToast(`${desk === 'all' ? 'All 34 suites' : desk + ' suites'} are now 100% AVAILABLE in Production Mode!`);
                     }
                   }}
                   className="px-3.5 py-1.5 rounded-xl bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 font-semibold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ml-auto"
                   title="Reset rooms to available for production"
                 >
                   <CheckCircle2 size={13} className="text-emerald-400" />
-                  <span>Make {!currentUser?.buildingAccess || currentUser.buildingAccess === 'all' ? 'All Rooms' : currentUser.buildingAccess === 'Main Building' ? 'Main (20 Rooms)' : 'Extension (14 Rooms)'} Available</span>
+                  <span>Make {getDeskBuilding() === 'all' ? 'All Rooms' : getDeskBuilding() === 'Main Building' ? 'Main (20 Rooms)' : 'Extension (14 Rooms)'} Available</span>
                 </button>
               </div>
             </div>
