@@ -357,18 +357,39 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                 </div>
               </div>
 
-              {/* Price Summary */}
-              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#5c0725]/30 to-black/40 border border-[#d4af37]/30 flex justify-between items-center">
-                <div>
-                  <span className="text-xs text-gray-400">Total Stay ({nights} {nights === 1 ? 'Night' : 'Nights'})</span>
-                  <div className="text-lg font-bold text-[#f3e5ab]">₦{totalAmount.toLocaleString()}</div>
+              {/* Price Summary & High-Visibility Gold Continue Button */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-[#420317]/60 via-[#1f020c] to-[#120208] border border-[#d4af37]/40 shadow-xl space-y-3.5">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <span className="text-xs text-gray-300 block font-medium">
+                      Total Stay ({nights} {nights === 1 ? 'Night' : 'Nights'} • {selectedRoom.name})
+                    </span>
+                    <div className="text-2xl font-extrabold text-[#f3e5ab] font-cinzel mt-0.5">
+                      ₦{totalAmount.toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-gray-400 uppercase tracking-wider block">Suite Rate</span>
+                    <span className="text-xs text-[#d4af37] font-semibold">₦{selectedRoom.price.toLocaleString()} / night</span>
+                  </div>
                 </div>
+
+                {/* Ultra High-Contrast Luminous Gold Continue Button */}
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa820a] text-black font-bold text-xs flex items-center gap-1.5 hover:opacity-95 shadow-lg shadow-[#d4af37]/20"
+                  className="w-full py-4 px-6 rounded-xl font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xl hover:brightness-105 active:scale-[0.99]"
+                  style={{
+                    background: 'linear-gradient(135deg, #ffe58f 0%, #d4af37 50%, #b8860b 100%)',
+                    color: '#000000',
+                    border: '2px solid #fff4cc',
+                    boxShadow: '0 6px 24px rgba(212, 175, 55, 0.55)',
+                    fontWeight: '900',
+                    letterSpacing: '0.05em'
+                  }}
                 >
-                  Continue to Guest Info <ArrowRight size={14} />
+                  <span className="text-black font-extrabold">Continue to Guest Info</span>
+                  <ArrowRight size={18} className="text-black stroke-[3]" />
                 </button>
               </div>
             </>
@@ -478,16 +499,25 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                  className="px-4 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-gray-200 hover:text-white border border-white/20 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
                 >
-                  <ArrowLeft size={14} /> Back
+                  <ArrowLeft size={15} /> Back
                 </button>
 
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa820a] text-black font-bold text-xs flex items-center gap-1.5 hover:opacity-95 shadow-lg shadow-[#d4af37]/20"
+                  className="flex-1 py-3.5 px-6 rounded-xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xl hover:brightness-105 active:scale-[0.99]"
+                  style={{
+                    background: 'linear-gradient(135deg, #ffe58f 0%, #d4af37 50%, #b8860b 100%)',
+                    color: '#000000',
+                    border: '2px solid #fff4cc',
+                    boxShadow: '0 6px 24px rgba(212, 175, 55, 0.55)',
+                    fontWeight: '900',
+                    letterSpacing: '0.05em'
+                  }}
                 >
-                  Proceed to Payment <ArrowRight size={14} />
+                  <span className="text-black font-extrabold">Review & Proceed to Payment</span>
+                  <ArrowRight size={17} className="text-black stroke-[3]" />
                 </button>
               </div>
             </form>
@@ -551,7 +581,15 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                   type="button"
                   disabled={isProcessing}
                   onClick={handlePaystackPayment}
-                  className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
+                  className="w-full py-4 rounded-xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-2xl transition-all cursor-pointer active:scale-[0.99] hover:brightness-105"
+                  style={{
+                    background: 'linear-gradient(135deg, #059669 0%, #10b981 50%, #047857 100%)',
+                    color: '#ffffff',
+                    border: '2px solid #a7f3d0',
+                    boxShadow: '0 6px 25px rgba(16, 185, 129, 0.5)',
+                    fontWeight: '900',
+                    letterSpacing: '0.04em'
+                  }}
                 >
                   {isProcessing ? (
                     <span className="flex items-center gap-2">
@@ -748,10 +786,18 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                       onClose();
                       onOpenGuestPass();
                     }}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#d4af37]/20 hover:scale-[1.01] transition-all cursor-pointer"
+                    className="w-full py-3.5 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-2xl hover:brightness-105 transition-all cursor-pointer"
+                    style={{
+                      background: 'linear-gradient(135deg, #ffe58f 0%, #d4af37 50%, #b8860b 100%)',
+                      color: '#000000',
+                      border: '2px solid #fff4cc',
+                      boxShadow: '0 6px 24px rgba(212, 175, 55, 0.55)',
+                      fontWeight: '900',
+                      letterSpacing: '0.04em'
+                    }}
                   >
-                    <Key size={15} />
-                    <span>Open My Guest Stay Pass</span>
+                    <Key size={16} className="text-black stroke-[2.5]" />
+                    <span className="text-black font-extrabold">Open My Guest Stay Pass</span>
                   </button>
                 )}
 

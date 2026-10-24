@@ -101,10 +101,17 @@ export default function Navbar({ currentPage, onNavigate, onOpenBooking, onOpenG
 
             <button
               onClick={() => onOpenBooking('deluxe')}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-[#d4af37]/20 hover:opacity-95 transition-all flex items-center gap-1.5"
+              className="px-5 py-2.5 rounded-xl font-extrabold text-xs uppercase tracking-wider shadow-lg hover:brightness-105 transition-all flex items-center gap-1.5 cursor-pointer"
+              style={{
+                background: 'linear-gradient(135deg, #ffe58f 0%, #d4af37 50%, #b8860b 100%)',
+                color: '#000000',
+                border: '1px solid #fff4cc',
+                boxShadow: '0 4px 18px rgba(212, 175, 55, 0.45)',
+                fontWeight: '900'
+              }}
             >
-              <Sparkles size={14} />
-              <span>Book A Suite</span>
+              <Sparkles size={14} className="text-black" />
+              <span className="text-black font-extrabold">Book A Suite</span>
             </button>
           </div>
 
@@ -165,7 +172,14 @@ export default function Navbar({ currentPage, onNavigate, onOpenBooking, onOpenG
                   setMobileMenuOpen(false);
                   onOpenBooking('deluxe');
                 }}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa820a] text-black font-extrabold text-xs uppercase tracking-wider text-center block shadow-lg"
+                className="w-full py-3.5 rounded-xl text-black font-extrabold text-xs uppercase tracking-wider text-center block shadow-lg hover:brightness-105 transition-all cursor-pointer"
+                style={{
+                  background: 'linear-gradient(135deg, #ffe58f 0%, #d4af37 50%, #b8860b 100%)',
+                  color: '#000000',
+                  border: '1px solid #fff4cc',
+                  boxShadow: '0 4px 18px rgba(212, 175, 55, 0.45)',
+                  fontWeight: '900'
+                }}
               >
                 Book A Suite Now
               </button>
