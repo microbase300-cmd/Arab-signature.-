@@ -124,7 +124,7 @@ export default function Navbar({ currentPage, onNavigate, onOpenBooking, onOpenG
               title="Customer Dashboard & Stay History"
             >
               <UserCheck size={14} className="text-[#d4af37]" />
-              <span>{customerSession ? `Portal (${customerSession.guestName.split(' ')[0]})` : 'Guest Portal'}</span>
+              <span>Guest Portal</span>
             </button>
           </div>
 
@@ -199,7 +199,7 @@ export default function Navbar({ currentPage, onNavigate, onOpenBooking, onOpenG
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-[#420317] to-[#250210] text-[#f3e5ab] font-bold text-xs uppercase tracking-wider text-center flex items-center justify-center gap-2 border border-[#d4af37]/40 shadow-md"
               >
                 <UserCheck size={15} className="text-[#d4af37]" />
-                <span>{customerSession ? `Guest Portal (${customerSession.guestName})` : 'Customer Portal & Stay History'}</span>
+                <span>Guest Portal</span>
               </button>
             </div>
           </div>
