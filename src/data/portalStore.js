@@ -1667,6 +1667,11 @@ export const portalStore = {
       loginTime: new Date().toISOString()
     };
 
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        sessionStorage.setItem('ash_tab_session_auth', JSON.stringify(session));
+      } catch (e) {}
+    }
     setLocalItem(STORAGE_KEYS.AUTH, session);
     this.recordLoginAttempt({
       usernameAttempted: adminUser.username,
@@ -1733,6 +1738,11 @@ export const portalStore = {
       loginTime: new Date().toISOString()
     };
 
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        sessionStorage.setItem('ash_tab_session_auth', JSON.stringify(session));
+      } catch (e) {}
+    }
     setLocalItem(STORAGE_KEYS.AUTH, session);
     this.recordLoginAttempt({
       usernameAttempted: receptionUser.username,
@@ -1745,7 +1755,20 @@ export const portalStore = {
   },
 
   getCurrentUser() {
-    const user = getLocalItem(STORAGE_KEYS.AUTH, null);
+    let user = null;
+    // 1. Check tab-specific sessionStorage first (enables side-by-side tabs with distinct reception desks)
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        const rawTab = sessionStorage.getItem('ash_tab_session_auth');
+        if (rawTab) {
+          user = JSON.parse(rawTab);
+        }
+      } catch (e) {}
+    }
+    // 2. Fall back to localStorage if tab session isn't populated
+    if (!user) {
+      user = getLocalItem(STORAGE_KEYS.AUTH, null);
+    }
     if (!user) return null;
     // Strict enforcement: ensure buildingAccess is ALWAYS explicitly set
     if (user.role === 'reception') {
@@ -1768,6 +1791,11 @@ export const portalStore = {
     const user = this.getCurrentUser();
     if (user) {
       this.logActivity(`User ${user.name} logged out.`);
+    }
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        sessionStorage.removeItem('ash_tab_session_auth');
+      } catch (e) {}
     }
     localStorage.removeItem(STORAGE_KEYS.AUTH);
   },
@@ -2375,12 +2403,74 @@ export const portalStore = {
 
     // 2. Filter view based on role:
     if (viewerRole === 'admin') {
-      // Admin sees up to 30 days of shift communications
       return unexpiredTotal;
     }
 
-    // Receptionists view messages from past 7 days only
     return unexpiredTotal.filter(m => (now - (m.createdAt || now)) <= SEVEN_DAYS_MS);
+  },
+
+  async pushChatToCloud(messages) {
+    if (typeof window === 'undefined') return;
+    try {
+      const now = Date.now();
+      const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+      const valid = (messages || this.getChatMessages('admin')).filter(m => (now - (m.createdAt || now)) <= THIRTY_DAYS_MS);
+      const payload = JSON.stringify({ messages: valid.slice(-150), updatedAt: now });
+
+      fetch('https://mantledb.sh/v2/arab-signature-hotel-intercom-chat-v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      }).catch(() => {});
+    } catch (e) {}
+  },
+
+  async syncChatFromCloud() {
+    if (typeof window === 'undefined') return this.getChatMessages('reception');
+
+    try {
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort(), 2500);
+
+      const res = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-intercom-chat-v1/messages?_t=${Date.now()}`, {
+        cache: 'no-store',
+        signal: ctrl.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.messages) && data.messages.length > 0) {
+          const local = getLocalItem(STORAGE_KEYS.INTERCOM_CHAT, INITIAL_CHAT_MESSAGES);
+          const localIds = new Set(local.map(m => m.id));
+          let hasNew = false;
+          let latestNewMsg = null;
+
+          const merged = [...local];
+          for (const cm of data.messages) {
+            if (!localIds.has(cm.id)) {
+              merged.push(cm);
+              localIds.add(cm.id);
+              hasNew = true;
+              latestNewMsg = cm;
+            }
+          }
+
+          if (hasNew) {
+            merged.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+            const now = Date.now();
+            const valid = merged.filter(m => (now - (m.createdAt || now)) <= 30 * 24 * 60 * 60 * 1000);
+            setLocalItem(STORAGE_KEYS.INTERCOM_CHAT, valid);
+
+            window.dispatchEvent(new CustomEvent('ash_chat_updated', {
+              detail: { newMessage: latestNewMsg, allMessages: valid, fromCloud: true }
+            }));
+            return valid;
+          }
+        }
+      }
+    } catch (e) {}
+    return this.getChatMessages('reception');
   },
 
   sendChatMessage({ text, category = 'general', senderBuilding, senderName, senderRole = 'reception', senderBadge }) {
@@ -2395,9 +2485,9 @@ export const portalStore = {
     const newMessage = {
       id: `chat-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       text: text.trim(),
-      category, // 'general' | 'inquiry' | 'handover' | 'urgent'
-      senderRole, // 'reception' | 'admin'
-      senderBuilding: senderBuilding || 'Main Building', // 'Main Building' | 'Extension Building' | 'all'
+      category,
+      senderRole,
+      senderBuilding: senderBuilding || 'Main Building',
       senderName: senderName || 'Front Desk Staff',
       senderBadge: senderBadge || (senderBuilding === 'Main Building' ? 'Main Building Desk (600 Wing)' : senderBuilding === 'Extension Building' ? 'Extension Wing Desk (100 Wing)' : 'General Management'),
       createdAt: now,
@@ -2410,9 +2500,24 @@ export const portalStore = {
 
     this.logActivity(`Intercom [${newMessage.senderBadge}]: ${newMessage.text.substring(0, 45)}...`);
 
+    // 1. Dispatch locally in current window
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ash_chat_updated', { detail: { newMessage, allMessages: updated } }));
     }
+
+    // 2. Broadcast across tabs in the same browser (instant < 1ms)
+    const bc = getSharedBroadcastChannel();
+    if (bc) {
+      try {
+        bc.postMessage({ type: 'CHAT_UPDATED', newMessage, allMessages: updated, timestamp: Date.now() });
+      } catch (e) {
+        console.warn("BroadcastChannel chat error:", e);
+      }
+    }
+
+    // 3. Sync to Cloud (MantleDB) for cross-device / incognito / different browsers
+    this.pushChatToCloud(updated);
+
     return newMessage;
   },
 
@@ -2421,16 +2526,59 @@ export const portalStore = {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ash_chat_updated', { detail: { allMessages: [] } }));
     }
+    const bc = getSharedBroadcastChannel();
+    if (bc) {
+      try {
+        bc.postMessage({ type: 'CHAT_UPDATED', allMessages: [], timestamp: Date.now() });
+      } catch (e) {}
+    }
+    this.pushChatToCloud([]);
     this.logActivity('Admin cleared front desk intercom history.');
   },
 
   subscribeChat(callback) {
     if (typeof window === 'undefined') return () => {};
-    const handler = (e) => {
+
+    // 1. In-tab CustomEvent
+    const localHandler = (e) => {
       callback(e.detail);
     };
-    window.addEventListener('ash_chat_updated', handler);
-    return () => window.removeEventListener('ash_chat_updated', handler);
+    window.addEventListener('ash_chat_updated', localHandler);
+
+    // 2. Multi-tab BroadcastChannel
+    const bc = getSharedBroadcastChannel();
+    const bcHandler = (event) => {
+      if (event.data?.type === 'CHAT_UPDATED') {
+        if (event.data.allMessages) {
+          setLocalItem(STORAGE_KEYS.INTERCOM_CHAT, event.data.allMessages);
+        }
+        callback({
+          newMessage: event.data.newMessage,
+          allMessages: event.data.allMessages,
+          fromBroadcast: true
+        });
+      }
+    };
+    if (bc) {
+      bc.addEventListener('message', bcHandler);
+    }
+
+    // 3. Cross-window storage event fallback
+    const storageHandler = (e) => {
+      if (e.key === STORAGE_KEYS.INTERCOM_CHAT && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          callback({ allMessages: parsed, fromStorage: true });
+        } catch (err) {}
+      }
+    };
+    window.addEventListener('storage', storageHandler);
+
+    return () => {
+      window.removeEventListener('ash_chat_updated', localHandler);
+      if (bc) bc.removeEventListener('message', bcHandler);
+      window.removeEventListener('storage', storageHandler);
+    };
   },
 
   logActivity(msg) {

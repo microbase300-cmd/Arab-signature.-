@@ -16,6 +16,14 @@ export default function ReceptionPortal({ onNavigate }) {
   const [isDiningMenuOpen, setIsDiningMenuOpen] = useState(false);
   const [diningSearchQuery, setDiningSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('rooms'); // 'rooms' | 'ledger'
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const activeTabRef = React.useRef(activeTab);
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+    if (activeTab === 'chat') {
+      setUnreadChatCount(0);
+    }
+  }, [activeTab]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -74,6 +82,36 @@ export default function ReceptionPortal({ onNavigate }) {
       playTone(1760, 0.32, 0.75);    // Note A6
     } catch (err) {
       console.log('[Reception Sound Notice]:', err);
+    }
+  };
+
+  // Front Desk Two-Way Radio Intercom Chime (Pleasant 2-Tone Hotel Walkie / Concierge Ping)
+  const playIntercomChime = () => {
+    if (isMutedRef.current) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      if (ctx.state === 'suspended') ctx.resume();
+
+      const playTone = (freq, delay, dur) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+        gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+        gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + delay + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + dur);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + dur);
+      };
+
+      playTone(659.25, 0, 0.22);    // E5
+      playTone(880, 0.14, 0.35);    // A5
+    } catch (err) {
+      console.log('[Intercom Chime Notice]:', err);
     }
   };
 
@@ -205,7 +243,37 @@ export default function ReceptionPortal({ onNavigate }) {
     window.addEventListener('ash_menu_updated', handleLiveSync);
     const unsubscribeRooms = portalStore.subscribeRooms(() => refreshData());
     const unsubscribeDining = portalStore.subscribeDiningMenu(() => refreshData());
-    const unsubscribeChat = portalStore.subscribeChat(() => refreshData());
+    const handleChatSync = (detail) => {
+      const desk = getDeskBuilding();
+      setChatMessages(portalStore.getChatMessages('reception'));
+
+      if (detail && detail.newMessage) {
+        const msg = detail.newMessage;
+        const isFromOtherDesk = (msg.senderBuilding !== desk || msg.senderRole !== 'reception');
+        if (isFromOtherDesk) {
+          playIntercomChime();
+          showToast(`Intercom [${msg.senderBadge}]: "${msg.text.substring(0, 35)}..."`);
+          if (activeTabRef.current !== 'chat') {
+            setUnreadChatCount(prev => prev + 1);
+          }
+        }
+      }
+    };
+    const unsubscribeChat = portalStore.subscribeChat(handleChatSync);
+
+    // Initial cloud sync
+    portalStore.syncChatFromCloud().then(() => {
+      setChatMessages(portalStore.getChatMessages('reception'));
+    });
+
+    // Continuous heartbeat cloud sync (every 2.5s) for cross-device / cross-browser receptionists
+    const chatHeartbeat = setInterval(() => {
+      portalStore.syncChatFromCloud().then(updated => {
+        if (updated) {
+          setChatMessages(portalStore.getChatMessages('reception'));
+        }
+      });
+    }, 2500);
 
     return () => {
       clearInterval(timer);
@@ -215,6 +283,7 @@ export default function ReceptionPortal({ onNavigate }) {
       window.removeEventListener('ash_menu_updated', handleLiveSync);
       unsubscribeRooms();
       unsubscribeDining();
+      clearInterval(chatHeartbeat);
       unsubscribeChat();
     };
   }, []);
@@ -725,7 +794,11 @@ export default function ReceptionPortal({ onNavigate }) {
             >
               <MessageSquare size={14} />
               <span>Wing Intercom Chat</span>
-              {chatMessages.length > 0 && (
+              {unreadChatCount > 0 ? (
+                <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold animate-pulse shadow-md">
+                  {unreadChatCount} NEW
+                </span>
+              ) : chatMessages.length > 0 && (
                 <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold ${
                   activeTab === 'chat' ? 'bg-black text-[#f3e5ab]' : 'bg-[#d4af37] text-black'
                 }`}>
@@ -1616,7 +1689,11 @@ export default function ReceptionPortal({ onNavigate }) {
             <span className="w-2 h-2 rounded-full bg-emerald-400 absolute -top-0.5 -right-0.5" />
           </div>
           <span>Wing Intercom</span>
-          {chatMessages.length > 0 && (
+          {unreadChatCount > 0 ? (
+            <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold animate-bounce shadow-lg">
+              {unreadChatCount} NEW
+            </span>
+          ) : chatMessages.length > 0 && (
             <span className="px-1.5 py-0.2 rounded-full bg-black/60 border border-[#d4af37]/40 text-[#f3e5ab] text-[10px] font-mono">
               {chatMessages.length}
             </span>

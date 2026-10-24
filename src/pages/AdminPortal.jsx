@@ -175,6 +175,17 @@ export default function AdminPortal({ onNavigate }) {
     const unsubscribeDining = portalStore.subscribeDiningMenu(() => refreshData());
     const unsubscribeChat = portalStore.subscribeChat(() => refreshData());
 
+    portalStore.syncChatFromCloud().then(() => {
+      setChatMessages(portalStore.getChatMessages('admin'));
+    });
+    const chatHeartbeat = setInterval(() => {
+      portalStore.syncChatFromCloud().then(updated => {
+        if (updated) {
+          setChatMessages(portalStore.getChatMessages('admin'));
+        }
+      });
+    }, 3000);
+
     return () => {
       window.removeEventListener('ash_bookings_updated', handleLiveSync);
       window.removeEventListener('ash_rates_updated', handleLiveSync);
@@ -182,6 +193,7 @@ export default function AdminPortal({ onNavigate }) {
       window.removeEventListener('ash_menu_updated', handleLiveSync);
       unsubscribeRooms();
       unsubscribeDining();
+      clearInterval(chatHeartbeat);
       unsubscribeChat();
     };
   }, []);
