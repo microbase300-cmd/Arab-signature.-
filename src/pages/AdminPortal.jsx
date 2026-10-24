@@ -173,18 +173,18 @@ export default function AdminPortal({ onNavigate }) {
     window.addEventListener('ash_menu_updated', handleLiveSync);
     const unsubscribeRooms = portalStore.subscribeRooms(() => refreshData());
     const unsubscribeDining = portalStore.subscribeDiningMenu(() => refreshData());
-    const unsubscribeChat = portalStore.subscribeChat(() => refreshData());
+    const unsubscribeChat = portalStore.subscribeChat(() => {
+      setChatMessages(portalStore.getChatMessages('admin'));
+    });
 
     portalStore.syncChatFromCloud().then(() => {
       setChatMessages(portalStore.getChatMessages('admin'));
     });
-    const chatHeartbeat = setInterval(() => {
-      portalStore.syncChatFromCloud().then(updated => {
-        if (updated) {
-          setChatMessages(portalStore.getChatMessages('admin'));
-        }
-      });
-    }, 3000);
+
+    const chatHeartbeat = setInterval(async () => {
+      await portalStore.syncChatFromCloud().catch(() => {});
+      setChatMessages(portalStore.getChatMessages('admin'));
+    }, 1500);
 
     return () => {
       window.removeEventListener('ash_bookings_updated', handleLiveSync);

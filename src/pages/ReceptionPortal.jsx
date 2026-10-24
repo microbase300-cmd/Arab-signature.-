@@ -150,11 +150,12 @@ export default function ReceptionPortal({ onNavigate }) {
   // Resolve receptionist's designated building with strict fallback:
   // For receptionist roles, default is ALWAYS 'Main Building' unless explicitly Extension
   const getDeskBuilding = () => {
-    if (currentUser?.role === 'admin') return 'all';
-    const access = currentUser?.buildingAccess;
+    const user = currentUser || portalStore.getCurrentUser();
+    if (user?.role === 'admin') return 'all';
+    const access = user?.buildingAccess;
     if (access === 'Extension Building') return 'Extension Building';
     if (access === 'Main Building') return 'Main Building';
-    const uName = (currentUser?.username || '').toLowerCase();
+    const uName = (user?.username || '').toLowerCase();
     if (uName.includes('ext') || uName.includes('100')) return 'Extension Building';
     return 'Main Building';
   };
@@ -243,37 +244,49 @@ export default function ReceptionPortal({ onNavigate }) {
     window.addEventListener('ash_menu_updated', handleLiveSync);
     const unsubscribeRooms = portalStore.subscribeRooms(() => refreshData());
     const unsubscribeDining = portalStore.subscribeDiningMenu(() => refreshData());
-    const handleChatSync = (detail) => {
-      const desk = getDeskBuilding();
-      setChatMessages(portalStore.getChatMessages('reception'));
+    // 4. Live Chat Intercom Subscription & Real-Time Cloud Heartbeat
+    let lastSeenCount = portalStore.getChatMessages('reception').length;
+    let lastSeenId = (portalStore.getChatMessages('reception').slice(-1)[0]?.id) || '';
 
-      if (detail && detail.newMessage) {
-        const msg = detail.newMessage;
-        const isFromOtherDesk = (msg.senderBuilding !== desk || msg.senderRole !== 'reception');
+    const handleChatSync = (detail) => {
+      const currentMsgs = portalStore.getChatMessages('reception');
+      setChatMessages(currentMsgs);
+      const latestMsg = detail?.newMessage || currentMsgs.slice(-1)[0];
+
+      if (latestMsg && latestMsg.id !== lastSeenId) {
+        lastSeenId = latestMsg.id;
+        lastSeenCount = currentMsgs.length;
+
+        const currentDesk = getDeskBuilding();
+        const isFromOtherDesk = (latestMsg.senderBuilding !== currentDesk || latestMsg.senderRole !== 'reception');
         if (isFromOtherDesk) {
           playIntercomChime();
-          showToast(`Intercom [${msg.senderBadge}]: "${msg.text.substring(0, 35)}..."`);
+          showToast(`Intercom [${latestMsg.senderBadge}]: "${latestMsg.text.substring(0, 35)}..."`);
           if (activeTabRef.current !== 'chat') {
             setUnreadChatCount(prev => prev + 1);
           }
         }
       }
     };
+
     const unsubscribeChat = portalStore.subscribeChat(handleChatSync);
 
-    // Initial cloud sync
+    // Initial cloud sync on mount
     portalStore.syncChatFromCloud().then(() => {
-      setChatMessages(portalStore.getChatMessages('reception'));
+      handleChatSync();
     });
 
-    // Continuous heartbeat cloud sync (every 2.5s) for cross-device / cross-browser receptionists
-    const chatHeartbeat = setInterval(() => {
-      portalStore.syncChatFromCloud().then(updated => {
-        if (updated) {
-          setChatMessages(portalStore.getChatMessages('reception'));
-        }
-      });
-    }, 2500);
+    // Real-Time Heartbeat: checks every 1500ms for incoming cross-device / cross-browser messages
+    const chatHeartbeat = setInterval(async () => {
+      await portalStore.syncChatFromCloud().catch(() => {});
+      const currentMsgs = portalStore.getChatMessages('reception');
+      const latestMsg = currentMsgs.slice(-1)[0];
+      const latestId = latestMsg?.id || '';
+
+      if (currentMsgs.length !== lastSeenCount || latestId !== lastSeenId) {
+        handleChatSync({ newMessage: latestMsg, allMessages: currentMsgs });
+      }
+    }, 1500);
 
     return () => {
       clearInterval(timer);

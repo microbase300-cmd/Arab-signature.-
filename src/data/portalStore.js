@@ -2430,7 +2430,7 @@ export const portalStore = {
 
     try {
       const ctrl = new AbortController();
-      const timeoutId = setTimeout(() => ctrl.abort(), 2500);
+      const timeoutId = setTimeout(() => ctrl.abort(), 6000);
 
       const res = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-intercom-chat-v1/messages?_t=${Date.now()}`, {
         cache: 'no-store',
@@ -2568,7 +2568,8 @@ export const portalStore = {
       if (e.key === STORAGE_KEYS.INTERCOM_CHAT && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
-          callback({ allMessages: parsed, fromStorage: true });
+          const latestNew = Array.isArray(parsed) ? parsed[parsed.length - 1] : null;
+          callback({ newMessage: latestNew, allMessages: parsed, fromStorage: true });
         } catch (err) {}
       }
     };
