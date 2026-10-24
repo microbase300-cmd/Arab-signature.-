@@ -149,13 +149,8 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
 
   // Complete Booking Persistence & Guest Session Creation
   const recordSuccessfulBooking = (reference, isRealPaystack = true) => {
-    const code = 'ASH-' + Math.floor(1000 + Math.random() * 9000);
-    setBookingCode(code);
-    setPaystackReference(reference);
-
-    // 1. Save into central hotel portal store
+    // 1. Save into central hotel portal store with automatic building-aware code generation
     const savedBooking = portalStore.addBooking({
-      id: code,
       guestName: guestName.trim(),
       phone: guestPhone.trim(),
       email: guestEmail.trim(),
@@ -172,6 +167,10 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
       backendVerified: true,
       source: "Direct Website"
     });
+
+    const code = savedBooking.id;
+    setBookingCode(code);
+    setPaystackReference(reference);
 
     if (savedBooking && savedBooking.roomNumber) {
       setAssignedRoomNumber(savedBooking.roomNumber);

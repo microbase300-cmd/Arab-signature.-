@@ -187,25 +187,16 @@ export const hotelAiEngine = {
     // ========================================================
     // 2. SECURE BOOKING STATUS TRACKER (With Data Masking)
     // ========================================================
-    // Detect booking codes matching pattern like ASH-1234 or isolated 4-digit codes
-    const bookingCodeMatch = query.match(/ash[-_\s]?\d{4}/i) || query.match(/\b\d{4}\b/);
+    // Detect booking codes matching pattern like ARS-BGD-12345, ARS-EXT-12345, ASH-1234, or digits
+    const bookingCodeMatch = query.match(/(ars[-_](bgd|ext)[-_]\d+)|(ash[-_\s]?\d+)/i) || query.match(/\b\d{4,5}\b/);
 
-    if (bookingCodeMatch && (query.includes("book") || query.includes("status") || query.includes("track") || query.includes("code") || query.includes("ash") || query.includes("my reservation"))) {
+    if (bookingCodeMatch && (query.includes("book") || query.includes("status") || query.includes("track") || query.includes("code") || query.includes("ars") || query.includes("ash") || query.includes("my reservation"))) {
       let codeToSearch = bookingCodeMatch[0].toUpperCase().replace(/\s/g, '');
-      if (!codeToSearch.startsWith("ASH-")) {
-        codeToSearch = "ASH-" + codeToSearch.replace(/\D/g, '');
-      }
-
-      // Check brute-force threshold
-      if (failedBookingLookupAttempts >= MAX_FAILED_ATTEMPTS) {
-        return {
-          text: "🔒 Security Alert: For your protection, multiple booking status inquiries have been temporarily limited. To verify your reservation securely, please contact our Front Desk directly at 0812 578 6875 or send your confirmation via WhatsApp.",
-          suggestions: ["Chat with Front Desk on WhatsApp", "Check Available Suites"]
-        };
-      }
-
-      const allBookings = aiBrainMemory.bookings;
-      const matchedBooking = allBookings.find(b => b.id.toUpperCase() === codeToSearch);
+      const allBookings = aiBrainMemory.bookings || [];
+      const matchedBooking = allBookings.find(b => {
+        const bId = String(b.id || '').toUpperCase();
+        return bId === codeToSearch || bId.endsWith(codeToSearch) || bId.replace(/^(ARS-BGD-|ARS-EXT-|ASH-)/, '') === codeToSearch.replace(/^(ARS-BGD-|ARS-EXT-|ASH-)/, '');
+      });
 
       if (matchedBooking) {
         // Reset failed counter upon successful match
@@ -239,7 +230,7 @@ export const hotelAiEngine = {
       } else {
         failedBookingLookupAttempts++;
         return {
-          text: `🔍 I am **Amira**, your Royal AI Concierge — I could not locate a confirmed reservation under reference code **${codeToSearch}**. Please double-check your receipt code (e.g., ASH-7812) or contact our Front Desk Concierge at 0812 578 6875.`,
+          text: `🔍 I am **Amira**, your Royal AI Concierge — I could not locate a confirmed reservation under reference code **${codeToSearch}**. Please double-check your receipt code (e.g., ARS-BGD-7812 or ARS-EXT-9421) or contact our Front Desk Concierge at 0812 578 6875.`,
           suggestions: ["Check Available Suites", "Chat on WhatsApp"]
         };
       }
@@ -331,7 +322,7 @@ export const hotelAiEngine = {
     // ========================================================
       return {
         text: `Warm greetings! I am **Amira**, the Royal AI Concierge at **Arab Signature Hotel & Suites** in Nsugbe, Onitsha. We are an ultra-luxury hospitality retreat offering 34 handcrafted rooms and Arab suites, Olympic-grade poolside cabanas, Al-Sultan gourmet dining, and 24/7 uninterrupted power.\n\n` +
-              `You can ask me to check suite availability, track an existing reservation code (e.g. ASH-7812), or inquire about our location and amenities. For direct human assistance, click the **WhatsApp** button above or call our Front Desk Hotline at **0812 578 6875**.`,
+              `You can ask me to check suite availability, track an existing reservation code (e.g. ARS-BGD-7812 or ARS-EXT-9421), or inquire about our location and amenities. For direct human assistance, click the **WhatsApp** button above or call our Front Desk Hotline at **0812 578 6875**.`,
         suggestions: ["Check Available Suites", "Track My Booking", "Directions to Nsugbe", "Dining Menu"]
       };
     } catch (err) {

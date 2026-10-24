@@ -5,7 +5,7 @@ const STORAGE_KEYS = {
   AUTH: 'ash_portal_auth_user_v3',
   USERS: 'ash_portal_staff_users_v5',
   LOGIN_LOGS: 'ash_portal_login_attempts',
-  BOOKINGS: 'ash_portal_bookings_v7',
+  BOOKINGS: 'ash_portal_bookings_v8',
   ROOMS: 'ash_portal_rooms_inventory_v9',
   ROOM_RATES: 'ash_portal_room_rates_v3',
   DINING_MENU: 'ash_portal_dining_menu_v6',
@@ -66,7 +66,7 @@ const INITIAL_ROOMS_INVENTORY = [
 // 2. Pre-Seeded Real Bookings with Backend Confirmation status
 const INITIAL_BOOKINGS = [
   {
-    id: "ASH-9421",
+    id: "ARS-EXT-9421",
     guestName: "Chief Emeka Obi",
     phone: "0803 234 5678",
     email: "emeka.obi@nigerdelta.org",
@@ -86,7 +86,7 @@ const INITIAL_BOOKINGS = [
     createdAt: "2026-10-20 08:30"
   },
   {
-    id: "ASH-7812",
+    id: "ARS-BGD-7812",
     guestName: "Alhaji Ibrahim Musa",
     phone: "0812 578 6875",
     email: "ibrahim.musa@example.com",
@@ -106,7 +106,7 @@ const INITIAL_BOOKINGS = [
     createdAt: "2026-10-20 09:15"
   },
   {
-    id: "ASH-6204",
+    id: "ARS-BGD-6204",
     guestName: "Senator Chuka Nwosu",
     phone: "0802 999 1122",
     email: "nwosu.chuka@assembly.gov.ng",
@@ -126,7 +126,7 @@ const INITIAL_BOOKINGS = [
     createdAt: "2026-10-19 16:40"
   },
   {
-    id: "ASH-4109",
+    id: "ARS-EXT-4109",
     guestName: "Dr. Ngozi Adeleke",
     phone: "0806 555 4321",
     email: "dr.adeleke@medspecialist.com",
@@ -146,7 +146,7 @@ const INITIAL_BOOKINGS = [
     createdAt: "2026-10-20 07:10"
   },
   {
-    id: "ASH-3105",
+    id: "ARS-BGD-3105",
     guestName: "Arc. Kenneth Igwe",
     phone: "0814 888 2345",
     email: "kenneth.igwe@architects.ng",
@@ -1834,6 +1834,57 @@ export const portalStore = {
     return getLocalItem(STORAGE_KEYS.BOOKINGS, INITIAL_BOOKINGS);
   },
 
+  generateUniqueBookingCode(buildingOrRoom) {
+    let isExtension = false;
+    if (typeof buildingOrRoom === 'object' && buildingOrRoom !== null) {
+      const rmNum = String(buildingOrRoom.roomNumber || '').trim();
+      const rmType = String(buildingOrRoom.roomType || '').toLowerCase();
+      const bld = String(buildingOrRoom.building || buildingOrRoom.buildingLabel || '').toLowerCase();
+
+      if (rmNum.startsWith('1')) {
+        isExtension = true;
+      } else if (rmNum.startsWith('6')) {
+        isExtension = false;
+      } else if (rmType === 'suites' || rmType.includes('suite')) {
+        isExtension = true;
+      } else if (rmType === 'deluxe' || rmType === 'standard') {
+        isExtension = false;
+      } else if (bld.includes('ext') && !bld.includes('main')) {
+        isExtension = true;
+      } else {
+        isExtension = false;
+      }
+    } else if (typeof buildingOrRoom === 'string') {
+      const str = buildingOrRoom.trim().toLowerCase();
+      if (str.startsWith('1')) {
+        isExtension = true;
+      } else if (str.startsWith('6')) {
+        isExtension = false;
+      } else if (str.includes('suite')) {
+        isExtension = true;
+      } else if (str.includes('ext') && !str.includes('main')) {
+        isExtension = true;
+      } else {
+        isExtension = false;
+      }
+    }
+
+    const prefix = isExtension ? 'ARS-EXT-' : 'ARS-BGD-';
+    const existingBookings = this.getBookings();
+    const existingCodes = new Set(existingBookings.map(b => String(b.id || '').toUpperCase()));
+
+    let code = '';
+    let attempts = 0;
+    do {
+      // 5-digit high-entropy random sequence (10000 - 99999) ensuring unique 1-of-1 code
+      const randNum = Math.floor(10000 + Math.random() * 90000);
+      code = `${prefix}${randNum}`;
+      attempts++;
+    } while (existingCodes.has(code) && attempts < 10000);
+
+    return code;
+  },
+
   addBooking(bookingData) {
     const bookings = this.getBookings();
     const rooms = this.getRooms();
@@ -1851,7 +1902,11 @@ export const portalStore = {
     
     // Payment is automatically confirmed when Paystack processes it (or POS/Cash at front desk)
     const newBooking = {
-      id: bookingData.id || ('ASH-' + Math.floor(1000 + Math.random() * 9000)),
+      id: bookingData.id || this.generateUniqueBookingCode({
+        building: bookingData.building,
+        roomNumber: assignedRoomNumber,
+        roomType: bookingData.roomType
+      }),
       guestName: bookingData.guestName || "Guest",
       phone: bookingData.phone || "0812 578 6875",
       email: bookingData.email || "",
@@ -2690,7 +2745,12 @@ export const portalStore = {
     const bookings = this.getBookings();
     return bookings.find(b => {
       const bId = String(b.id || '').toUpperCase();
-      return bId === clean || bId === `ASH-${clean}` || bId.replace('ASH-', '') === clean.replace('ASH-', '');
+      if (bId === clean) return true;
+      if (bId === `ARS-BGD-${clean}` || bId === `ARS-EXT-${clean}` || bId === `ASH-${clean}`) return true;
+      const strippedBId = bId.replace(/^(ARS-BGD-|ARS-EXT-|ASH-)/, '');
+      const strippedClean = clean.replace(/^(ARS-BGD-|ARS-EXT-|ASH-)/, '');
+      if (strippedBId && strippedClean && strippedBId === strippedClean) return true;
+      return false;
     }) || null;
   },
 
@@ -2765,7 +2825,7 @@ export const portalStore = {
     if (!profile) {
       return { 
         success: false, 
-        error: `Booking code '${bookingCode}' was not found in our central reservation registry. Please check your reservation receipt (e.g. ASH-9421) or contact our 24/7 Front Desk.` 
+        error: `Booking code '${bookingCode}' was not found in our central reservation registry. Please check your reservation receipt (e.g. ARS-BGD-1840 or ARS-EXT-9421) or contact our 24/7 Front Desk.` 
       };
     }
 
