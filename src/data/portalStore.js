@@ -11,6 +11,7 @@ const STORAGE_KEYS = {
   DINING_MENU: 'ash_portal_dining_menu_v6',
   HOTEL_CONFIG: 'ash_portal_hotel_config',
   ACTIVITY_LOG: 'ash_portal_activity_log',
+  INTERCOM_CHAT: 'ash_portal_intercom_chat_v1',
 };
 
 // 1. Initial Room Inventory (34 Authentic Rooms Across 2 Buildings in Nsugbe, Onitsha - All Available for Production)
@@ -236,6 +237,46 @@ const INITIAL_LOGIN_LOGS = [
     reason: "Invalid password attempt",
     ip: "102.89.41.98 (Enugu, NG)",
     device: "Safari / iOS"
+  }
+];
+
+// 3.5 Initial Front Desk Shift Intercom Messages (Dual-Building Coordination)
+const INITIAL_CHAT_MESSAGES = [
+  {
+    id: "chat-seed-1",
+    text: "Welcome to Arab Signature Hotel Inter-Desk Channel. Use this live intercom to coordinate guest room transfers, luggage assistance, and inquiries between Main Building and Extension Wing.",
+    category: "general",
+    senderRole: "admin",
+    senderBuilding: "all",
+    senderName: "Executive General Manager",
+    senderBadge: "General Management",
+    createdAt: Date.now() - 3600000 * 20, // 20 hours ago
+    timestamp: "10:00 AM",
+    dateFormatted: "Today"
+  },
+  {
+    id: "chat-seed-2",
+    text: "Chief Anthony Eze has arrived at Main reception for Diplomatic Suite #107. Bellman dispatched with his luggage to 100 Wing reception.",
+    category: "handover",
+    senderRole: "reception",
+    senderBuilding: "Main Building",
+    senderName: "Main Desk Concierge",
+    senderBadge: "Main Building Desk (600 Wing)",
+    createdAt: Date.now() - 3600000 * 2, // 2 hours ago
+    timestamp: "11:45 AM",
+    dateFormatted: "Today"
+  },
+  {
+    id: "chat-seed-3",
+    text: "Received Main Desk. Diplomatic Suite #107 keycard is ready and guest welcome refreshment has been prepared.",
+    category: "handover",
+    senderRole: "reception",
+    senderBuilding: "Extension Building",
+    senderName: "Extension Wing Concierge",
+    senderBadge: "Extension Wing Desk (100 Wing)",
+    createdAt: Date.now() - 3600000 * 1.8, // 1.8 hours ago
+    timestamp: "11:48 AM",
+    dateFormatted: "Today"
   }
 ];
 
@@ -2313,6 +2354,83 @@ export const portalStore = {
     };
     window.addEventListener('ash_menu_updated', handler);
     return () => window.removeEventListener('ash_menu_updated', handler);
+  },
+
+  // --- FRONT DESK INTERCOM & INTER-WING CHAT SYSTEM ---
+  // Retention Rules:
+  // - Receptionists view messages for up to 7 days
+  // - Admin can inspect messages for up to 30 days
+  // - Messages older than 30 days are automatically purged permanently
+  getChatMessages(viewerRole = 'reception') {
+    const raw = getLocalItem(STORAGE_KEYS.INTERCOM_CHAT, INITIAL_CHAT_MESSAGES);
+    const now = Date.now();
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+    // 1. Hard purge anything older than 30 days from permanent storage
+    const unexpiredTotal = raw.filter(m => (now - (m.createdAt || now)) <= THIRTY_DAYS_MS);
+    if (unexpiredTotal.length !== raw.length) {
+      setLocalItem(STORAGE_KEYS.INTERCOM_CHAT, unexpiredTotal);
+    }
+
+    // 2. Filter view based on role:
+    if (viewerRole === 'admin') {
+      // Admin sees up to 30 days of shift communications
+      return unexpiredTotal;
+    }
+
+    // Receptionists view messages from past 7 days only
+    return unexpiredTotal.filter(m => (now - (m.createdAt || now)) <= SEVEN_DAYS_MS);
+  },
+
+  sendChatMessage({ text, category = 'general', senderBuilding, senderName, senderRole = 'reception', senderBadge }) {
+    if (!text || !text.trim()) return null;
+
+    const raw = getLocalItem(STORAGE_KEYS.INTERCOM_CHAT, INITIAL_CHAT_MESSAGES);
+    const now = Date.now();
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const cleaned = raw.filter(m => (now - (m.createdAt || now)) <= THIRTY_DAYS_MS);
+
+    const nowObj = new Date();
+    const newMessage = {
+      id: `chat-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      text: text.trim(),
+      category, // 'general' | 'inquiry' | 'handover' | 'urgent'
+      senderRole, // 'reception' | 'admin'
+      senderBuilding: senderBuilding || 'Main Building', // 'Main Building' | 'Extension Building' | 'all'
+      senderName: senderName || 'Front Desk Staff',
+      senderBadge: senderBadge || (senderBuilding === 'Main Building' ? 'Main Building Desk (600 Wing)' : senderBuilding === 'Extension Building' ? 'Extension Wing Desk (100 Wing)' : 'General Management'),
+      createdAt: now,
+      timestamp: nowObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      dateFormatted: nowObj.toLocaleDateString([], { month: 'short', day: 'numeric' })
+    };
+
+    const updated = [...cleaned, newMessage];
+    setLocalItem(STORAGE_KEYS.INTERCOM_CHAT, updated);
+
+    this.logActivity(`Intercom [${newMessage.senderBadge}]: ${newMessage.text.substring(0, 45)}...`);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_chat_updated', { detail: { newMessage, allMessages: updated } }));
+    }
+    return newMessage;
+  },
+
+  clearChatHistory() {
+    setLocalItem(STORAGE_KEYS.INTERCOM_CHAT, []);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_chat_updated', { detail: { allMessages: [] } }));
+    }
+    this.logActivity('Admin cleared front desk intercom history.');
+  },
+
+  subscribeChat(callback) {
+    if (typeof window === 'undefined') return () => {};
+    const handler = (e) => {
+      callback(e.detail);
+    };
+    window.addEventListener('ash_chat_updated', handler);
+    return () => window.removeEventListener('ash_chat_updated', handler);
   },
 
   logActivity(msg) {

@@ -24,6 +24,12 @@ export default function ReceptionPortal({ onNavigate }) {
   const [selectedReceiptBooking, setSelectedReceiptBooking] = useState(null);
   const [feedbackMsg, setFeedbackMsg] = useState('');
 
+  // Front Desk Intercom Chat State
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatCategory, setChatCategory] = useState('general'); // 'general' | 'handover' | 'inquiry' | 'urgent'
+  const chatMessagesEndRef = React.useRef(null);
+
   // Incoming Real-Time Reservation Alert & Sound State
   const [incomingAlert, setIncomingAlert] = useState(null);
   const [isSoundMuted, setIsSoundMuted] = useState(false);
@@ -100,6 +106,7 @@ export default function ReceptionPortal({ onNavigate }) {
     setBookings(portalStore.getBookings());
     setRates(portalStore.getRoomRates());
     setDiningMenu(portalStore.getDiningMenu());
+    setChatMessages(portalStore.getChatMessages('reception'));
   };
 
   // Resolve receptionist's designated building with strict fallback:
@@ -198,6 +205,7 @@ export default function ReceptionPortal({ onNavigate }) {
     window.addEventListener('ash_menu_updated', handleLiveSync);
     const unsubscribeRooms = portalStore.subscribeRooms(() => refreshData());
     const unsubscribeDining = portalStore.subscribeDiningMenu(() => refreshData());
+    const unsubscribeChat = portalStore.subscribeChat(() => refreshData());
 
     return () => {
       clearInterval(timer);
@@ -207,8 +215,38 @@ export default function ReceptionPortal({ onNavigate }) {
       window.removeEventListener('ash_menu_updated', handleLiveSync);
       unsubscribeRooms();
       unsubscribeDining();
+      unsubscribeChat();
     };
   }, []);
+
+  // Auto-scroll chat to latest message
+  useEffect(() => {
+    if (activeTab === 'chat' && chatMessagesEndRef.current) {
+      chatMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, activeTab]);
+
+  // Transmit Intercom Message to the other desk
+  const handleSendChatMessage = (e) => {
+    if (e) e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const desk = getDeskBuilding();
+    const deskLabel = desk === 'Main Building' ? 'Main Building Desk (600 Wing)' : 'Extension Wing Desk (100 Wing)';
+
+    portalStore.sendChatMessage({
+      text: chatInput,
+      category: chatCategory,
+      senderBuilding: desk,
+      senderName: currentUser?.name || (desk === 'Main Building' ? 'Main Desk Concierge' : 'Extension Desk Concierge'),
+      senderRole: 'reception',
+      senderBadge: deskLabel
+    });
+
+    setChatInput('');
+    setChatMessages(portalStore.getChatMessages('reception'));
+    showToast('Intercom message transmitted to other front desk.');
+  };
 
   // Flash feedback toast
   const showToast = (msg) => {
@@ -675,6 +713,25 @@ export default function ReceptionPortal({ onNavigate }) {
             >
               <Calendar size={14} />
               <span>Bookings & Ledger ({bookings.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('chat')}
+              className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 relative ${
+                activeTab === 'chat'
+                  ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black shadow-md'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <MessageSquare size={14} />
+              <span>Wing Intercom Chat</span>
+              {chatMessages.length > 0 && (
+                <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold ${
+                  activeTab === 'chat' ? 'bg-black text-[#f3e5ab]' : 'bg-[#d4af37] text-black'
+                }`}>
+                  {chatMessages.length}
+                </span>
+              )}
             </button>
           </div>
 
@@ -1326,6 +1383,218 @@ export default function ReceptionPortal({ onNavigate }) {
           </div>
         )}
 
+        {/* ======================================================== */}
+        {/* 6. TAB CONTENT: FRONT DESK WING INTERCOM CHAT */}
+        {/* ======================================================== */}
+        {activeTab === 'chat' && (
+          <div className="space-y-4 max-w-5xl mx-auto">
+            
+            {/* Intercom Channel Header */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#1c040e] via-[#2a0616] to-[#16030c] border border-[#d4af37]/40 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 rounded-xl bg-[#5c0725] border border-[#d4af37]/50 text-[#d4af37] shadow-md flex-shrink-0">
+                  <MessageSquare size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-cinzel font-bold text-base sm:text-lg text-white">
+                      Front Desk Shift Intercom & Wing Coordination
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono font-semibold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Live Frequency Active
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-300 mt-1">
+                    Direct communication channel between <strong>Main Building Desk (600 Wing)</strong> and <strong>Extension Wing Desk (100 Wing)</strong>.
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Desks Info */}
+              <div className="flex items-center gap-2 self-start md:self-auto text-xs font-mono">
+                <span className="px-2.5 py-1 rounded-xl bg-[#5c0725]/50 border border-[#d4af37]/30 text-[#f3e5ab]">
+                  Main Desk (600 Wing)
+                </span>
+                <span className="text-gray-500">⇄</span>
+                <span className="px-2.5 py-1 rounded-xl bg-indigo-950/60 border border-indigo-500/40 text-indigo-300">
+                  Extension Desk (100 Wing)
+                </span>
+              </div>
+            </div>
+
+            {/* Retention Policy Banner */}
+            <div className="p-3 rounded-xl bg-black/40 border border-white/10 text-xs text-gray-300 flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Clock size={14} className="text-[#d4af37] flex-shrink-0" />
+                <span className="text-[11px]">
+                  <strong>Retention Policy:</strong> Chat messages are retained for <strong>7 days</strong> on front desk terminals (Archived up to 30 days for GM Executive Audit).
+                </span>
+              </div>
+              <span className="text-[10px] font-mono text-gray-500">
+                {chatMessages.length} messages in current 7-day window
+              </span>
+            </div>
+
+            {/* Chat Messages Feed */}
+            <div className="p-4 sm:p-6 rounded-2xl bg-[#120208] border border-white/10 shadow-2xl min-h-[420px] max-h-[550px] overflow-y-auto space-y-4 flex flex-col">
+              {chatMessages.length === 0 ? (
+                <div className="m-auto text-center py-12 space-y-2">
+                  <MessageSquare size={32} className="mx-auto text-gray-600 opacity-60" />
+                  <p className="text-xs text-gray-400 font-medium">No messages within the 7-day retention window.</p>
+                  <p className="text-[11px] text-gray-500">Send a message below to coordinate with the other reception desk.</p>
+                </div>
+              ) : (
+                chatMessages.map((msg) => {
+                  const desk = getDeskBuilding();
+                  const isMyMessage = msg.senderBuilding === desk && msg.senderRole === 'reception';
+                  const isAdminBroadcast = msg.senderRole === 'admin' || msg.senderBuilding === 'all';
+
+                  if (isAdminBroadcast) {
+                    return (
+                      <div key={msg.id} className="mx-auto max-w-xl w-full p-3.5 rounded-2xl bg-gradient-to-r from-[#2e1903]/80 via-[#3d2003]/90 to-[#2e1903]/80 border border-[#d4af37]/60 text-center shadow-lg space-y-1">
+                        <div className="flex items-center justify-center gap-1.5 text-[10px] font-bold text-[#f3e5ab] uppercase tracking-wider">
+                          <Sparkles size={12} className="text-[#d4af37]" />
+                          <span>Executive GM Broadcast</span>
+                          <span className="text-gray-400 font-normal font-mono">• {msg.timestamp} ({msg.dateFormatted || 'Today'})</span>
+                        </div>
+                        <p className="text-xs text-white leading-relaxed font-medium">
+                          {msg.text}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  const categoryColors = {
+                    general: 'bg-white/10 text-gray-300 border-white/10',
+                    handover: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+                    inquiry: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
+                    urgent: 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                  };
+
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`flex flex-col ${isMyMessage ? 'items-end' : 'items-start'} max-w-xl ${isMyMessage ? 'ml-auto' : 'mr-auto'}`}
+                    >
+                      {/* Sender Meta */}
+                      <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mb-1 px-1">
+                        <span className="font-semibold text-gray-300">
+                          {msg.senderName}
+                        </span>
+                        <span>•</span>
+                        <span className={`px-1.5 py-0.2 rounded font-mono ${
+                          msg.senderBuilding === 'Main Building'
+                            ? 'text-[#f3e5ab]'
+                            : 'text-sky-300'
+                        }`}>
+                          {msg.senderBuilding === 'Main Building' ? 'Main Desk (600)' : 'Ext Desk (100)'}
+                        </span>
+                        <span>•</span>
+                        <span className="text-gray-500 font-mono">{msg.timestamp}</span>
+                        {msg.category && msg.category !== 'general' && (
+                          <span className={`px-1.5 py-0.2 rounded text-[9px] uppercase font-bold border ml-1 ${categoryColors[msg.category] || categoryColors.general}`}>
+                            {msg.category}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Bubble */}
+                      <div className={`p-3.5 rounded-2xl text-xs leading-relaxed shadow-lg border ${
+                        isMyMessage
+                          ? msg.senderBuilding === 'Extension Building'
+                            ? 'bg-gradient-to-br from-[#1e1b4b] to-[#2d2a6e] text-white border-sky-500/40 rounded-tr-none'
+                            : 'bg-gradient-to-br from-[#5c0725] to-[#7a0a32] text-white border-[#d4af37]/40 rounded-tr-none'
+                          : 'bg-[#1b0812] text-gray-200 border-white/15 rounded-tl-none'
+                      }`}>
+                        <p className="whitespace-pre-wrap">{msg.text}</p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={chatMessagesEndRef} />
+            </div>
+
+            {/* Quick Preset Action Buttons */}
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span className="text-gray-500 text-[10px] uppercase font-semibold mr-1">Quick Notes:</span>
+              {[
+                { label: "Guest arriving at Main with luggage", cat: "handover" },
+                { label: "Is Diplomatic Suite #107 ready for check-in?", cat: "inquiry" },
+                { label: "Keys received and guest escorted to room", cat: "handover" },
+                { label: "Airport pickup arrival expected shortly", cat: "general" }
+              ].map((snippet, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setChatInput(snippet.label);
+                    setChatCategory(snippet.cat);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 transition-all text-[11px]"
+                >
+                  {snippet.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Message Composer */}
+            <form onSubmit={handleSendChatMessage} className="p-3.5 rounded-2xl bg-[#16030c] border border-white/10 space-y-3 shadow-xl">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">Category:</span>
+                  <div className="flex items-center gap-1.5">
+                    {[
+                      { id: 'general', label: 'General' },
+                      { id: 'handover', label: 'Guest Handover' },
+                      { id: 'inquiry', label: 'Room Inquiry' },
+                      { id: 'urgent', label: 'Urgent' }
+                    ].map(cat => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setChatCategory(cat.id)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                          chatCategory === cat.id
+                            ? 'bg-[#5c0725] text-[#f3e5ab] border border-[#d4af37]/60 font-semibold shadow-sm'
+                            : 'bg-white/5 text-gray-400 hover:text-white border border-white/10'
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <span className="text-[10px] text-gray-500 font-mono">
+                  Transmitting as: <strong className="text-gray-300">{getDeskBuilding() === 'Main Building' ? 'Main Desk (600 Wing)' : 'Extension Desk (100 Wing)'}</strong>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  required
+                  placeholder={`Type a message to ${getDeskBuilding() === 'Main Building' ? 'Extension Wing Desk (100 Wing)' : 'Main Building Desk (600 Wing)'}...`}
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  className="flex-1 px-4 py-3 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-[#d4af37]"
+                />
+
+                <button
+                  type="submit"
+                  className="px-5 py-3 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#d4af37]/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-1.5 flex-shrink-0"
+                >
+                  <span>Send</span>
+                  <ArrowRight size={14} className="stroke-[2.5]" />
+                </button>
+              </div>
+            </form>
+
+          </div>
+        )}
+
         {/* Front Desk Platform Footer Credit */}
         <footer className="mt-12 pt-6 pb-2 border-t border-white/10 text-center text-[11px] text-gray-500 space-y-1">
           <div>Arab Signature Hotel & Suites • Front Desk Reception Terminal</div>
@@ -1333,6 +1602,27 @@ export default function ReceptionPortal({ onNavigate }) {
         </footer>
 
       </div>
+
+      {/* Floating Quick Intercom Access Button */}
+      {activeTab !== 'chat' && (
+        <button
+          onClick={() => setActiveTab('chat')}
+          className="fixed bottom-6 right-6 z-40 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-[#5c0725] to-[#7a0a32] border border-[#d4af37]/60 text-[#f3e5ab] shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2.5 font-semibold text-xs group cursor-pointer"
+          title="Open Live Front Desk Intercom"
+        >
+          <div className="relative">
+            <MessageSquare size={16} className="text-[#d4af37]" />
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping absolute -top-0.5 -right-0.5" />
+            <span className="w-2 h-2 rounded-full bg-emerald-400 absolute -top-0.5 -right-0.5" />
+          </div>
+          <span>Wing Intercom</span>
+          {chatMessages.length > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full bg-black/60 border border-[#d4af37]/40 text-[#f3e5ab] text-[10px] font-mono">
+              {chatMessages.length}
+            </span>
+          )}
+        </button>
+      )}
 
       {/* ======================================================== */}
       {/* 6. MODAL: WALK-IN BOOKING (On-the-spot Front Desk) */}

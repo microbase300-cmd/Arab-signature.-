@@ -6,6 +6,7 @@ import {
   getPaystackMode 
 } from '../utils/paystack';
 import { 
+  MessageSquare,
   ShieldCheck, DollarSign, TrendingUp, BedDouble, Settings, 
   FileText, Activity, Save, ArrowLeft, LogOut, CheckCircle2, 
   AlertTriangle, Lock, Users, Phone, MapPin, Printer, RefreshCw, 
@@ -25,6 +26,12 @@ export default function AdminPortal({ onNavigate }) {
   const [loginAttempts, setLoginAttempts] = useState([]);
   const [receptionUser, setReceptionUser] = useState(null);
   const [feedbackMsg, setFeedbackMsg] = useState('');
+
+  // Intercom Chat 30-Day Audit State
+  const [chatMessages, setChatMessages] = useState([]);
+  const [adminBroadcastText, setAdminBroadcastText] = useState('');
+  const [chatFilter, setChatFilter] = useState('all');
+  const [chatSearch, setChatSearch] = useState('');
 
   // Editable Rates State
   const [rateEdits, setRateEdits] = useState({});
@@ -113,6 +120,7 @@ export default function AdminPortal({ onNavigate }) {
     setLoginAttempts(currentLoginAttempts);
     setReceptionUser(currentReception);
     setDiningMenu(currentDining);
+    setChatMessages(portalStore.getChatMessages('admin'));
 
     // Initialize rate edit fields
     const initialRates = {};
@@ -165,6 +173,7 @@ export default function AdminPortal({ onNavigate }) {
     window.addEventListener('ash_menu_updated', handleLiveSync);
     const unsubscribeRooms = portalStore.subscribeRooms(() => refreshData());
     const unsubscribeDining = portalStore.subscribeDiningMenu(() => refreshData());
+    const unsubscribeChat = portalStore.subscribeChat(() => refreshData());
 
     return () => {
       window.removeEventListener('ash_bookings_updated', handleLiveSync);
@@ -173,6 +182,7 @@ export default function AdminPortal({ onNavigate }) {
       window.removeEventListener('ash_menu_updated', handleLiveSync);
       unsubscribeRooms();
       unsubscribeDining();
+      unsubscribeChat();
     };
   }, []);
 
@@ -279,6 +289,25 @@ export default function AdminPortal({ onNavigate }) {
   };
 
   // 2. Save Updated Receptionist Credentials (ADMIN CONTROL FOR DUAL DESKS)
+  // Send GM Executive Broadcast to Both Reception Desks
+  const handleSendAdminBroadcast = (e) => {
+    e.preventDefault();
+    if (!adminBroadcastText.trim()) return;
+
+    portalStore.sendChatMessage({
+      text: adminBroadcastText,
+      category: 'general',
+      senderBuilding: 'all',
+      senderName: currentUser?.name || 'General Manager',
+      senderRole: 'admin',
+      senderBadge: 'Executive General Manager'
+    });
+
+    setAdminBroadcastText('');
+    refreshData();
+    showToast('Executive announcement broadcasted to all front desk terminals.');
+  };
+
   const handleSaveReceptionCredentials = (e) => {
     e.preventDefault();
     if (!receptionForm.username || !receptionForm.password) {
@@ -543,6 +572,18 @@ export default function AdminPortal({ onNavigate }) {
           >
             <ShieldAlert size={14} />
             <span>Login Attempts & Security Monitor ({loginAttempts.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('chat')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+              activeTab === 'chat'
+                ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black shadow-lg shadow-[#d4af37]/20'
+                : 'bg-[#16030c] text-gray-400 hover:text-white border border-white/10'
+            }`}
+          >
+            <MessageSquare size={14} />
+            <span>Inter-Desk Chat Audit (30-Day) ({chatMessages.length})</span>
           </button>
 
           <button
@@ -1426,6 +1467,207 @@ export default function AdminPortal({ onNavigate }) {
 
           </div>
         )}
+
+        {/* ======================================================== */}
+        {/* 10. TAB CONTENT: FRONT DESK INTERCOM AUDIT (30-DAY ARCHIVE) */}
+        {/* ======================================================== */}
+        {activeTab === 'chat' && (() => {
+          const filteredMessages = chatMessages.filter(msg => {
+            const matchesFilter = 
+              chatFilter === 'all' || 
+              (chatFilter === 'Main Building' && msg.senderBuilding === 'Main Building' && msg.senderRole === 'reception') ||
+              (chatFilter === 'Extension Building' && msg.senderBuilding === 'Extension Building' && msg.senderRole === 'reception') ||
+              (chatFilter === 'admin' && (msg.senderRole === 'admin' || msg.senderBuilding === 'all'));
+
+            const matchesSearch = 
+              !chatSearch || 
+              msg.text.toLowerCase().includes(chatSearch.toLowerCase()) ||
+              msg.senderName.toLowerCase().includes(chatSearch.toLowerCase());
+
+            return matchesFilter && matchesSearch;
+          });
+
+          return (
+            <div className="space-y-6">
+              
+              {/* Header Box */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-[#16030c] border border-white/10 shadow-xl">
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <MessageSquare size={20} className="text-[#d4af37]" />
+                    <h3 className="font-cinzel font-bold text-lg text-white">
+                      Executive Front Desk Intercom Audit (30-Day Archive)
+                    </h3>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                    Tamper-evident 30-day operational communications audit between <strong>Main Building Desk (600 Wing)</strong> and <strong>Extension Wing Desk (100 Wing)</strong>.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-mono font-semibold">
+                    30-Day Retention Active
+                  </span>
+                  <button
+                    onClick={refreshData}
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10"
+                    title="Refresh Chat Logs"
+                  >
+                    <RefreshCw size={15} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm("Are you sure you want to clear all intercom chat logs? This will erase historical messages across all desks.")) {
+                        portalStore.clearChatHistory();
+                        refreshData();
+                        showToast("Intercom chat history cleared.");
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-500/30 text-xs font-medium"
+                  >
+                    Clear History
+                  </button>
+                </div>
+              </div>
+
+              {/* GM Broadcast Composer */}
+              <form onSubmit={handleSendAdminBroadcast} className="p-5 rounded-2xl bg-gradient-to-r from-[#2a0e1b] via-[#3a1324] to-[#1a0710] border border-[#d4af37]/40 shadow-xl space-y-3">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#f3e5ab] uppercase tracking-wider">
+                  <Sparkles size={14} className="text-[#d4af37]" />
+                  <span>Transmit Official Executive GM Broadcast to Both Reception Desks</span>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="Type official GM instruction or alert (e.g. VIP delegation arriving at 4 PM, prepare suites 601 and 107)..."
+                    value={adminBroadcastText}
+                    onChange={(e) => setAdminBroadcastText(e.target.value)}
+                    className="flex-1 px-4 py-3 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-400 text-xs focus:outline-none focus:border-[#d4af37]"
+                  />
+                  <button
+                    type="submit"
+                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#d4af37]/20 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 flex-shrink-0"
+                  >
+                    <Sparkles size={14} />
+                    <span>Broadcast Notice</span>
+                  </button>
+                </div>
+                <p className="text-[10px] text-gray-400">
+                  Broadcasts appear prominently in golden banners on both Main Building and Extension Wing terminals in real time.
+                </p>
+              </form>
+
+              {/* Filter and Search Toolbar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-[#16030c] border border-white/10">
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="text-gray-400 mr-1 text-[11px]">Filter Channel:</span>
+                  {[
+                    { id: 'all', label: `All (${chatMessages.length})` },
+                    { id: 'Main Building', label: 'Main Desk (600 Wing)' },
+                    { id: 'Extension Building', label: 'Extension Desk (100 Wing)' },
+                    { id: 'admin', label: 'GM Broadcasts' }
+                  ].map(f => (
+                    <button
+                      key={f.id}
+                      onClick={() => setChatFilter(f.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        chatFilter === f.id
+                          ? 'bg-[#5c0725] text-[#f3e5ab] border border-[#d4af37]/60 font-semibold shadow-sm'
+                          : 'bg-white/5 text-gray-400 hover:text-white border border-white/10'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative sm:w-64">
+                  <input
+                    type="text"
+                    placeholder="Search chat text or sender..."
+                    value={chatSearch}
+                    onChange={(e) => setChatSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-black/60 border border-white/15 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
+                  />
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                </div>
+              </div>
+
+              {/* Messages Audit Feed Table */}
+              <div className="overflow-x-auto rounded-2xl border border-white/10 bg-[#16030c] shadow-xl">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#120208] text-gray-400 uppercase tracking-wider border-b border-white/10 text-[10px]">
+                    <tr>
+                      <th className="py-3 px-4">Date & Time</th>
+                      <th className="py-3 px-4">Origin / Wing</th>
+                      <th className="py-3 px-4">Staff Name</th>
+                      <th className="py-3 px-4">Category</th>
+                      <th className="py-3 px-4">Message Content</th>
+                      <th className="py-3 px-4 text-right">Age</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {filteredMessages.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="py-8 text-center text-gray-500">
+                          No intercom messages found matching your criteria.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredMessages.map((msg) => {
+                        const isMain = msg.senderBuilding === 'Main Building';
+                        const isExt = msg.senderBuilding === 'Extension Building';
+                        const isAdmin = msg.senderRole === 'admin' || msg.senderBuilding === 'all';
+                        const ageHours = Math.round((Date.now() - (msg.createdAt || Date.now())) / 3600000);
+
+                        return (
+                          <tr key={msg.id} className="hover:bg-white/[0.02] transition-colors">
+                            <td className="py-3.5 px-4 font-mono text-gray-300">
+                              <div>{msg.timestamp}</div>
+                              <div className="text-[10px] text-gray-500">{msg.dateFormatted || 'Recent'}</div>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                                isAdmin
+                                  ? 'bg-[#d4af37]/20 border-[#d4af37]/50 text-[#f3e5ab]'
+                                  : isMain
+                                  ? 'bg-[#5c0725]/50 border-[#d4af37]/30 text-[#f3e5ab]'
+                                  : 'bg-indigo-950/60 border-indigo-500/40 text-indigo-300'
+                              }`}>
+                                {isAdmin ? 'GM Executive' : isMain ? 'Main Desk (600)' : 'Ext Desk (100)'}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4 text-white font-medium">
+                              {msg.senderName}
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <span className="capitalize text-[10px] text-gray-400 bg-white/5 px-2 py-0.5 rounded">
+                                {msg.category || 'General'}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4 text-gray-200 max-w-md">
+                              <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                            </td>
+
+                            <td className="py-3.5 px-4 text-right font-mono text-gray-400 text-[10px]">
+                              {ageHours <= 0 ? 'Just now' : `${ageHours}h ago`}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          );
+        })()}
 
         {/* Admin Operational Platform Footer Credit */}
         <footer className="mt-12 pt-6 pb-2 border-t border-white/10 text-center text-[11px] text-gray-500 space-y-1">

@@ -4,8 +4,8 @@ import { KeyRound, Lock, User, Eye, EyeOff, ArrowRight, ArrowLeft, AlertCircle, 
 
 export default function ReceptionLogin({ onNavigate }) {
   const [selectedDesk, setSelectedDesk] = useState('Main Building'); // 'Main Building' | 'Extension Building'
-  const [username, setUsername] = useState('main@arabsignature.com');
-  const [password, setPassword] = useState('reception2026');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -13,14 +13,7 @@ export default function ReceptionLogin({ onNavigate }) {
   const handleSelectDesk = (desk) => {
     setSelectedDesk(desk);
     setError('');
-    const recUser = portalStore.getReceptionistUser(desk);
-    if (desk === 'Main Building') {
-      setUsername(recUser?.username || 'main@arabsignature.com');
-      setPassword(recUser?.password || 'reception2026');
-    } else {
-      setUsername(recUser?.username || 'extension@arabsignature.com');
-      setPassword(recUser?.password || 'extension2026');
-    }
+    // Do NOT auto-fill credentials: users must enter their own login
   };
 
   const handleLogin = (e) => {
@@ -40,13 +33,7 @@ export default function ReceptionLogin({ onNavigate }) {
     }, 500);
   };
 
-  const handleQuickFillMain = () => {
-    handleSelectDesk('Main Building');
-  };
-
-  const handleQuickFillExtension = () => {
-    handleSelectDesk('Extension Building');
-  };
+  // Quick fill removed per operational security requirements
 
   return (
     <div className="min-h-screen bg-[#090105] text-gray-100 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden font-sans">
@@ -162,7 +149,8 @@ export default function ReceptionLogin({ onNavigate }) {
               <input
                 type="text"
                 required
-                placeholder="reception@arabsignature.com"
+                autoComplete="off"
+                placeholder={selectedDesk === 'Main Building' ? 'e.g. main@arabsignature.com' : 'e.g. extension@arabsignature.com'}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#d4af37]"
@@ -179,7 +167,8 @@ export default function ReceptionLogin({ onNavigate }) {
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
-                placeholder="••••••••••••"
+                autoComplete="new-password"
+                placeholder="Enter front desk password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-10 pr-10 py-3 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#d4af37]"
@@ -213,28 +202,13 @@ export default function ReceptionLogin({ onNavigate }) {
 
         </form>
 
-        {/* Quick Test Helper */}
-        <div className="pt-4 border-t border-white/10 text-center space-y-2">
+        {/* Operational Security Notice */}
+        <div className="pt-4 border-t border-white/10 text-center space-y-1">
           <div className="text-[11px] text-gray-400">
-            Assigned to front desk staff. Shift activities and logins are recorded.
+            Authorized Front Desk Staff Only • Passwords managed by General Manager
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-            <button
-              type="button"
-              onClick={handleQuickFillMain}
-              className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#d4af37] text-[11px] font-medium border border-[#d4af37]/30 transition-all flex items-center justify-center gap-1.5"
-            >
-              <Building2 size={12} />
-              <span>Fill Main Desk (600 Wing)</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleQuickFillExtension}
-              className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-sky-300 text-[11px] font-medium border border-sky-400/30 transition-all flex items-center justify-center gap-1.5"
-            >
-              <Building2 size={12} />
-              <span>Fill Extension Desk (100 Wing)</span>
-            </button>
+          <div className="text-[10px] text-gray-500">
+            All shift sign-ins and operational actions are logged to the Security Audit Trail.
           </div>
         </div>
 
