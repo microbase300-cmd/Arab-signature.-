@@ -173,6 +173,17 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
     setLoginError('');
     setCheckedOutData(null);
     setLogoutNotice(false);
+
+    const cleanedCode = String(code || '').trim().toUpperCase();
+    if (cleanedCode.startsWith('ARB-FDD-') || cleanedCode.startsWith('ARB-DRK-')) {
+      const foundOrder = portalStore.getDiningOrderByCode(cleanedCode);
+      if (foundOrder && onNavigate) {
+        portalStore.setTrackedDiningOrderCode(foundOrder.id);
+        onNavigate('track-order');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     setTimeout(() => {

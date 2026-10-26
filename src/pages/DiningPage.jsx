@@ -90,13 +90,21 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
     if (e) e.preventDefault();
     setLookupError('');
     setLookupResult(null);
-    if (!lookupCode.trim()) return;
+    if (!lookupCode.trim()) {
+      // Allow opening the dedicated tracker page directly if clicked without code
+      if (onNavigate) onNavigate('track-order');
+      return;
+    }
     const found = portalStore.findDiningOrderByCode(lookupCode.trim());
     if (!found) {
       setLookupError(`No Food or Drink booking found for code "${lookupCode.trim().toUpperCase()}". Expected ARB-FDD-... or ARB-DRK-...`);
       return;
     }
+    portalStore.setTrackedDiningOrderCode(found.id);
     setLookupResult(found);
+    if (onNavigate) {
+      onNavigate('track-order');
+    }
   };
 
   const totalTrayItems = orderCart.reduce((sum, i) => sum + i.qty, 0);
@@ -437,7 +445,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                 type="submit"
                 className="px-4 py-2.5 rounded-xl bg-[#5c0725] hover:bg-[#750930] border border-[#d4af37]/40 text-xs font-bold text-[#f3e5ab] whitespace-nowrap transition-all"
               >
-                Track Code
+                Track Orders
               </button>
             </form>
 

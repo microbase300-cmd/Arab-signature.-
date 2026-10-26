@@ -36,6 +36,8 @@ export default function ReceptionPortal({ onNavigate }) {
   // Modals
   const [isWalkInOpen, setIsWalkInOpen] = useState(false);
   const [selectedReceiptBooking, setSelectedReceiptBooking] = useState(null);
+  const [incomingDiningAlert, setIncomingDiningAlert] = useState(null);
+  const [inspectedDiningOrder, setInspectedDiningOrder] = useState(null);
   const [feedbackMsg, setFeedbackMsg] = useState('');
 
   // Front Desk Intercom Chat State
@@ -321,12 +323,20 @@ export default function ReceptionPortal({ onNavigate }) {
     const unsubscribeDiningOrders = portalStore.subscribeDiningOrders((detail) => {
       refreshData();
       if (detail?.isNewOrder && detail?.newOrder) {
-        playIntercomChime();
         const o = detail.newOrder;
+        const isOutside = Boolean(
+          o.isOutsideRoom || !o.isLodgeGuest || !o.roomNumber || !o.bookingId
+        );
+        if (isOutside) {
+          playReceptionDeskBeep();
+          setIncomingDiningAlert(o);
+        } else {
+          playIntercomChime();
+        }
         showToast(
           o.chargeToRoom
             ? `🍽️ Room Bill Order ${o.id} (₦${Number(o.amount).toLocaleString()}) added to Suite #${o.roomNumber}!`
-            : `🍽️ New ${o.orderType === 'drinks' ? 'Drink' : 'Food'} Booking ${o.id} (${o.guestName})`
+            : `🔔 New Pickup/Dining Order ${o.id} (${o.guestName} • ${o.serviceLocation}) received at Main Reception!`
         );
       }
     });
@@ -865,6 +875,81 @@ export default function ReceptionPortal({ onNavigate }) {
           </div>
         );
       })()}
+
+      {/* Real-Time Incoming Food/Drink Pickup & Dining Alert Banner for Main Receptionist */}
+      {incomingDiningAlert && getDeskBuilding() !== 'Extension Building' && (
+        <div className="bg-gradient-to-r from-emerald-500 via-[#d4af37] to-amber-500 text-black px-4 sm:px-8 py-3.5 shadow-2xl flex flex-wrap items-center justify-between gap-3 border-b-2 border-black/30 animate-pulse">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center flex-shrink-0">
+              <Utensils size={20} className="text-black stroke-[2.5] animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold text-xs tracking-wider uppercase bg-black text-[#f3e5ab] px-2.5 py-0.5 rounded-full font-mono shadow-sm">
+                  🔔 NEW PICKUP / DINING ORDER FOR MAIN RECEPTION!
+                </span>
+                <span className="text-xs font-mono font-extrabold text-black">
+                  ({incomingDiningAlert.id})
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm font-semibold text-black mt-1">
+                Customer: <span className="underline font-bold">{incomingDiningAlert.guestName}</span>
+                {incomingDiningAlert.phone ? ` (${incomingDiningAlert.phone})` : ''} &bull; Mode:{' '}
+                <span className="bg-black/90 text-amber-300 px-2 py-0.5 rounded-md font-mono font-bold">
+                  {incomingDiningAlert.serviceLocation}
+                </span>{' '}
+                &bull; Amount: <span className="font-bold">₦{Number(incomingDiningAlert.amount).toLocaleString()}</span> ({incomingDiningAlert.paymentStatus})
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => {
+                setActiveTab('dining_orders');
+                setDiningOrderFilter('outside');
+                setInspectedDiningOrder(incomingDiningAlert);
+                setIncomingDiningAlert(null);
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-black text-[#f3e5ab] hover:bg-black/85 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+            >
+              <Utensils size={13} className="text-[#d4af37]" />
+              <span>Track & Inspect Order</span>
+            </button>
+            <button
+              onClick={() => {
+                portalStore.updateDiningOrderStatus(incomingDiningAlert.id, 'Picked Up', currentUser?.name || 'Main Building Receptionist');
+                refreshData();
+                showToast(`Order ${incomingDiningAlert.id} marked as PICKED UP at Main Reception!`);
+                setIncomingDiningAlert(null);
+              }}
+              className="px-3 py-1.5 rounded-xl bg-emerald-950 text-emerald-200 hover:bg-emerald-900 font-bold text-xs flex items-center gap-1 transition-all cursor-pointer"
+            >
+              <CheckCircle2 size={13} />
+              <span>Picked Up</span>
+            </button>
+            <button
+              onClick={() => {
+                portalStore.updateDiningOrderStatus(incomingDiningAlert.id, 'Delivered', currentUser?.name || 'Main Building Receptionist');
+                refreshData();
+                showToast(`Order ${incomingDiningAlert.id} marked as DELIVERED!`);
+                setIncomingDiningAlert(null);
+              }}
+              className="px-3 py-1.5 rounded-xl bg-black/25 hover:bg-black/35 text-black font-bold text-xs flex items-center gap-1 transition-all cursor-pointer"
+            >
+              <Check size={13} />
+              <span>Delivered</span>
+            </button>
+            <button
+              onClick={() => setIncomingDiningAlert(null)}
+              className="p-1.5 rounded-xl bg-black/20 hover:bg-black/30 text-black transition-colors cursor-pointer"
+              title="Dismiss notification"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Toast Notification Banner */}
       {feedbackMsg && (
@@ -1701,6 +1786,197 @@ export default function ReceptionPortal({ onNavigate }) {
               </button>
             </div>
 
+            {/* MAIN RECEPTIONIST DEDICATED PICKUP & OUTSIDE-ROOM DINING DISPATCH SPACE */}
+            {(getDeskBuilding() === 'Main Building' || getDeskBuilding() === 'all') && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#21040f] via-[#17030b] to-[#110208] border border-amber-500/40 shadow-2xl space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-white/10 pb-3.5">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-300 text-[10px] font-mono uppercase tracking-widest font-bold flex items-center gap-1.5">
+                        <BellRing size={11} className="animate-bounce" />
+                        <span>Main Receptionist Pickup & Dining Dispatch Hub</span>
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-mono font-bold">
+                        {diningOrders.filter((o) => isOutsideRoomOrder(o) && o.orderStatus !== 'Picked Up' && o.orderStatus !== 'Delivered' && o.orderStatus !== 'Cancelled').length} Active Awaiting Pickup / Delivery
+                      </span>
+                    </div>
+                    <h4 className="font-cinzel font-bold text-sm sm:text-base text-white mt-1.5">
+                      Outside-Room Food (ARB-FDD) & Drink (ARB-DRK) Collection Desk
+                    </h4>
+                    <p className="text-xs text-gray-300 mt-0.5">
+                      Customers who book food or drinks without a lodge room collect their orders from the <span className="text-[#f3e5ab] font-semibold">Main Building Receptionist</span> or dine in the hall/lounge. Inspect full order details below and click <span className="text-emerald-300 font-semibold">Picked Up</span> or <span className="text-sky-300 font-semibold">Delivered</span> upon handover.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start md:self-center">
+                    <button
+                      onClick={() => setDiningOrderFilter('outside')}
+                      className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 text-xs font-semibold transition-all"
+                    >
+                      Filter Outside Orders Only ({diningOrders.filter(isOutsideRoomOrder).length})
+                    </button>
+                  </div>
+                </div>
+
+                {diningOrders.filter(isOutsideRoomOrder).length === 0 ? (
+                  <div className="p-6 rounded-xl bg-black/40 border border-white/10 text-center text-gray-400 text-xs">
+                    No outside-room pickup or dining orders yet. New non-lodge orders placed on the website will immediately alert here.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                    {diningOrders
+                      .filter(isOutsideRoomOrder)
+                      .slice(0, 9)
+                      .map((ord) => {
+                        const isCompleted = ord.orderStatus === 'Picked Up' || ord.orderStatus === 'Delivered';
+                        return (
+                          <div
+                            key={ord.id}
+                            className={`p-4 rounded-xl border transition-all flex flex-col justify-between gap-3 ${
+                              isCompleted
+                                ? 'bg-black/45 border-emerald-500/30'
+                                : ord.orderStatus === 'Ready for Pickup'
+                                ? 'bg-gradient-to-br from-amber-950/40 via-[#1b040d] to-black/70 border-amber-400/60 shadow-[0_0_20px_rgba(245,158,11,0.15)]'
+                                : 'bg-black/60 border-[#d4af37]/35 hover:border-[#d4af37]/60'
+                            }`}
+                          >
+                            <div className="space-y-2.5">
+                              {/* Top Code & Status Badge */}
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <span
+                                    className={`px-2.5 py-0.5 rounded font-mono font-bold text-xs inline-block border ${
+                                      ord.orderType === 'drinks'
+                                        ? 'bg-purple-500/20 text-purple-200 border-purple-400/40'
+                                        : 'bg-[#d4af37]/20 text-[#f3e5ab] border-[#d4af37]/40'
+                                    }`}
+                                  >
+                                    {ord.id}
+                                  </span>
+                                  <span className="text-[10px] text-gray-400 font-mono block mt-1">
+                                    Booked: {ord.createdAt}
+                                  </span>
+                                </div>
+
+                                <span
+                                  className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider border ${
+                                    ord.orderStatus === 'Picked Up'
+                                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
+                                      : ord.orderStatus === 'Delivered'
+                                      ? 'bg-sky-500/20 text-sky-300 border-sky-400/50'
+                                      : ord.orderStatus === 'Ready for Pickup'
+                                      ? 'bg-amber-500/25 text-amber-200 border-amber-400 animate-pulse'
+                                      : 'bg-white/10 text-[#f3e5ab] border-[#d4af37]/40'
+                                  }`}
+                                >
+                                  {ord.orderStatus}
+                                </span>
+                              </div>
+
+                              {/* Customer & Service Mode */}
+                              <div className="p-2.5 rounded-lg bg-white/[0.03] border border-white/10 space-y-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-bold text-white text-xs">{ord.guestName}</span>
+                                  <span className="font-mono font-bold text-xs text-[#d4af37]">
+                                    ₦{Number(ord.amount).toLocaleString()} ({ord.paymentStatus})
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-amber-300 font-medium flex items-center gap-1.5">
+                                  <Utensils size={11} />
+                                  <span>{ord.serviceLocation || 'Pickup at Main Reception Desk'}</span>
+                                </div>
+                                {ord.phone && (
+                                  <div className="text-[10px] text-gray-400 font-mono">
+                                    Phone: {ord.phone} {ord.email ? `• ${ord.email}` : ''}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Items Summary */}
+                              <div className="text-xs text-gray-200 space-y-1">
+                                <span className="text-[10px] font-mono uppercase tracking-wider text-gray-400 block">
+                                  Order Items ({ord.items?.reduce((s, i) => s + (i.qty || 1), 0) || 0}):
+                                </span>
+                                <div className="line-clamp-2 text-[11px] text-gray-200 font-medium">
+                                  {ord.items?.map((it) => `${it.qty}x ${it.name}`).join(', ')}
+                                </div>
+                                {ord.notes && (
+                                  <div className="text-[10px] text-amber-300 italic bg-amber-950/30 px-2 py-1 rounded border border-amber-500/20">
+                                    Note: {ord.notes}
+                                  </div>
+                                )}
+                              </div>
+
+                              {ord.fulfilledAt && (
+                                <div className="text-[10px] font-mono text-emerald-300 bg-emerald-950/30 border border-emerald-500/30 rounded-lg px-2.5 py-1">
+                                  ✓ {ord.orderStatus} at {ord.fulfilledAt} ({ord.fulfilledBy || 'Main Reception'})
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-1.5">
+                              <button
+                                onClick={() => setInspectedDiningOrder(ord)}
+                                className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[11px] font-semibold flex items-center gap-1 transition-all"
+                              >
+                                <Eye size={12} className="text-[#d4af37]" />
+                                <span>Inspect Info</span>
+                              </button>
+
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {ord.orderStatus !== 'Ready for Pickup' && !isCompleted && (
+                                  <button
+                                    onClick={() => {
+                                      portalStore.updateDiningOrderStatus(ord.id, 'Ready for Pickup', activeAccount?.name || 'Main Receptionist');
+                                      refreshData();
+                                      showToast(`Order ${ord.id} marked READY FOR PICKUP at Main Reception!`);
+                                    }}
+                                    className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/50 text-amber-200 text-[11px] font-bold transition-all"
+                                  >
+                                    Ready
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => {
+                                    portalStore.updateDiningOrderStatus(ord.id, 'Picked Up', activeAccount?.name || 'Main Receptionist');
+                                    refreshData();
+                                    showToast(`Order ${ord.id} marked PICKED UP from Main Reception!`);
+                                  }}
+                                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                                    ord.orderStatus === 'Picked Up'
+                                      ? 'bg-emerald-600 text-white shadow-md'
+                                      : 'bg-emerald-600/80 hover:bg-emerald-500 text-white'
+                                  }`}
+                                >
+                                  ✓ Picked Up
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    portalStore.updateDiningOrderStatus(ord.id, 'Delivered', activeAccount?.name || 'Main Receptionist');
+                                    refreshData();
+                                    showToast(`Order ${ord.id} marked DELIVERED!`);
+                                  }}
+                                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                                    ord.orderStatus === 'Delivered'
+                                      ? 'bg-sky-600 text-white shadow-md'
+                                      : 'bg-sky-600/80 hover:bg-sky-500 text-white'
+                                  }`}
+                                >
+                                  ✓ Delivered
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Filter Pills */}
             <div className="flex flex-wrap items-center gap-2">
               {[
@@ -1825,7 +2101,7 @@ export default function ReceptionPortal({ onNavigate }) {
                           <select
                             value={ord.orderStatus}
                             onChange={(e) => {
-                              portalStore.updateDiningOrderStatus(ord.id, e.target.value);
+                              portalStore.updateDiningOrderStatus(ord.id, e.target.value, activeAccount?.name || 'Main Receptionist');
                               refreshData();
                               showToast(`Order ${ord.id} marked ${e.target.value}`);
                             }}
@@ -1833,26 +2109,74 @@ export default function ReceptionPortal({ onNavigate }) {
                           >
                             <option value="Confirmed">Confirmed</option>
                             <option value="Preparing">Preparing</option>
+                            <option value="Ready for Pickup">Ready for Pickup</option>
+                            <option value="Picked Up">Picked Up</option>
                             <option value="Delivered">Delivered</option>
                             <option value="Cancelled">Cancelled</option>
                           </select>
+                          {ord.fulfilledAt && (
+                            <span className="text-[9px] text-emerald-400 font-mono block mt-1">
+                              ✓ {ord.orderStatus} • {ord.fulfilledAt}
+                            </span>
+                          )}
                         </td>
 
                         <td className="py-3.5 px-4 text-right">
-                          {ord.paymentStatus !== 'Paid' && ord.orderStatus !== 'Cancelled' ? (
+                          <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                            <button
+                              onClick={() => setInspectedDiningOrder(ord)}
+                              className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[10px] font-semibold flex items-center gap-1 transition-all"
+                              title="Inspect Order Details"
+                            >
+                              <Eye size={11} className="text-[#d4af37]" />
+                              <span>Info</span>
+                            </button>
+
                             <button
                               onClick={() => {
-                                portalStore.settleSingleDiningOrder(ord.id, 'POS Terminal (Front Desk)');
+                                portalStore.updateDiningOrderStatus(ord.id, 'Picked Up', activeAccount?.name || 'Main Receptionist');
                                 refreshData();
-                                showToast(`Order ${ord.id} settled & marked PAID!`);
+                                showToast(`Order ${ord.id} marked PICKED UP!`);
                               }}
-                              className="px-3 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white text-[11px] font-bold transition-all"
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                                ord.orderStatus === 'Picked Up'
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-emerald-600/25 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40'
+                              }`}
                             >
-                              Mark Paid (POS)
+                              Picked Up
                             </button>
-                          ) : (
-                            <span className="text-[11px] font-mono text-emerald-400 font-semibold">Settled</span>
-                          )}
+
+                            <button
+                              onClick={() => {
+                                portalStore.updateDiningOrderStatus(ord.id, 'Delivered', activeAccount?.name || 'Main Receptionist');
+                                refreshData();
+                                showToast(`Order ${ord.id} marked DELIVERED!`);
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                                ord.orderStatus === 'Delivered'
+                                  ? 'bg-sky-600 text-white'
+                                  : 'bg-sky-600/25 hover:bg-sky-600 text-sky-300 hover:text-white border border-sky-500/40'
+                              }`}
+                            >
+                              Delivered
+                            </button>
+
+                            {ord.paymentStatus !== 'Paid' && ord.orderStatus !== 'Cancelled' ? (
+                              <button
+                                onClick={() => {
+                                  portalStore.settleSingleDiningOrder(ord.id, 'POS Terminal (Front Desk)');
+                                  refreshData();
+                                  showToast(`Order ${ord.id} settled & marked PAID!`);
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-amber-600/80 hover:bg-amber-600 text-white text-[10px] font-bold transition-all"
+                              >
+                                Mark Paid
+                              </button>
+                            ) : (
+                              <span className="text-[10px] font-mono text-emerald-400 font-semibold px-1.5">Settled</span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -2724,6 +3048,167 @@ export default function ReceptionPortal({ onNavigate }) {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 11. INSPECTED FOOD / DRINK ORDER HANDOVER MODAL */}
+      {/* ======================================================== */}
+      {inspectedDiningOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/85 backdrop-blur-md"
+            onClick={() => setInspectedDiningOrder(null)}
+          />
+          <div className="relative z-10 w-full max-w-xl rounded-2xl bg-gradient-to-b from-[#220410] via-[#15020a] to-[#0d0106] border border-[#d4af37]/50 p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3.5">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded font-mono font-bold text-xs bg-[#d4af37]/20 text-[#f3e5ab] border border-[#d4af37]/40">
+                    {inspectedDiningOrder.id}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
+                    Status: {inspectedDiningOrder.orderStatus}
+                  </span>
+                </div>
+                <h3 className="font-cinzel font-bold text-lg text-white mt-1.5">
+                  Food & Drink Order Verification & Handover
+                </h3>
+                <p className="text-xs text-gray-400">
+                  Booked {inspectedDiningOrder.createdAt} • {inspectedDiningOrder.serviceLocation || (inspectedDiningOrder.roomNumber ? `Suite #${inspectedDiningOrder.roomNumber}` : 'Pickup at Main Reception Desk')}
+                </p>
+              </div>
+              <button
+                onClick={() => setInspectedDiningOrder(null)}
+                className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Guest Info */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-black/50 border border-white/10 text-xs">
+              <div>
+                <span className="text-[10px] font-mono uppercase text-gray-400 block">Customer Name</span>
+                <span className="font-bold text-white text-sm">{inspectedDiningOrder.guestName}</span>
+              </div>
+              <div>
+                <span className="text-[10px] font-mono uppercase text-gray-400 block">Collection / Service Mode</span>
+                <span className="font-semibold text-amber-300">
+                  {inspectedDiningOrder.roomNumber
+                    ? `In-Room Suite #${inspectedDiningOrder.roomNumber} (${inspectedDiningOrder.bookingId})`
+                    : inspectedDiningOrder.serviceLocation || 'Pickup at Main Building Reception Desk'}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] font-mono uppercase text-gray-400 block">Phone / Contact</span>
+                <span className="font-mono text-gray-200">{inspectedDiningOrder.phone || 'Walk-in / Counter'}</span>
+              </div>
+              <div>
+                <span className="text-[10px] font-mono uppercase text-gray-400 block">Payment & Method</span>
+                <span className="font-mono font-bold text-emerald-400">
+                  {inspectedDiningOrder.paymentStatus} • {inspectedDiningOrder.paymentMethod}
+                </span>
+              </div>
+            </div>
+
+            {/* Items Breakdown */}
+            <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 space-y-2">
+              <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#d4af37] font-bold">
+                  Ordered Items ({inspectedDiningOrder.items?.length || 0})
+                </span>
+                <span className="font-mono font-bold text-sm text-[#f3e5ab]">
+                  Total: ₦{Number(inspectedDiningOrder.amount).toLocaleString()}
+                </span>
+              </div>
+              <div className="divide-y divide-white/5 max-h-48 overflow-y-auto">
+                {inspectedDiningOrder.items?.map((it, idx) => (
+                  <div key={idx} className="py-2 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-semibold text-white">{it.qty}x {it.name}</span>
+                      {it.category && (
+                        <span className="text-[10px] text-gray-400 font-mono block">{it.category}</span>
+                      )}
+                    </div>
+                    <span className="font-mono text-[#f3e5ab]">
+                      ₦{(Number(it.price) * Number(it.qty || 1)).toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {inspectedDiningOrder.notes && (
+                <div className="p-2.5 rounded-lg bg-amber-950/30 border border-amber-500/30 text-xs text-amber-200">
+                  <span className="font-bold">Special Note: </span>{inspectedDiningOrder.notes}
+                </div>
+              )}
+            </div>
+
+            {inspectedDiningOrder.fulfilledAt && (
+              <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/40 text-xs text-emerald-200 flex items-center justify-between">
+                <span>
+                  ✓ Handover Recorded: <strong>{inspectedDiningOrder.orderStatus}</strong> ({inspectedDiningOrder.fulfillmentMode || 'Main Reception'})
+                </span>
+                <span className="font-mono text-[11px]">{inspectedDiningOrder.fulfilledAt}</span>
+              </div>
+            )}
+
+            {/* Handover Action Buttons */}
+            <div className="pt-2 border-t border-white/10 space-y-2">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400 block">
+                Main Receptionist Dispatch & Collection Actions:
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <button
+                  onClick={() => {
+                    const updated = portalStore.updateDiningOrderStatus(
+                      inspectedDiningOrder.id,
+                      'Ready for Pickup',
+                      activeAccount?.name || 'Main Receptionist'
+                    );
+                    setInspectedDiningOrder(updated);
+                    refreshData();
+                    showToast(`Order ${inspectedDiningOrder.id} marked READY FOR PICKUP!`);
+                  }}
+                  className="py-2.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/50 text-amber-200 text-xs font-bold transition-all"
+                >
+                  Bell • Ready for Pickup
+                </button>
+
+                <button
+                  onClick={() => {
+                    const updated = portalStore.updateDiningOrderStatus(
+                      inspectedDiningOrder.id,
+                      'Picked Up',
+                      activeAccount?.name || 'Main Receptionist'
+                    );
+                    setInspectedDiningOrder(updated);
+                    refreshData();
+                    showToast(`Order ${inspectedDiningOrder.id} marked PICKED UP by customer!`);
+                  }}
+                  className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg transition-all"
+                >
+                  ✓ Customer Picked Up
+                </button>
+
+                <button
+                  onClick={() => {
+                    const updated = portalStore.updateDiningOrderStatus(
+                      inspectedDiningOrder.id,
+                      'Delivered',
+                      activeAccount?.name || 'Main Receptionist'
+                    );
+                    setInspectedDiningOrder(updated);
+                    refreshData();
+                    showToast(`Order ${inspectedDiningOrder.id} marked DELIVERED!`);
+                  }}
+                  className="py-2.5 px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-lg transition-all"
+                >
+                  ✓ Order Delivered
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

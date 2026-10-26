@@ -3662,22 +3662,51 @@ export const portalStore = {
     return updated;
   },
 
-  updateDiningOrderStatus(orderId, newOrderStatus) {
+  updateDiningOrderStatus(orderId, newOrderStatus, fulfilledBy = '') {
     const target = String(orderId || '').trim().toUpperCase();
     const orders = this.getDiningOrders();
+    const currentStaff = this.getCurrentUser();
+    const staffLabel = fulfilledBy || currentStaff?.name || 'Main Building Receptionist';
+    const nowStr = new Date().toLocaleString();
+
     const updated = orders.map(o => {
       if (String(o.id || '').trim().toUpperCase() === target) {
+        const isCompleted = ['Picked Up', 'Delivered', 'Delivered to Suite'].includes(newOrderStatus);
         return {
           ...o,
-          orderStatus: newOrderStatus
+          orderStatus: newOrderStatus,
+          statusUpdatedAt: nowStr,
+          ...(isCompleted
+            ? {
+                fulfilledAt: nowStr,
+                fulfilledBy: staffLabel,
+                fulfillmentMode: newOrderStatus === 'Picked Up' ? 'Picked Up at Main Reception' : 'Delivered'
+              }
+            : {})
         };
       }
       return o;
     });
     setLocalItem(STORAGE_KEYS.DINING_ORDERS, updated);
-    this.logActivity(`Order ${orderId} status updated to '${newOrderStatus}'`);
+    this.logActivity(`Order ${orderId} status updated to '${newOrderStatus}' by ${staffLabel}`);
     this._broadcastDiningOrdersUpdate(updated, null);
     return updated;
+  },
+
+  setTrackedDiningOrderCode(code) {
+    if (typeof window === 'undefined') return;
+    const clean = String(code || '').trim().toUpperCase();
+    if (clean) {
+      localStorage.setItem('ash_tracked_dining_code', clean);
+    } else {
+      localStorage.removeItem('ash_tracked_dining_code');
+    }
+    window.dispatchEvent(new CustomEvent('ash_tracked_dining_code_changed', { detail: { code: clean } }));
+  },
+
+  getTrackedDiningOrderCode() {
+    if (typeof window === 'undefined') return '';
+    return localStorage.getItem('ash_tracked_dining_code') || '';
   },
 
   _broadcastDiningOrdersUpdate(updatedOrders, newOrder = null) {

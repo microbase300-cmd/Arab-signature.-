@@ -14,6 +14,7 @@ import AboutPage from './pages/AboutPage';
 import SuitesPage from './pages/SuitesPage';
 import AmenitiesPage from './pages/AmenitiesPage';
 import DiningPage from './pages/DiningPage';
+import FoodDrinkOrderTrackerPage from './pages/FoodDrinkOrderTrackerPage';
 import GalleryPage from './pages/GalleryPage';
 import ContactPage from './pages/ContactPage';
 
@@ -125,8 +126,14 @@ export default function App() {
         return;
       }
 
+      // Dedicated Food & Drink Order Tracking Page (#track-order, #order-status)
+      if (['track-order', 'order-status', 'food-order'].includes(rawHash)) {
+        setCurrentPage('track-order');
+        return;
+      }
+
       // Public multi-page views
-      const validPages = ['about', 'suites', 'amenities', 'dining', 'gallery', 'contact', 'guest-portal'];
+      const validPages = ['about', 'suites', 'amenities', 'dining', 'gallery', 'contact', 'guest-portal', 'track-order'];
       if (validPages.includes(rawHash)) {
         setCurrentPage(rawHash);
       } else {
@@ -185,6 +192,8 @@ export default function App() {
         return <AmenitiesPage onNavigate={handleNavigate} onOpenBooking={handleOpenBooking} />;
       case 'dining':
         return <DiningPage onNavigate={handleNavigate} onOpenBooking={handleOpenBooking} />;
+      case 'track-order':
+        return <FoodDrinkOrderTrackerPage onNavigate={handleNavigate} />;
       case 'gallery':
         return <GalleryPage onNavigate={handleNavigate} onOpenBooking={handleOpenBooking} />;
       case 'contact':

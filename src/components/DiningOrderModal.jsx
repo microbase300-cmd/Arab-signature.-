@@ -33,7 +33,7 @@ export default function DiningOrderModal({
   const [guestName, setGuestName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
-  const [serviceLocation, setServiceLocation] = useState('Al-Sultan Dining Hall');
+  const [serviceLocation, setServiceLocation] = useState('Pickup at Main Building Reception Desk');
   const [walkinPaymentChoice, setWalkinPaymentChoice] = useState('paystack'); // 'paystack' | 'counter_pos'
   const [orderNotes, setOrderNotes] = useState('');
 
@@ -159,6 +159,9 @@ export default function DiningOrderModal({
         };
 
     const result = portalStore.placeCombinedCartOrder(normalizedItems, meta);
+    if (result?.createdOrders?.[0]?.id) {
+      portalStore.setTrackedDiningOrderCode(result.createdOrders[0].id);
+    }
     setCompletedResult(result);
     setIsProcessing(false);
     if (onClearCart) onClearCart();
@@ -474,7 +477,20 @@ export default function DiningOrderModal({
                   </a>
                 </div>
 
-                <div className="flex items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {onNavigate && completedResult.createdOrders[0]?.id && (
+                    <button
+                      onClick={() => {
+                        portalStore.setTrackedDiningOrderCode(completedResult.createdOrders[0].id);
+                        handleCloseAll();
+                        onNavigate('track-order');
+                      }}
+                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 shadow-lg"
+                    >
+                      <Sparkles size={14} />
+                      <span>Track Order Status Page</span>
+                    </button>
+                  )}
                   {completedResult.createdOrders[0]?.bookingId && onNavigate && (
                     <button
                       onClick={() => {
@@ -884,7 +900,7 @@ export default function DiningOrderModal({
                     </div>
 
                     <div>
-                      <label className="text-[11px] font-mono text-gray-300 block mb-1">Service Spot / Table</label>
+                      <label className="text-[11px] font-mono text-gray-300 block mb-1">Pickup or Dining Mode</label>
                       <div className="relative">
                         <MapPin size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#d4af37]" />
                         <select
@@ -892,10 +908,10 @@ export default function DiningOrderModal({
                           onChange={(e) => setServiceLocation(e.target.value)}
                           className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-black/80 border border-white/15 text-xs text-white focus:outline-none focus:border-[#d4af37]"
                         >
-                          <option value="Al-Sultan Dining Hall">Al-Sultan Dining Hall (Dine-In)</option>
+                          <option value="Pickup at Main Building Reception Desk">Pickup at Main Building Reception Desk</option>
+                          <option value="Al-Sultan Dining Hall (Dine-In)">Al-Sultan Dining Hall (Dine-In)</option>
                           <option value="VIP Executive Bar Lounge">VIP Executive Bar Lounge</option>
                           <option value="Poolside VIP Cabana">Poolside VIP Cabana</option>
-                          <option value="Takeout / Express Counter Pickup">Takeout / Express Counter Pickup</option>
                         </select>
                       </div>
                     </div>
