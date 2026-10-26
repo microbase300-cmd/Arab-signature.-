@@ -40,6 +40,12 @@ export default function ReceptionPortal({ onNavigate }) {
   const [inspectedDiningOrder, setInspectedDiningOrder] = useState(null);
   const [feedbackMsg, setFeedbackMsg] = useState('');
 
+  // Front Desk Order Code Lookup & Instant Handover Confirmation
+  const [orderCodeInput, setOrderCodeInput] = useState('');
+  const [verifiedOrder, setVerifiedOrder] = useState(null);
+  const [orderLookupError, setOrderLookupError] = useState('');
+  const [isOrderLookupModalOpen, setIsOrderLookupModalOpen] = useState(false);
+
   // Front Desk Intercom Chat State
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
@@ -433,6 +439,42 @@ export default function ReceptionPortal({ onNavigate }) {
     setTimeout(() => setFeedbackMsg(''), 4000);
   };
 
+  // Dedicated Front Desk Order Code Lookup & Verification
+  const handleLookupOrderCode = (e, explicitCode = null) => {
+    if (e) e.preventDefault();
+    const query = String(explicitCode !== null ? explicitCode : orderCodeInput).trim().toUpperCase();
+    if (!query) {
+      setOrderLookupError('Please enter a valid order code (e.g. ARB-FDD-XXXXX or ARB-DRK-XXXXX).');
+      setVerifiedOrder(null);
+      return;
+    }
+
+    const clean = query.replace(/[^A-Z0-9]/g, '');
+    const found = diningOrders.find((o) => {
+      const oId = String(o.id || '').toUpperCase();
+      return oId === query || oId.replace(/[^A-Z0-9]/g, '') === clean;
+    });
+
+    if (found) {
+      setVerifiedOrder(found);
+      setOrderLookupError('');
+      showToast(`Order ${found.id} verified for ${found.guestName}!`);
+    } else {
+      setVerifiedOrder(null);
+      setOrderLookupError(`No order found matching code "${query}". Please check the customer's phone or order receipt.`);
+    }
+  };
+
+  const handleQuickConfirmOrder = (orderId, newStatus) => {
+    portalStore.updateDiningOrderStatus(orderId, newStatus, currentUser?.name || 'Main Receptionist');
+    refreshData();
+    const freshOrder = portalStore.getDiningOrderByCode(orderId);
+    if (freshOrder) {
+      setVerifiedOrder(freshOrder);
+    }
+    showToast(`Order ${orderId} marked ${newStatus.toUpperCase()}!`);
+  };
+
   // Logout handler
   const handleLogout = () => {
     portalStore.logout();
@@ -752,6 +794,25 @@ export default function ReceptionPortal({ onNavigate }) {
             >
               <Key size={14} className="stroke-[2.5]" />
               <span>Counter Booking & Code</span>
+            </button>
+
+            {/* Quick Order Code Verification Trigger */}
+            <button
+              onClick={() => {
+                setIsOrderLookupModalOpen(true);
+                setOrderLookupError('');
+              }}
+              className="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 text-[#f3e5ab] font-bold text-xs border border-amber-400/50 flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+              title="Enter Customer Food / Drink Code (ARB-FDD / ARB-DRK) to Confirm Handover"
+            >
+              <Search size={14} className="text-[#d4af37]" />
+              <span className="hidden sm:inline">Confirm Order Code</span>
+              <span className="sm:hidden">Order Code</span>
+              {diningOrders.filter(isOutsideRoomOrder).filter(o => o.orderStatus !== 'Picked Up' && o.orderStatus !== 'Delivered' && o.orderStatus !== 'Cancelled').length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-amber-400 text-black text-[9px] font-mono font-extrabold animate-pulse">
+                  {diningOrders.filter(isOutsideRoomOrder).filter(o => o.orderStatus !== 'Picked Up' && o.orderStatus !== 'Delivered' && o.orderStatus !== 'Cancelled').length}
+                </span>
+              )}
             </button>
 
             {/* View Dining Menu Prices (Read-Only Front Desk) */}
@@ -1784,6 +1845,237 @@ export default function ReceptionPortal({ onNavigate }) {
                 <Plus size={14} />
                 <span>Counter Food / Drink Order</span>
               </button>
+            </div>
+
+            {/* ======================================================== */}
+            {/* DEDICATED ORDER CODE ENTRY & CONFIRMATION DESK */}
+            {/* ======================================================== */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#2c0516] via-[#1b030e] to-[#120208] border-2 border-[#d4af37]/60 shadow-2xl space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 border-b border-white/10 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-[#5c0725] border border-[#d4af37]/50 text-[#d4af37] shadow">
+                    <Key size={20} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#d4af37]/20 border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] font-mono uppercase tracking-widest font-bold">
+                        Front Desk Order Verification
+                      </span>
+                      <span className="text-[11px] text-gray-400 font-mono">
+                        Supports ARB-FDD-* (Food) & ARB-DRK-* (Drinks)
+                      </span>
+                    </div>
+                    <h4 className="font-cinzel font-bold text-base sm:text-lg text-white mt-0.5">
+                      Enter Customer Order Code to Confirm & Hand Over
+                    </h4>
+                  </div>
+                </div>
+
+                <div className="text-xs text-gray-300 max-w-sm">
+                  Ask the customer for their booking code when they arrive at the counter, enter it below to pull up order details, then click <strong className="text-emerald-300">✓ Customer Picked Up</strong>.
+                </div>
+              </div>
+
+              {/* Input Form */}
+              <form onSubmit={handleLookupOrderCode} className="flex flex-col sm:flex-row gap-2.5">
+                <div className="relative flex-1">
+                  <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#d4af37]" />
+                  <input
+                    type="text"
+                    value={orderCodeInput}
+                    onChange={(e) => {
+                      setOrderCodeInput(e.target.value);
+                      setOrderLookupError('');
+                    }}
+                    placeholder="ENTER ORDER CODE, E.G. ARB-FDD-784920-AB OR ARB-DRK-102938-XY"
+                    className="w-full pl-11 pr-10 py-3 rounded-xl bg-black/85 border-2 border-[#d4af37]/40 focus:border-[#d4af37] text-sm text-white placeholder-gray-500 font-mono tracking-wider uppercase transition-all outline-none shadow-inner"
+                  />
+                  {orderCodeInput && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOrderCodeInput('');
+                        setVerifiedOrder(null);
+                        setOrderLookupError('');
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] hover:brightness-110 active:scale-98 text-black text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer whitespace-nowrap"
+                >
+                  <CheckCircle2 size={16} className="text-black stroke-[2.5]" />
+                  <span>Verify Order Code</span>
+                </button>
+              </form>
+
+              {/* Quick Select Chips */}
+              {diningOrders.filter(isOutsideRoomOrder).length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                  <span className="text-[11px] font-mono text-gray-400">Quick Select Pickup Order:</span>
+                  {diningOrders.filter(isOutsideRoomOrder).slice(0, 6).map((ord) => (
+                    <button
+                      key={ord.id}
+                      type="button"
+                      onClick={() => {
+                        setOrderCodeInput(ord.id);
+                        handleLookupOrderCode(null, ord.id);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono text-[#f3e5ab] flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <span className="font-bold">{ord.id}</span>
+                      <span className="text-gray-400 font-sans">({ord.guestName.split(' ')[0]})</span>
+                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-mono ${ord.orderStatus === 'Picked Up' ? 'bg-emerald-950 text-emerald-300' : 'bg-amber-950 text-amber-300'}`}>
+                        {ord.orderStatus}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Error Message */}
+              {orderLookupError && (
+                <div className="p-3.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs flex items-center gap-2 animate-in fade-in">
+                  <AlertCircle size={16} className="text-rose-400 flex-shrink-0" />
+                  <span>{orderLookupError}</span>
+                </div>
+              )}
+
+              {/* Instant Verified Order Handover Card */}
+              {verifiedOrder && (
+                <div className="p-4 sm:p-5 rounded-xl bg-black/80 border-2 border-emerald-500/50 shadow-2xl space-y-3.5 animate-in fade-in">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`px-2.5 py-0.5 rounded font-mono font-bold text-xs border ${
+                        verifiedOrder.orderType === 'drinks' ? 'bg-purple-500/20 text-purple-200 border-purple-400/40' : 'bg-[#d4af37]/20 text-[#f3e5ab] border-[#d4af37]/40'
+                      }`}>
+                        {verifiedOrder.id}
+                      </span>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase border ${
+                        verifiedOrder.orderStatus === 'Picked Up'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400'
+                          : verifiedOrder.orderStatus === 'Delivered'
+                          ? 'bg-sky-500/20 text-sky-300 border-sky-400'
+                          : verifiedOrder.orderStatus === 'Ready for Pickup'
+                          ? 'bg-amber-500/20 text-amber-200 border-amber-400 animate-pulse'
+                          : 'bg-white/10 text-gray-200 border-white/20'
+                      }`}>
+                        Status: {verifiedOrder.orderStatus}
+                      </span>
+                      <span className="text-xs text-gray-400 font-mono">
+                        Booked: {verifiedOrder.createdAt}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => setInspectedDiningOrder(verifiedOrder)}
+                      className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold flex items-center gap-1.5 self-start sm:self-auto transition-all cursor-pointer"
+                    >
+                      <Eye size={13} className="text-[#d4af37]" />
+                      <span>Full Order Slip</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div className="p-3 rounded-lg bg-white/[0.03] border border-white/10">
+                      <span className="text-[10px] font-mono uppercase text-gray-400 block">Customer Information</span>
+                      <div className="font-bold text-white text-sm mt-0.5">{verifiedOrder.guestName}</div>
+                      <div className="text-gray-300 text-xs font-mono mt-0.5">Phone: {verifiedOrder.phone || 'Counter walk-in'}</div>
+                      {verifiedOrder.email && <div className="text-gray-400 text-[10px] truncate">{verifiedOrder.email}</div>}
+                    </div>
+
+                    <div className="p-3 rounded-lg bg-white/[0.03] border border-white/10">
+                      <span className="text-[10px] font-mono uppercase text-gray-400 block">Collection / Destination</span>
+                      <div className="font-semibold text-amber-300 mt-0.5 flex items-center gap-1.5">
+                        <Utensils size={13} />
+                        <span>{verifiedOrder.serviceLocation || 'Pickup at Main Reception Desk'}</span>
+                      </div>
+                      <div className="text-gray-400 text-[11px] font-mono mt-1">
+                        {verifiedOrder.isOutsideRoom ? 'Outside-Room Customer' : `Room Guest • Suite #${verifiedOrder.roomNumber}`}
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-lg bg-white/[0.03] border border-white/10">
+                      <span className="text-[10px] font-mono uppercase text-gray-400 block">Payment & Bill</span>
+                      <div className="font-bold text-[#d4af37] font-mono text-base mt-0.5">
+                        ₦{Number(verifiedOrder.amount).toLocaleString()}
+                      </div>
+                      <span className={`text-[10px] font-bold ${verifiedOrder.paymentStatus === 'Paid' ? 'text-emerald-400' : 'text-amber-300'}`}>
+                        ● {verifiedOrder.paymentStatus} ({verifiedOrder.paymentMethod})
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Items summary */}
+                  <div className="p-3 rounded-lg bg-black/50 border border-white/10 text-xs">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#d4af37] font-bold block mb-1">
+                      Ordered Items:
+                    </span>
+                    <div className="text-gray-200 font-medium">
+                      {(verifiedOrder.items || []).map((it) => `${it.qty}x ${it.name}`).join(' • ')}
+                    </div>
+                    {verifiedOrder.notes && (
+                      <div className="text-[11px] text-amber-300 italic mt-1">
+                        Customer Note: {verifiedOrder.notes}
+                      </div>
+                    )}
+                  </div>
+
+                  {verifiedOrder.fulfilledAt && (
+                    <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-300 font-mono">
+                      ✓ Handover Recorded: {verifiedOrder.orderStatus} at {verifiedOrder.fulfilledAt} ({verifiedOrder.fulfilledBy || 'Main Reception'})
+                    </div>
+                  )}
+
+                  {/* Instant Confirmation Buttons */}
+                  <div className="pt-2 border-t border-white/10 space-y-2">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#f3e5ab] font-bold block">
+                      Main Receptionist Handover Actions:
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Picked Up')}
+                        className={`py-3 px-4 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer ${
+                          verifiedOrder.orderStatus === 'Picked Up'
+                            ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
+                            : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                        }`}
+                      >
+                        <CheckCircle2 size={16} />
+                        <span>✓ Customer Picked Up</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Delivered')}
+                        className={`py-3 px-4 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer ${
+                          verifiedOrder.orderStatus === 'Delivered'
+                            ? 'bg-sky-600 text-white ring-2 ring-sky-400'
+                            : 'bg-sky-600 hover:bg-sky-500 text-white'
+                        }`}
+                      >
+                        <Check size={16} />
+                        <span>✓ Mark Delivered</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Ready for Pickup')}
+                        className="py-3 px-4 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/50 text-amber-200 text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer"
+                      >
+                        <BellRing size={15} />
+                        <span>Ready for Pickup</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* MAIN RECEPTIONIST DEDICATED PICKUP & OUTSIDE-ROOM DINING DISPATCH SPACE */}
@@ -3055,160 +3347,191 @@ export default function ReceptionPortal({ onNavigate }) {
       {/* ======================================================== */}
       {/* 11. INSPECTED FOOD / DRINK ORDER HANDOVER MODAL */}
       {/* ======================================================== */}
-      {inspectedDiningOrder && (
+      {/* ======================================================== */}
+      {/* 12. QUICK FRONT DESK ORDER CODE LOOKUP & CONFIRMATION MODAL */}
+      {/* ======================================================== */}
+      {isOrderLookupModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/85 backdrop-blur-md"
-            onClick={() => setInspectedDiningOrder(null)}
+            onClick={() => setIsOrderLookupModalOpen(false)}
           />
-          <div className="relative z-10 w-full max-w-xl rounded-2xl bg-gradient-to-b from-[#220410] via-[#15020a] to-[#0d0106] border border-[#d4af37]/50 p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-gradient-to-b from-[#220410] via-[#15020a] to-[#0d0106] border-2 border-[#d4af37]/60 p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3.5">
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-2.5 py-0.5 rounded font-mono font-bold text-xs bg-[#d4af37]/20 text-[#f3e5ab] border border-[#d4af37]/40">
-                    {inspectedDiningOrder.id}
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
-                    Status: {inspectedDiningOrder.orderStatus}
-                  </span>
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-[#5c0725] border border-[#d4af37]/50 text-[#d4af37] shadow">
+                  <Key size={20} />
                 </div>
-                <h3 className="font-cinzel font-bold text-lg text-white mt-1.5">
-                  Food & Drink Order Verification & Handover
-                </h3>
-                <p className="text-xs text-gray-400">
-                  Booked {inspectedDiningOrder.createdAt} • {inspectedDiningOrder.serviceLocation || (inspectedDiningOrder.roomNumber ? `Suite #${inspectedDiningOrder.roomNumber}` : 'Pickup at Main Reception Desk')}
-                </p>
+                <div>
+                  <h3 className="font-cinzel font-bold text-lg text-white">
+                    Front Desk Order Code Verification
+                  </h3>
+                  <p className="text-xs text-gray-400">
+                    Enter customer's food (ARB-FDD-*) or drink (ARB-DRK-*) code to verify and confirm handover
+                  </p>
+                </div>
               </div>
               <button
-                onClick={() => setInspectedDiningOrder(null)}
+                onClick={() => setIsOrderLookupModalOpen(false)}
                 className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white"
               >
                 <X size={16} />
               </button>
             </div>
 
-            {/* Guest Info */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-black/50 border border-white/10 text-xs">
-              <div>
-                <span className="text-[10px] font-mono uppercase text-gray-400 block">Customer Name</span>
-                <span className="font-bold text-white text-sm">{inspectedDiningOrder.guestName}</span>
+            {/* Input Form */}
+            <form onSubmit={handleLookupOrderCode} className="flex flex-col sm:flex-row gap-2.5">
+              <div className="relative flex-1">
+                <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#d4af37]" />
+                <input
+                  type="text"
+                  autoFocus
+                  value={orderCodeInput}
+                  onChange={(e) => {
+                    setOrderCodeInput(e.target.value);
+                    setOrderLookupError('');
+                  }}
+                  placeholder="ENTER ORDER CODE, E.G. ARB-FDD-784920-AB"
+                  className="w-full pl-11 pr-10 py-3 rounded-xl bg-black/85 border-2 border-[#d4af37]/40 focus:border-[#d4af37] text-sm text-white placeholder-gray-500 font-mono tracking-wider uppercase transition-all outline-none"
+                />
+                {orderCodeInput && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOrderCodeInput('');
+                      setVerifiedOrder(null);
+                      setOrderLookupError('');
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
               </div>
-              <div>
-                <span className="text-[10px] font-mono uppercase text-gray-400 block">Collection / Service Mode</span>
-                <span className="font-semibold text-amber-300">
-                  {inspectedDiningOrder.roomNumber
-                    ? `In-Room Suite #${inspectedDiningOrder.roomNumber} (${inspectedDiningOrder.bookingId})`
-                    : inspectedDiningOrder.serviceLocation || 'Pickup at Main Building Reception Desk'}
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] font-mono uppercase text-gray-400 block">Phone / Contact</span>
-                <span className="font-mono text-gray-200">{inspectedDiningOrder.phone || 'Walk-in / Counter'}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-mono uppercase text-gray-400 block">Payment & Method</span>
-                <span className="font-mono font-bold text-emerald-400">
-                  {inspectedDiningOrder.paymentStatus} • {inspectedDiningOrder.paymentMethod}
-                </span>
-              </div>
-            </div>
 
-            {/* Items Breakdown */}
-            <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 space-y-2">
-              <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#d4af37] font-bold">
-                  Ordered Items ({inspectedDiningOrder.items?.length || 0})
-                </span>
-                <span className="font-mono font-bold text-sm text-[#f3e5ab]">
-                  Total: ₦{Number(inspectedDiningOrder.amount).toLocaleString()}
-                </span>
-              </div>
-              <div className="divide-y divide-white/5 max-h-48 overflow-y-auto">
-                {inspectedDiningOrder.items?.map((it, idx) => (
-                  <div key={idx} className="py-2 flex items-center justify-between text-xs">
-                    <div>
-                      <span className="font-semibold text-white">{it.qty}x {it.name}</span>
-                      {it.category && (
-                        <span className="text-[10px] text-gray-400 font-mono block">{it.category}</span>
-                      )}
-                    </div>
-                    <span className="font-mono text-[#f3e5ab]">
-                      ₦{(Number(it.price) * Number(it.qty || 1)).toLocaleString()}
-                    </span>
-                  </div>
+              <button
+                type="submit"
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] hover:brightness-110 active:scale-98 text-black text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer whitespace-nowrap"
+              >
+                <CheckCircle2 size={16} className="text-black" />
+                <span>Verify Code</span>
+              </button>
+            </form>
+
+            {/* Quick Chips */}
+            {diningOrders.filter(isOutsideRoomOrder).length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                <span className="text-[11px] font-mono text-gray-400">Waiting for Pickup:</span>
+                {diningOrders.filter(isOutsideRoomOrder).slice(0, 5).map((ord) => (
+                  <button
+                    key={ord.id}
+                    type="button"
+                    onClick={() => {
+                      setOrderCodeInput(ord.id);
+                      handleLookupOrderCode(null, ord.id);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono text-[#f3e5ab] flex items-center gap-1.5 transition-all"
+                  >
+                    <span className="font-bold">{ord.id}</span>
+                    <span className="text-gray-400 font-sans">({ord.guestName.split(' ')[0]})</span>
+                  </button>
                 ))}
-              </div>
-              {inspectedDiningOrder.notes && (
-                <div className="p-2.5 rounded-lg bg-amber-950/30 border border-amber-500/30 text-xs text-amber-200">
-                  <span className="font-bold">Special Note: </span>{inspectedDiningOrder.notes}
-                </div>
-              )}
-            </div>
-
-            {inspectedDiningOrder.fulfilledAt && (
-              <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/40 text-xs text-emerald-200 flex items-center justify-between">
-                <span>
-                  ✓ Handover Recorded: <strong>{inspectedDiningOrder.orderStatus}</strong> ({inspectedDiningOrder.fulfillmentMode || 'Main Reception'})
-                </span>
-                <span className="font-mono text-[11px]">{inspectedDiningOrder.fulfilledAt}</span>
               </div>
             )}
 
-            {/* Handover Action Buttons */}
-            <div className="pt-2 border-t border-white/10 space-y-2">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400 block">
-                Main Receptionist Dispatch & Collection Actions:
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <button
-                  onClick={() => {
-                    const updated = portalStore.updateDiningOrderStatus(
-                      inspectedDiningOrder.id,
-                      'Ready for Pickup',
-                      currentUser?.name || 'Main Receptionist'
-                    );
-                    setInspectedDiningOrder(updated);
-                    refreshData();
-                    showToast(`Order ${inspectedDiningOrder.id} marked READY FOR PICKUP!`);
-                  }}
-                  className="py-2.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/50 text-amber-200 text-xs font-bold transition-all"
-                >
-                  Bell • Ready for Pickup
-                </button>
-
-                <button
-                  onClick={() => {
-                    const updated = portalStore.updateDiningOrderStatus(
-                      inspectedDiningOrder.id,
-                      'Picked Up',
-                      currentUser?.name || 'Main Receptionist'
-                    );
-                    setInspectedDiningOrder(updated);
-                    refreshData();
-                    showToast(`Order ${inspectedDiningOrder.id} marked PICKED UP by customer!`);
-                  }}
-                  className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg transition-all"
-                >
-                  ✓ Customer Picked Up
-                </button>
-
-                <button
-                  onClick={() => {
-                    const updated = portalStore.updateDiningOrderStatus(
-                      inspectedDiningOrder.id,
-                      'Delivered',
-                      currentUser?.name || 'Main Receptionist'
-                    );
-                    setInspectedDiningOrder(updated);
-                    refreshData();
-                    showToast(`Order ${inspectedDiningOrder.id} marked DELIVERED!`);
-                  }}
-                  className="py-2.5 px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-lg transition-all"
-                >
-                  ✓ Order Delivered
-                </button>
+            {/* Error */}
+            {orderLookupError && (
+              <div className="p-3.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs flex items-center gap-2">
+                <AlertCircle size={16} className="text-rose-400 flex-shrink-0" />
+                <span>{orderLookupError}</span>
               </div>
-            </div>
+            )}
+
+            {/* Verified Order Details */}
+            {verifiedOrder && (
+              <div className="p-4 rounded-xl bg-black/70 border border-emerald-500/40 space-y-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap border-b border-white/10 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded font-mono font-bold text-xs bg-[#d4af37]/20 text-[#f3e5ab] border border-[#d4af37]/40">
+                      {verifiedOrder.id}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
+                      verifiedOrder.orderStatus === 'Picked Up' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+                    }`}>
+                      {verifiedOrder.orderStatus}
+                    </span>
+                  </div>
+                  <span className="font-mono font-bold text-sm text-[#d4af37]">
+                    ₦{Number(verifiedOrder.amount).toLocaleString()} ({verifiedOrder.paymentStatus})
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase text-gray-400 block">Customer</span>
+                    <span className="font-bold text-white text-sm">{verifiedOrder.guestName}</span>
+                    {verifiedOrder.phone && <span className="text-gray-300 font-mono text-xs block">{verifiedOrder.phone}</span>}
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono uppercase text-gray-400 block">Service Location</span>
+                    <span className="font-semibold text-amber-300">{verifiedOrder.serviceLocation || 'Pickup at Main Reception'}</span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-white/[0.03] border border-white/10 text-xs">
+                  <span className="text-[10px] font-mono uppercase text-gray-400 block mb-0.5">Ordered Items:</span>
+                  <div className="text-gray-200">
+                    {(verifiedOrder.items || []).map((it) => `${it.qty}x ${it.name}`).join(' • ')}
+                  </div>
+                  {verifiedOrder.notes && (
+                    <div className="text-amber-300 text-[11px] italic mt-1">Note: {verifiedOrder.notes}</div>
+                  )}
+                </div>
+
+                {verifiedOrder.fulfilledAt && (
+                  <div className="p-2 rounded-lg bg-emerald-950/40 text-emerald-300 text-xs font-mono">
+                    ✓ Handover Confirmed: {verifiedOrder.orderStatus} at {verifiedOrder.fulfilledAt}
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="pt-2 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Picked Up')}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
+                      verifiedOrder.orderStatus === 'Picked Up'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                    }`}
+                  >
+                    <CheckCircle2 size={15} />
+                    <span>✓ Mark Picked Up</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Delivered')}
+                    className="py-2.5 px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <Check size={15} />
+                    <span>✓ Delivered</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInspectedDiningOrder(verifiedOrder);
+                      setIsOrderLookupModalOpen(false);
+                    }}
+                    className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <Eye size={13} className="text-[#d4af37]" />
+                    <span>Full Details</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

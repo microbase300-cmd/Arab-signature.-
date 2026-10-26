@@ -3709,6 +3709,17 @@ export const portalStore = {
     return localStorage.getItem('ash_tracked_dining_code') || '';
   },
 
+  getDiningOrderByCode(code) {
+    if (!code) return null;
+    const clean = String(code).trim().toUpperCase();
+    const cleanAlphaNum = clean.replace(/[^A-Z0-9]/g, '');
+    const orders = this.getDiningOrders();
+    return orders.find(o => {
+      const oId = String(o.id || '').trim().toUpperCase();
+      return oId === clean || oId.replace(/[^A-Z0-9]/g, '') === cleanAlphaNum;
+    }) || null;
+  },
+
   _broadcastDiningOrdersUpdate(updatedOrders, newOrder = null) {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ash_dining_orders_updated', {
