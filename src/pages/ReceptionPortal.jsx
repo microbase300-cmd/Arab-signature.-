@@ -1233,33 +1233,6 @@ export default function ReceptionPortal({ onNavigate }) {
                 >
                   Extension Building (14 Rooms • 100 Wing)
                 </button>
-
-                {/* Production Mode Action: Reset Rooms to Available */}
-                <button
-                  onClick={() => {
-                    const desk = getDeskBuilding();
-                    const bldgLabel = desk === 'all' 
-                      ? 'all 34 rooms across both wings' 
-                      : desk === 'Main Building' 
-                      ? 'all 20 Main Building rooms (Rooms 601–620)' 
-                      : 'all 14 Extension Wing rooms (Rooms 101–114)';
-
-                    if (window.confirm(`Move ${bldgLabel} into PRODUCTION VACANT & AVAILABLE mode? This clears test guest assignments and readies rooms for live guests.`)) {
-                      if (desk === 'all') {
-                        portalStore.resetAllRoomsToAvailable();
-                      } else {
-                        portalStore.resetRoomsByBuilding(desk);
-                      }
-                      refreshData();
-                      showToast(`${desk === 'all' ? 'All 34 suites' : desk + ' suites'} are now 100% AVAILABLE in Production Mode!`);
-                    }
-                  }}
-                  className="px-3.5 py-1.5 rounded-xl bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 font-semibold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ml-auto"
-                  title="Reset rooms to available for production"
-                >
-                  <CheckCircle2 size={13} className="text-emerald-400" />
-                  <span>Make {getDeskBuilding() === 'all' ? 'All Rooms' : getDeskBuilding() === 'Main Building' ? 'Main (20 Rooms)' : 'Extension (14 Rooms)'} Available</span>
-                </button>
               </div>
             </div>
 
