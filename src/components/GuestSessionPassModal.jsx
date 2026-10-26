@@ -135,14 +135,19 @@ export default function GuestSessionPassModal({ isOpen, onClose, onNavigate }) {
               </div>
               <div className="text-right">
                 <span className="text-gray-400 block text-[10px]">
-                  {session.bookingMode === 'Reservation Hold' ? 'Reservation Hold:' : 'Stay Schedule:'}
+                  {session.bookingMode === 'Reservation Hold' ? 'Counter Reservation Hold:' : 'Stay Schedule:'}
                 </span>
-                <strong className="text-[#f3e5ab]">
-                  {session.bookingMode === 'Reservation Hold' && session.reservationDate
-                    ? `Res: ${session.reservationDate}`
+                <strong className="text-[#f3e5ab] text-xs block">
+                  {session.bookingMode === 'Reservation Hold'
+                    ? `Res: ${session.reservationDate || session.checkIn}`
                     : `${session.checkIn} → ${session.checkOut}`}
                 </strong>
-                <div className="text-gray-400 text-[10px]">{session.nights} {session.nights === 1 ? 'Night' : 'Nights'} Duration</div>
+                {session.bookingMode === 'Reservation Hold' && session.expectedCheckIn && (
+                  <div className="text-emerald-300 font-mono text-[10px]">
+                    Exp. Check-In: {session.expectedCheckIn}
+                  </div>
+                )}
+                <div className="text-gray-400 text-[10px]">{session.nights} {session.nights === 1 ? 'Night' : 'Nights'} Duration (Stay)</div>
                 {session.proofOfPayment && (
                   <div className="text-gray-300 font-mono text-[9px] truncate" title={session.proofOfPayment}>
                     Proof: {session.proofOfPayment}

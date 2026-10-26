@@ -284,6 +284,7 @@ export default function ReceptionPortal({ onNavigate }) {
       roomNumber: roomNum,
       checkIn: new Date().toISOString().split('T')[0],
       reservationDate: new Date().toISOString().split('T')[0],
+      expectedCheckIn: new Date().toISOString().split('T')[0],
       checkOut: new Date(Date.now() + 86400000).toISOString().split('T')[0],
       nights: 1,
       paymentMethod: 'POS Terminal (Front Desk)',
@@ -612,16 +613,64 @@ export default function ReceptionPortal({ onNavigate }) {
     }));
   };
 
+  // Walk-in expected check-in change handler (for Counter Reservation Hold)
+  const handleExpectedCheckInChange = (newExpectedDate) => {
+    const numNights = Math.max(1, parseInt(walkInForm.nights) || 1);
+    let checkOutStr = walkInForm.checkOut;
+    try {
+      const expDate = new Date(newExpectedDate);
+      if (!isNaN(expDate.getTime())) {
+        const outDate = new Date(expDate.getTime() + numNights * 86400000);
+        checkOutStr = outDate.toISOString().split('T')[0];
+      }
+    } catch (e) {}
+
+    setWalkInForm(prev => ({
+      ...prev,
+      expectedCheckIn: newExpectedDate,
+      checkIn: newExpectedDate,
+      checkOut: checkOutStr
+    }));
+  };
+
+  // Walk-in check-in date change handler (for Assign & Check In Now)
+  const handleCheckInDateChange = (newDate) => {
+    const numNights = Math.max(1, parseInt(walkInForm.nights) || 1);
+    let checkOutStr = walkInForm.checkOut;
+    try {
+      const inDate = new Date(newDate);
+      if (!isNaN(inDate.getTime())) {
+        const outDate = new Date(inDate.getTime() + numNights * 86400000);
+        checkOutStr = outDate.toISOString().split('T')[0];
+      }
+    } catch (e) {}
+
+    setWalkInForm(prev => ({
+      ...prev,
+      checkIn: newDate,
+      checkOut: checkOutStr
+    }));
+  };
+
   // Walk-in nights change handler
   const handleNightsChange = (nights) => {
     const numNights = Math.max(1, parseInt(nights) || 1);
     const rateObj = rates.find(r => r.id === walkInForm.roomType);
     const pricePerNight = rateObj ? rateObj.price : 45000;
     
-    // Calculate new checkout date
-    const checkInDate = new Date(walkInForm.checkIn);
-    const checkOutDate = new Date(checkInDate.getTime() + numNights * 86400000);
-    const checkOutStr = checkOutDate.toISOString().split('T')[0];
+    // Calculate new checkout date based on active mode
+    const baseDateStr = walkInForm.bookingMode === 'Reservation Hold'
+      ? (walkInForm.expectedCheckIn || walkInForm.reservationDate || walkInForm.checkIn)
+      : walkInForm.checkIn;
+
+    let checkOutStr = walkInForm.checkOut;
+    try {
+      const baseDate = new Date(baseDateStr);
+      if (!isNaN(baseDate.getTime())) {
+        const checkOutDate = new Date(baseDate.getTime() + numNights * 86400000);
+        checkOutStr = checkOutDate.toISOString().split('T')[0];
+      }
+    } catch (e) {}
 
     setWalkInForm(prev => ({
       ...prev,
@@ -667,6 +716,10 @@ export default function ReceptionPortal({ onNavigate }) {
     const isReservationHold = walkInForm.bookingMode === 'Reservation Hold' || walkInForm.bookingMode === 'Confirmed';
     const chosenStatus = isReservationHold ? 'Reservation Hold' : 'Checked In';
 
+    const effectiveCheckIn = isReservationHold
+      ? (walkInForm.expectedCheckIn || walkInForm.reservationDate || walkInForm.checkIn)
+      : walkInForm.checkIn;
+
     const newBooking = portalStore.addBooking({
       id: finalBookingCode,
       building: targetRoom.building || (String(selectedRoomNum).startsWith('1') ? 'Extension Building' : 'Main Building'),
@@ -679,11 +732,12 @@ export default function ReceptionPortal({ onNavigate }) {
       nextOfKinRelationship: walkInForm.nextOfKinRelationship || 'Spouse',
       bookingMode: isReservationHold ? 'Reservation Hold' : 'Checked In',
       reservationDate: isReservationHold ? (walkInForm.reservationDate || new Date().toISOString().split('T')[0]) : null,
+      expectedCheckIn: isReservationHold ? (walkInForm.expectedCheckIn || effectiveCheckIn) : null,
       proofOfPayment: walkInForm.proofOfPayment || '',
       roomType: walkInForm.roomType,
       roomName: roomName,
       roomNumber: selectedRoomNum,
-      checkIn: isReservationHold ? (walkInForm.reservationDate || walkInForm.checkIn) : walkInForm.checkIn,
+      checkIn: effectiveCheckIn,
       checkOut: walkInForm.checkOut,
       nights: walkInForm.nights,
       amount: walkInForm.amount,
@@ -1664,8 +1718,13 @@ export default function ReceptionPortal({ onNavigate }) {
                                 <div className="text-sky-200 font-mono text-[11px]">
                                   Res Date: {b.reservationDate || b.checkIn}
                                 </div>
+                                {b.expectedCheckIn && (
+                                  <div className="text-emerald-300 font-mono text-[10px]">
+                                    Exp. Check-In: {b.expectedCheckIn}
+                                  </div>
+                                )}
                                 <div className="text-[10px] text-gray-400">
-                                  {b.nights} {b.nights === 1 ? 'Night' : 'Nights'} held
+                                  Stay: {b.nights} {b.nights === 1 ? 'Night' : 'Nights'}
                                 </div>
                                 {b.proofOfPayment && (
                                   <div className="text-[9px] text-[#f3e5ab] font-mono truncate max-w-[130px] mt-0.5" title={b.proofOfPayment}>
@@ -3023,11 +3082,18 @@ export default function ReceptionPortal({ onNavigate }) {
 
               {/* Dates & Duration or Reservation Date + Proof of Payment */}
               {walkInForm.bookingMode === 'Reservation Hold' ? (
-                /* COUNTER RESERVATION HOLD MODE: No Check-In Date, Replaced with Reservation Date + Space for Proof of Payment */
+                /* COUNTER RESERVATION HOLD MODE: Expected Check-In, Reservation Date, Duration of Stay & Proof of Payment */
                 <div className="space-y-3 p-3.5 rounded-2xl bg-sky-950/20 border border-sky-500/40">
-                  <div className="flex items-center gap-1.5 text-sky-300 text-[11px] font-mono font-bold">
-                    <Calendar size={13} />
-                    <span>Counter Reservation Hold Parameters (No Check-In Date on Hold)</span>
+                  <div className="flex items-center justify-between text-sky-300 text-[11px] font-mono font-bold">
+                    <div className="flex items-center gap-1.5">
+                      <Clock size={13} className="text-sky-400" />
+                      <span>Counter Reservation Hold (Reserve & Go Out)</span>
+                    </div>
+                    {walkInForm.checkOut && (
+                      <span className="text-[10px] text-gray-400 bg-black/40 px-2 py-0.5 rounded border border-white/10 font-normal">
+                        Vacate: {walkInForm.checkOut}
+                      </span>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -3045,22 +3111,30 @@ export default function ReceptionPortal({ onNavigate }) {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-gray-300 font-medium text-xs">Held Duration (Nights)</label>
+                      <label className="text-gray-300 font-medium text-xs flex items-center gap-1">
+                        <Calendar size={12} className="text-emerald-400" />
+                        <span>Expected Check-In *</span>
+                      </label>
                       <input
-                        type="number"
-                        min="1"
-                        value={walkInForm.nights}
-                        onChange={(e) => handleNightsChange(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white focus:outline-none focus:border-[#d4af37]"
+                        type="date"
+                        required
+                        value={walkInForm.expectedCheckIn || walkInForm.checkIn}
+                        onChange={(e) => handleExpectedCheckInChange(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-black/60 border border-emerald-500/50 text-emerald-200 focus:outline-none focus:border-[#d4af37]"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-gray-300 font-medium text-xs">Expected Check-Out</label>
+                      <label className="text-gray-300 font-medium text-xs flex items-center gap-1">
+                        <Clock size={12} className="text-[#d4af37]" />
+                        <span>Duration of Stay (Nights) *</span>
+                      </label>
                       <input
-                        type="date"
-                        readOnly
-                        value={walkInForm.checkOut}
-                        className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-400 cursor-not-allowed"
+                        type="number"
+                        min="1"
+                        required
+                        value={walkInForm.nights}
+                        onChange={(e) => handleNightsChange(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white focus:outline-none focus:border-[#d4af37]"
                       />
                     </div>
                   </div>
@@ -3097,7 +3171,7 @@ export default function ReceptionPortal({ onNavigate }) {
                         type="date"
                         required
                         value={walkInForm.checkIn}
-                        onChange={(e) => setWalkInForm({ ...walkInForm, checkIn: e.target.value })}
+                        onChange={(e) => handleCheckInDateChange(e.target.value)}
                         className="w-full px-3 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white focus:outline-none focus:border-[#d4af37]"
                       />
                     </div>
@@ -3271,6 +3345,16 @@ export default function ReceptionPortal({ onNavigate }) {
                       Reservation Date: <strong>{selectedReceiptBooking.reservationDate}</strong>
                     </div>
                   )}
+                  {selectedReceiptBooking.expectedCheckIn && selectedReceiptBooking.bookingMode === 'Reservation Hold' && (
+                    <div className="text-gray-800 text-[11px] mt-0.5 font-mono">
+                      Expected Check-In: <strong>{selectedReceiptBooking.expectedCheckIn}</strong>
+                    </div>
+                  )}
+                  {selectedReceiptBooking.bookingMode === 'Reservation Hold' && (
+                    <div className="text-gray-800 text-[11px] mt-0.5 font-mono">
+                      Duration of Stay: <strong>{selectedReceiptBooking.nights} {selectedReceiptBooking.nights === 1 ? 'Night' : 'Nights'}</strong>
+                    </div>
+                  )}
                   {selectedReceiptBooking.proofOfPayment && (
                     <div className="text-gray-800 text-[11px] mt-0.5 font-mono">
                       Proof of Payment: <strong>{selectedReceiptBooking.proofOfPayment}</strong>
@@ -3320,7 +3404,9 @@ export default function ReceptionPortal({ onNavigate }) {
                           <td className="py-3">
                             <div className="font-bold text-gray-900">{selectedReceiptBooking.roomName}</div>
                             <div className="text-[10px] text-gray-500">
-                              {selectedReceiptBooking.checkIn} to {selectedReceiptBooking.checkOut}
+                              {selectedReceiptBooking.bookingMode === 'Reservation Hold'
+                                ? `Res: ${selectedReceiptBooking.reservationDate || selectedReceiptBooking.checkIn} | Exp. Check-In: ${selectedReceiptBooking.expectedCheckIn || selectedReceiptBooking.checkIn} (${selectedReceiptBooking.nights} Nights Stay)`
+                                : `${selectedReceiptBooking.checkIn} to ${selectedReceiptBooking.checkOut}`}
                             </div>
                           </td>
                           <td className="py-3 text-center font-mono font-semibold">

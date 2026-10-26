@@ -1902,7 +1902,10 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                           Counter Reservation Hold
                         </span>
                         <strong className="text-white text-sm block font-mono mt-0.5">Reservation Date: {receiptStay.reservationDate || receiptStay.checkIn}</strong>
-                        <span className="text-xs text-[#d4af37] font-semibold block">{receiptStay.nights} {receiptStay.nights === 1 ? 'Night' : 'Nights'} Duration</span>
+                        {receiptStay.expectedCheckIn && (
+                          <div className="text-xs text-sky-300 font-mono mt-0.5">Expected Check-In: {receiptStay.expectedCheckIn}</div>
+                        )}
+                        <span className="text-xs text-[#d4af37] font-semibold block">{receiptStay.nights} {receiptStay.nights === 1 ? 'Night' : 'Nights'} Duration (Stay)</span>
                         {receiptStay.proofOfPayment && (
                           <div className="text-[10px] text-gray-300 font-mono truncate mt-0.5">Proof: {receiptStay.proofOfPayment}</div>
                         )}
