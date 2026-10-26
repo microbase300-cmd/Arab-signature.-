@@ -12,14 +12,16 @@ import {
   AlertTriangle, Lock, Users, Phone, MapPin, Printer, RefreshCw, 
   Sparkles, KeyRound, Clock, Edit3, ChevronRight, UserCheck, 
   AlertCircle, ShieldAlert, Key, Check, Eye, EyeOff, Utensils,
-  Wine, Plus, Trash2, Search, X, Flame, GlassWater, Beer, CreditCard, ExternalLink, Calculator
+  Wine, Plus, Trash2, Search, X, Flame, GlassWater, Beer, CreditCard, ExternalLink, Calculator, Image as ImageIcon
 } from 'lucide-react';
+import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
 
 export default function AdminPortal({ onNavigate }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [activeTab, setActiveTab] = useState('rates'); // 'rates' | 'dining' | 'ledger' | 'receptionist' | 'logins' | 'settings' | 'logs'
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [selectedProofBooking, setSelectedProofBooking] = useState(null);
   const [rates, setRates] = useState([]);
   const [hotelConfig, setHotelConfig] = useState({});
   const [activityLogs, setActivityLogs] = useState([]);
@@ -1058,6 +1060,7 @@ export default function AdminPortal({ onNavigate }) {
                     <th className="py-3 px-4">Guest Details</th>
                     <th className="py-3 px-4">Suite</th>
                     <th className="py-3 px-4">Channel & Time</th>
+                    <th className="py-3 px-4 text-center">Proof Slip</th>
                     <th className="py-3 px-4">Billed Amount</th>
                     <th className="py-3 px-4">Payment Status</th>
                     <th className="py-3 px-4 text-right">Admin Backend Action</th>
@@ -1085,6 +1088,26 @@ export default function AdminPortal({ onNavigate }) {
                         <td className="py-3.5 px-4">
                           <div className="text-gray-300">{b.paymentMethod}</div>
                           <div className="text-[10px] text-gray-500">{b.createdAt}</div>
+                        </td>
+                        {/* Proof Slip */}
+                        <td className="py-3.5 px-4 text-center">
+                          {b.proofOfPaymentImage ? (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedProofBooking(b)}
+                              className="px-2 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/40 text-amber-300 font-mono text-[10px] font-bold inline-flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+                              title="Inspect uploaded payment slip"
+                            >
+                              <ImageIcon size={12} />
+                              <span>View Slip</span>
+                            </button>
+                          ) : b.proofOfPayment ? (
+                            <span className="text-[10px] text-gray-300 font-mono truncate max-w-[110px] block" title={b.proofOfPayment}>
+                              {b.proofOfPayment}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-gray-600 font-mono">None</span>
+                          )}
                         </td>
                         <td className="py-3.5 px-4 font-mono font-bold text-[#f3e5ab]">
                           ₦{Number(b.amount).toLocaleString()}
@@ -1900,6 +1923,16 @@ export default function AdminPortal({ onNavigate }) {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Proof of Payment Lightbox Modal */}
+      {selectedProofBooking && (
+        <ProofOfPaymentModal
+          booking={selectedProofBooking}
+          onClose={() => setSelectedProofBooking(null)}
+          isAdminView={true}
+          onConfirmPayment={(id) => handleConfirmPaymentBackend(id)}
+        />
       )}
 
     </div>

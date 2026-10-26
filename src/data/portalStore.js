@@ -2247,6 +2247,7 @@ export const portalStore = {
       reservationDate: bookingData.reservationDate || (bookingData.checkIn || new Date().toISOString().split('T')[0]),
       expectedCheckIn: bookingData.expectedCheckIn || (bookingData.bookingMode === 'Reservation Hold' ? (bookingData.reservationDate || bookingData.checkIn) : null),
       proofOfPayment: bookingData.proofOfPayment || "",
+      proofOfPaymentImage: bookingData.proofOfPaymentImage || "",
       roomType: bookingData.roomType || "deluxe",
       roomName: bookingData.roomName || "Arab Deluxe Suite",
       roomNumber: assignedRoomNumber || "Unassigned",
@@ -2293,7 +2294,42 @@ export const portalStore = {
       } catch (e) {}
     }
 
+    // 4. If proof of payment image was attached, sync it to Vercel Server & Cloud Storage
+    if (newBooking.proofOfPaymentImage) {
+      this.uploadProofToServer(
+        newBooking.id,
+        newBooking.proofOfPaymentImage,
+        newBooking.proofOfPayment,
+        newBooking.guestName
+      ).catch(() => {});
+    }
+
     return newBooking;
+  },
+
+  // Asynchronously upload compressed proof of payment image to Vercel server & cloud persistence
+  async uploadProofToServer(bookingId, imageBase64, reference = '', guestName = '') {
+    if (!bookingId || !imageBase64) return null;
+    try {
+      const res = await fetch('/api/proof-of-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId,
+          imageBase64,
+          reference,
+          guestName,
+          uploadedBy: this.getCurrentUser()?.name || 'Receptionist',
+          uploadedAt: new Date().toISOString()
+        })
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (err) {
+      console.warn('Vercel server proof upload error (persisted locally):', err);
+    }
+    return null;
   },
 
   // Reset all 34 rooms to 100% available (Production clean state)
@@ -3001,6 +3037,7 @@ export const portalStore = {
       reservationDate: booking.reservationDate || '',
       expectedCheckIn: booking.expectedCheckIn || (booking.bookingMode === 'Reservation Hold' ? (booking.reservationDate || booking.checkIn) : ''),
       proofOfPayment: booking.proofOfPayment || '',
+      proofOfPaymentImage: booking.proofOfPaymentImage || '',
       roomType: booking.roomType,
       roomName: booking.roomName,
       roomNumber: booking.roomNumber,

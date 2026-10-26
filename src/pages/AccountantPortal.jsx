@@ -3,8 +3,9 @@ import { portalStore } from '../data/portalStore';
 import {
   Calculator, Building2, Utensils, Wine, TrendingUp, TrendingDown, Receipt,
   CheckCircle2, AlertCircle, Search, Printer, Download, Plus, Trash2,
-  LogOut, ArrowLeft, RefreshCw, ShieldCheck, CreditCard, Wallet, FileText, Sparkles
+  LogOut, ArrowLeft, RefreshCw, ShieldCheck, CreditCard, Wallet, FileText, Sparkles, Image as ImageIcon
 } from 'lucide-react';
+import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
 
 export default function AccountantPortal({ onNavigate }) {
   const goldGradient = 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black';
@@ -17,6 +18,7 @@ export default function AccountantPortal({ onNavigate }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [diningTypeFilter, setDiningTypeFilter] = useState('all'); // 'all' | 'food' | 'drinks' | 'unpaid'
   const [feedbackMsg, setFeedbackMsg] = useState('');
+  const [selectedProofBooking, setSelectedProofBooking] = useState(null);
   const [currentTime, setCurrentTime] = useState(
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   );
@@ -633,8 +635,9 @@ export default function AccountantPortal({ onNavigate }) {
                   <th className="py-3 px-4">Suite Code</th>
                   <th className="py-3 px-4">Guest</th>
                   <th className="py-3 px-4">Wing & Room</th>
-                  <th className="py-3 px-4">Stay Dates</th>
+                  <th className="py-3 px-4">Stay Schedule</th>
                   <th className="py-3 px-4">Payment Channel</th>
+                  <th className="py-3 px-4 text-center">Proof of Payment</th>
                   <th className="py-3 px-4">Suite Amount</th>
                   <th className="py-3 px-4 text-right">Accountant Audit</th>
                 </tr>
@@ -656,13 +659,33 @@ export default function AccountantPortal({ onNavigate }) {
                       <td className="py-3.5 px-4">
                         <div className="font-semibold text-white">{b.guestName}</div>
                         <div className="text-[11px] text-gray-400 font-mono">{b.phone}</div>
+                        {b.homeAddress && (
+                          <div className="text-[10px] text-gray-400 truncate max-w-[160px]" title={b.homeAddress}>
+                            {b.homeAddress}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3.5 px-4">
                         <div className="text-gray-200">{b.roomName}</div>
                         <div className="text-[11px] font-mono text-[#d4af37]">Room #{b.roomNumber}</div>
                       </td>
                       <td className="py-3.5 px-4 font-mono text-[11px] text-gray-300">
-                        {b.checkIn} → {b.checkOut} ({b.nights}n)
+                        {b.bookingMode === 'Reservation Hold' ? (
+                          <div>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-sky-950 text-sky-300 border border-sky-400/40 inline-block mb-1">
+                              Hold ({b.nights}n)
+                            </span>
+                            <div className="text-[10px] text-sky-200">Res: {b.reservationDate || b.checkIn}</div>
+                            {b.expectedCheckIn && (
+                              <div className="text-[10px] text-emerald-300">Exp: {b.expectedCheckIn}</div>
+                            )}
+                          </div>
+                        ) : (
+                          <div>
+                            <div>{b.checkIn} → {b.checkOut}</div>
+                            <div className="text-[10px] text-gray-500 font-sans">{b.nights} {b.nights === 1 ? 'Night' : 'Nights'}</div>
+                          </div>
+                        )}
                       </td>
                       <td className="py-3.5 px-4">
                         <div className="text-gray-200">{b.paymentMethod}</div>
@@ -670,6 +693,35 @@ export default function AccountantPortal({ onNavigate }) {
                           {b.paymentStatus}
                         </span>
                       </td>
+
+                      {/* Proof of Payment Column (Image + Reference) */}
+                      <td className="py-3.5 px-4 text-center">
+                        {b.proofOfPaymentImage ? (
+                          <div className="inline-flex flex-col items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedProofBooking(b)}
+                              className="px-2 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/40 text-amber-300 font-mono text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+                              title="Inspect uploaded payment slip image"
+                            >
+                              <ImageIcon size={12} />
+                              <span>View Slip</span>
+                            </button>
+                            {b.proofOfPayment && (
+                              <span className="text-[9px] text-gray-400 font-mono truncate max-w-[100px]" title={b.proofOfPayment}>
+                                {b.proofOfPayment}
+                              </span>
+                            )}
+                          </div>
+                        ) : b.proofOfPayment ? (
+                          <span className="font-mono text-[10px] text-gray-300 truncate max-w-[110px] block" title={b.proofOfPayment}>
+                            {b.proofOfPayment}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-gray-600 font-mono">None</span>
+                        )}
+                      </td>
+
                       <td className="py-3.5 px-4 font-mono font-bold text-white">
                         ₦{Number(b.amount).toLocaleString()}
                       </td>
@@ -682,7 +734,7 @@ export default function AccountantPortal({ onNavigate }) {
                           className={`px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold border transition-all ${
                             b.accountantAudited
                               ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
-                              : 'bg-white/5 hover:bg-white/10 text-gray-300 border-white/15'
+                              : 'bg-white/5 hover:bg-white/10 text-gray-300 border-white/15 cursor-pointer'
                           }`}
                         >
                           {b.accountantAudited ? '✓ Audited' : 'Stamp Audit'}
@@ -1063,6 +1115,19 @@ export default function AccountantPortal({ onNavigate }) {
           </div>
         )}
       </div>
+
+      {/* Proof of Payment Lightbox Modal */}
+      {selectedProofBooking && (
+        <ProofOfPaymentModal
+          booking={selectedProofBooking}
+          onClose={() => setSelectedProofBooking(null)}
+          isAccountantView={true}
+          onStampAudit={(id) => {
+            portalStore.auditRecordByAccountant('room', id, currentUser?.name);
+            refreshAll();
+          }}
+        />
+      )}
     </div>
   );
 }

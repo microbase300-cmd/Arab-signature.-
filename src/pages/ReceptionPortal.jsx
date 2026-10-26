@@ -5,8 +5,10 @@ import {
   Search, Filter, Plus, Printer, MessageSquare, LogOut, ArrowLeft, ArrowRight, 
   Sparkles, RefreshCw, Key, ShieldCheck, Check, AlertCircle, X, ChevronRight,
   TrendingUp, DoorOpen, Sparkle, Utensils, Lock, Wine, Bell, BellRing, Eye, Volume2, VolumeX,
-  Copy, Receipt, CreditCard, MapPin, Heart
+  Copy, Receipt, CreditCard, MapPin, Heart, Image as ImageIcon, Upload, Trash2
 } from 'lucide-react';
+import { compressImage, formatFileSize } from '../utils/imageCompressor';
+import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
 
 export default function ReceptionPortal({ onNavigate }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -36,6 +38,8 @@ export default function ReceptionPortal({ onNavigate }) {
   // Modals
   const [isWalkInOpen, setIsWalkInOpen] = useState(false);
   const [selectedReceiptBooking, setSelectedReceiptBooking] = useState(null);
+  const [selectedProofBooking, setSelectedProofBooking] = useState(null);
+  const [isCompressingProof, setIsCompressingProof] = useState(false);
   const [incomingDiningAlert, setIncomingDiningAlert] = useState(null);
   const [inspectedDiningOrder, setInspectedDiningOrder] = useState(null);
   const [feedbackMsg, setFeedbackMsg] = useState('');
@@ -289,6 +293,8 @@ export default function ReceptionPortal({ onNavigate }) {
       nights: 1,
       paymentMethod: 'POS Terminal (Front Desk)',
       proofOfPayment: '',
+      proofOfPaymentImage: '',
+      proofImageMeta: null,
       amount: price
     });
     setIsWalkInOpen(true);
@@ -680,6 +686,46 @@ export default function ReceptionPortal({ onNavigate }) {
     }));
   };
 
+  // Handle client-side proof of payment image compression
+  const handleProofImageChange = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload a valid image file (JPEG, PNG, or WEBP).');
+      return;
+    }
+
+    setIsCompressingProof(true);
+    try {
+      const compressed = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.72 });
+      setWalkInForm(prev => ({
+        ...prev,
+        proofOfPaymentImage: compressed.dataUrl,
+        proofImageMeta: {
+          originalSize: compressed.originalSize,
+          compressedSize: compressed.compressedSize,
+          reductionPercent: compressed.reductionPercent,
+          name: file.name
+        }
+      }));
+      showToast(`Proof slip compressed: ${formatFileSize(compressed.originalSize)} → ${formatFileSize(compressed.compressedSize)} (-${compressed.reductionPercent}%)`);
+    } catch (err) {
+      console.error('Image compression error:', err);
+      alert('Could not compress the selected image. Please try another photo.');
+    } finally {
+      setIsCompressingProof(false);
+    }
+  };
+
+  const handleRemoveProofImage = () => {
+    setWalkInForm(prev => ({
+      ...prev,
+      proofOfPaymentImage: '',
+      proofImageMeta: null
+    }));
+  };
+
   // Submit Walk-in Booking
   const handleCreateWalkIn = (e) => {
     e.preventDefault();
@@ -734,6 +780,7 @@ export default function ReceptionPortal({ onNavigate }) {
       reservationDate: isReservationHold ? (walkInForm.reservationDate || new Date().toISOString().split('T')[0]) : null,
       expectedCheckIn: isReservationHold ? (walkInForm.expectedCheckIn || effectiveCheckIn) : null,
       proofOfPayment: walkInForm.proofOfPayment || '',
+      proofOfPaymentImage: walkInForm.proofOfPaymentImage || '',
       roomType: walkInForm.roomType,
       roomName: roomName,
       roomNumber: selectedRoomNum,
@@ -766,22 +813,52 @@ export default function ReceptionPortal({ onNavigate }) {
     setSelectedReceiptBooking(newBooking);
   };
 
-  // Send WhatsApp message to guest
+  // Send WhatsApp message to guest with official hotel receipt
   const handleSendWhatsApp = (booking) => {
-    let rawPhone = booking.phone.replace(/[^0-9]/g, '');
+    if (!booking) return;
+    let rawPhone = (booking.phone || '').replace(/[^0-9]/g, '');
     if (rawPhone.startsWith('0')) {
       rawPhone = '234' + rawPhone.slice(1);
+    } else if (!rawPhone.startsWith('234') && rawPhone.length === 10) {
+      rawPhone = '234' + rawPhone;
     }
+
+    const isHold = booking.bookingMode === 'Reservation Hold';
+    const bldg = (String(booking.roomNumber).startsWith('1') || (booking.roomName || '').toLowerCase().includes('ext'))
+      ? 'Extension Wing (100 Wing)'
+      : 'Main Building (600 Wing)';
+
+    const scheduleText = isHold
+      ? `📅 *Reservation Date:* ${booking.reservationDate || booking.checkIn}\n⏳ *Expected Check-In:* ${booking.expectedCheckIn || booking.checkIn}\n🌙 *Duration of Stay:* ${booking.nights} ${booking.nights === 1 ? 'Night' : 'Nights'}`
+      : `📅 *Check-In Date:* ${booking.checkIn} (from 2:00 PM)\n🚪 *Check-Out Date:* ${booking.checkOut}\n🌙 *Duration of Stay:* ${booking.nights} ${booking.nights === 1 ? 'Night' : 'Nights'}`;
+
+    const paymentProofText = booking.proofOfPayment ? `🧾 *Payment Ref:* ${booking.proofOfPayment}\n` : '';
+
     const message = encodeURIComponent(
-      `Hello ${booking.guestName},\n\nWarm greetings from Arab Signature Hotel & Suites, Nsugbe, Onitsha!\n\n` +
-      `Your reservation is confirmed:\n` +
-      `• Booking Ref: ${booking.id}\n` +
-      `• Suite: ${booking.roomName} (Room ${booking.roomNumber || 'Assigned on arrival'})\n` +
-      `• Check-in: ${booking.checkIn} (from 2:00 PM)\n` +
-      `• Check-out: ${booking.checkOut}\n` +
-      `• Total Amount: ₦${Number(booking.amount).toLocaleString()} (${booking.paymentStatus})\n\n` +
-      `We look forward to giving you an exceptional luxury experience. For any inquiries, reach us at 0812 578 6875.`
+      `*ARAB SIGNATURE HOTEL & SUITES*\n` +
+      `*OFFICIAL GUEST FOLIO & RECEIPT*\n` +
+      `══════════════════════════════\n` +
+      `Dear *${booking.guestName}*,\n` +
+      `Thank you for choosing Arab Signature Hotel & Suites, Nsugbe-Onitsha Expressway!\n\n` +
+      `📋 *Booking Reference Code:* *${booking.id}*\n` +
+      `🏨 *Suite Accommodation:* ${booking.roomName}\n` +
+      `🚪 *Room Number:* #${booking.roomNumber || 'Assigned on arrival'}\n` +
+      `🏢 *Building Wing:* ${bldg}\n` +
+      `${scheduleText}\n` +
+      `💰 *Total Amount Billed:* ₦${Number(booking.amount || 0).toLocaleString()}\n` +
+      `💳 *Payment Channel:* ${booking.paymentMethod} (${booking.paymentStatus || 'Paid'})\n` +
+      `${paymentProofText}` +
+      `══════════════════════════════\n` +
+      `🔑 *VIP GUEST PORTAL LOGIN:*\n` +
+      `Track your stay, order food (ARB-FDD) & drinks (ARB-DRK), and access high-speed Wi-Fi:\n` +
+      `${typeof window !== 'undefined' ? window.location.origin : 'https://arab-signature.vercel.app'}\n` +
+      `Enter your Booking Code: *${booking.id}*\n\n` +
+      `📍 *Location:* Arab Signature Hotel, Nsugbe-Onitsha Expressway, Anambra State\n` +
+      `📞 *24/7 Front Desk Concierge:* +234 812 578 6875\n\n` +
+      `_We wish you a wonderful and restful stay!_`
     );
+
+    showToast(`Opening WhatsApp for ${booking.guestName} (${booking.phone})...`);
     window.open(`https://wa.me/${rawPhone}?text=${message}`, '_blank');
   };
 
@@ -1731,6 +1808,17 @@ export default function ReceptionPortal({ onNavigate }) {
                                     Proof: {b.proofOfPayment}
                                   </div>
                                 )}
+                                {b.proofOfPaymentImage && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedProofBooking(b)}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/40 text-amber-300 text-[10px] font-mono mt-1 transition-all cursor-pointer shadow-sm"
+                                    title="View uploaded proof of payment slip"
+                                  >
+                                    <ImageIcon size={11} />
+                                    <span>View Slip</span>
+                                  </button>
+                                )}
                               </div>
                             ) : (
                               <div>
@@ -1740,6 +1828,22 @@ export default function ReceptionPortal({ onNavigate }) {
                                 <div className="text-[10px] text-gray-500">
                                   {b.nights} {b.nights === 1 ? 'Night' : 'Nights'}
                                 </div>
+                                {b.proofOfPayment && (
+                                  <div className="text-[9px] text-gray-400 font-mono truncate max-w-[130px] mt-0.5" title={b.proofOfPayment}>
+                                    Ref: {b.proofOfPayment}
+                                  </div>
+                                )}
+                                {b.proofOfPaymentImage && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedProofBooking(b)}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/40 text-amber-300 text-[10px] font-mono mt-1 transition-all cursor-pointer shadow-sm"
+                                    title="View uploaded proof of payment slip"
+                                  >
+                                    <ImageIcon size={11} />
+                                    <span>View Slip</span>
+                                  </button>
+                                )}
                               </div>
                             )}
                           </td>
@@ -1849,32 +1953,24 @@ export default function ReceptionPortal({ onNavigate }) {
                                 </span>
                               )}
 
+                              {/* Generate Receipt Button */}
+                              <button
+                                onClick={() => setSelectedReceiptBooking(b)}
+                                className="px-2.5 py-1.5 rounded-lg bg-[#5c0725] hover:bg-[#7a0a32] border border-[#d4af37]/40 text-[#f3e5ab] text-[11px] font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer whitespace-nowrap"
+                                title="Generate Official Guest Folio / Receipt"
+                              >
+                                <Receipt size={13} className="text-[#d4af37]" />
+                                <span>Generate Receipt</span>
+                              </button>
+
                               {/* WhatsApp Direct Guest Notify */}
                               <button
                                 onClick={() => handleSendWhatsApp(b)}
-                                className="p-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-500/30 text-emerald-300 transition-all"
-                                title="Send Confirmation WhatsApp to Guest"
+                                className="p-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-500/30 text-emerald-300 transition-all cursor-pointer"
+                                title={`Send Receipt via WhatsApp to ${b.phone}`}
                               >
                                 <MessageSquare size={13} />
                               </button>
-
-                              {/* Print Luxury Guest Receipt (Only if Confirmed) */}
-                              {b.paymentStatus === 'Paid' ? (
-                                <button
-                                  onClick={() => setSelectedReceiptBooking(b)}
-                                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-[#d4af37] transition-all"
-                                  title="Print Luxury Receipt Folio"
-                                >
-                                  <Printer size={13} />
-                                </button>
-                              ) : (
-                                <span
-                                  className="p-1.5 rounded-lg bg-white/5 text-gray-600 cursor-not-allowed border border-white/5"
-                                  title="Receipt locked until payment is confirmed by backend"
-                                >
-                                  <Printer size={13} />
-                                </span>
-                              )}
 
                             </div>
                           </td>
@@ -3139,23 +3235,110 @@ export default function ReceptionPortal({ onNavigate }) {
                     </div>
                   </div>
 
-                  {/* Dedicated Space for Proof of Payment */}
-                  <div className="space-y-1 pt-1">
-                    <label className="text-gray-300 font-medium text-xs flex items-center justify-between">
-                      <span className="flex items-center gap-1 text-[#f3e5ab]">
-                        <ShieldCheck size={13} className="text-[#d4af37]" />
-                        <span>Proof of Payment / Teller / Transaction Ref *</span>
+                  {/* Dedicated Space for Proof of Payment Image & Ref (Optional) */}
+                  <div className="p-3.5 rounded-2xl bg-black/60 border border-[#d4af37]/40 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-gray-200 font-medium text-xs flex items-center gap-1.5">
+                        <ShieldCheck size={14} className="text-[#d4af37]" />
+                        <span>Proof of Payment Slip (Image / Teller / POS)</span>
+                      </label>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 font-mono">
+                        Optional • Auto-Compressed
                       </span>
-                      <span className="text-[10px] text-gray-400 font-mono">Bank Transfer / POS Slip / Cash Teller</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. TRF/GTB/928401928, POS Terminal RRN #849201, Teller Slip #48201"
-                      value={walkInForm.proofOfPayment}
-                      onChange={(e) => setWalkInForm({ ...walkInForm, proofOfPayment: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/70 border border-[#d4af37]/50 text-white placeholder-gray-500 font-mono text-xs focus:outline-none focus:border-[#d4af37] shadow-inner"
-                    />
+                    </div>
+
+                    {walkInForm.proofOfPaymentImage ? (
+                      <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={walkInForm.proofOfPaymentImage}
+                            alt="Proof Slip"
+                            className="w-12 h-12 object-cover rounded-lg border border-[#d4af37]/40 shadow cursor-pointer hover:opacity-90"
+                            onClick={() => setSelectedProofBooking({
+                              id: walkInForm.generatedCode,
+                              guestName: walkInForm.guestName || 'Hold Guest',
+                              phone: walkInForm.phone,
+                              proofOfPaymentImage: walkInForm.proofOfPaymentImage,
+                              proofOfPayment: walkInForm.proofOfPayment,
+                              amount: walkInForm.amount,
+                              roomName: rates.find(r => r.id === walkInForm.roomType)?.name || 'Arab Suite',
+                              roomNumber: walkInForm.roomNumber,
+                              nights: walkInForm.nights,
+                              paymentMethod: walkInForm.paymentMethod
+                            })}
+                          />
+                          <div>
+                            <span className="text-white text-xs font-semibold block">Slip Attached & Compressed</span>
+                            {walkInForm.proofImageMeta && (
+                              <span className="text-[10px] text-emerald-400 font-mono block">
+                                {formatFileSize(walkInForm.proofImageMeta.compressedSize)} (-{walkInForm.proofImageMeta.reductionPercent}%) • Ready to save
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedProofBooking({
+                                id: walkInForm.generatedCode,
+                                guestName: walkInForm.guestName || 'Hold Guest',
+                                phone: walkInForm.phone,
+                                proofOfPaymentImage: walkInForm.proofOfPaymentImage,
+                                proofOfPayment: walkInForm.proofOfPayment,
+                                amount: walkInForm.amount,
+                                roomName: rates.find(r => r.id === walkInForm.roomType)?.name || 'Arab Suite',
+                                roomNumber: walkInForm.roomNumber,
+                                nights: walkInForm.nights,
+                                paymentMethod: walkInForm.paymentMethod
+                              })}
+                              className="text-[10px] text-[#d4af37] underline hover:text-white mt-0.5 inline-block cursor-pointer"
+                            >
+                              Inspect Full Image
+                            </button>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleRemoveProofImage}
+                          className="px-2.5 py-1 rounded-lg bg-red-950/60 hover:bg-red-900 border border-red-500/30 text-red-300 text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                        >
+                          <Trash2 size={12} />
+                          <span>Remove</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className={`w-full flex flex-col items-center justify-center p-3.5 rounded-xl border-2 border-dashed border-white/20 hover:border-[#d4af37]/60 bg-white/5 hover:bg-white/10 transition-all cursor-pointer text-center ${
+                          isCompressingProof ? 'opacity-50 pointer-events-none' : ''
+                        }`}>
+                          <Upload size={18} className="text-[#d4af37] mb-1" />
+                          <span className="text-xs text-white font-medium">
+                            {isCompressingProof ? 'Compressing Slip Image...' : 'Click or tap to upload proof slip / receipt image'}
+                          </span>
+                          <span className="text-[10px] text-gray-400 mt-0.5">
+                            Auto-compressed & saved to Vercel server for Admin/Accountant (Optional)
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleProofImageChange}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <label className="text-gray-400 text-[11px] flex items-center justify-between">
+                        <span>Teller Slip # / Bank Reference / POS RRN (Optional)</span>
+                        <span className="text-[10px] font-mono text-gray-500">Optional text note</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. TRF/GTB/928401928, POS Terminal RRN #849201, Teller Slip #48201"
+                        value={walkInForm.proofOfPayment}
+                        onChange={(e) => setWalkInForm({ ...walkInForm, proofOfPayment: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl bg-black/70 border border-white/15 text-white placeholder-gray-500 font-mono text-xs focus:outline-none focus:border-[#d4af37]"
+                      />
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -3196,19 +3379,103 @@ export default function ReceptionPortal({ onNavigate }) {
                     </div>
                   </div>
 
-                  {/* Optional Proof of Payment reference for immediate check-in */}
-                  <div className="space-y-1">
-                    <label className="text-gray-300 font-medium text-xs flex items-center gap-1">
-                      <ShieldCheck size={12} className="text-[#d4af37]" />
-                      <span>Proof of Payment / POS Reference (Optional)</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. POS Terminal RRN #849201, Transfer Ref, Cash Slip"
-                      value={walkInForm.proofOfPayment}
-                      onChange={(e) => setWalkInForm({ ...walkInForm, proofOfPayment: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 font-mono text-xs focus:outline-none focus:border-[#d4af37]"
-                    />
+                  {/* Optional Proof of Payment slip/image for immediate check-in */}
+                  <div className="p-3.5 rounded-2xl bg-black/60 border border-white/10 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-gray-300 font-medium text-xs flex items-center gap-1.5">
+                        <ShieldCheck size={13} className="text-[#d4af37]" />
+                        <span>Proof of Payment Slip (Optional Image / Slip)</span>
+                      </label>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-gray-400 border border-white/10 font-mono">
+                        Optional
+                      </span>
+                    </div>
+
+                    {walkInForm.proofOfPaymentImage ? (
+                      <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={walkInForm.proofOfPaymentImage}
+                            alt="Proof Slip"
+                            className="w-12 h-12 object-cover rounded-lg border border-[#d4af37]/40 shadow cursor-pointer hover:opacity-90"
+                            onClick={() => setSelectedProofBooking({
+                              id: walkInForm.generatedCode,
+                              guestName: walkInForm.guestName || 'Checked-In Guest',
+                              phone: walkInForm.phone,
+                              proofOfPaymentImage: walkInForm.proofOfPaymentImage,
+                              proofOfPayment: walkInForm.proofOfPayment,
+                              amount: walkInForm.amount,
+                              roomName: rates.find(r => r.id === walkInForm.roomType)?.name || 'Arab Suite',
+                              roomNumber: walkInForm.roomNumber,
+                              nights: walkInForm.nights,
+                              paymentMethod: walkInForm.paymentMethod
+                            })}
+                          />
+                          <div>
+                            <span className="text-white text-xs font-semibold block">Slip Attached & Compressed</span>
+                            {walkInForm.proofImageMeta && (
+                              <span className="text-[10px] text-emerald-400 font-mono block">
+                                {formatFileSize(walkInForm.proofImageMeta.compressedSize)} (-{walkInForm.proofImageMeta.reductionPercent}%)
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedProofBooking({
+                                id: walkInForm.generatedCode,
+                                guestName: walkInForm.guestName || 'Checked-In Guest',
+                                phone: walkInForm.phone,
+                                proofOfPaymentImage: walkInForm.proofOfPaymentImage,
+                                proofOfPayment: walkInForm.proofOfPayment,
+                                amount: walkInForm.amount,
+                                roomName: rates.find(r => r.id === walkInForm.roomType)?.name || 'Arab Suite',
+                                roomNumber: walkInForm.roomNumber,
+                                nights: walkInForm.nights,
+                                paymentMethod: walkInForm.paymentMethod
+                              })}
+                              className="text-[10px] text-[#d4af37] underline hover:text-white mt-0.5 inline-block cursor-pointer"
+                            >
+                              Inspect Full Image
+                            </button>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleRemoveProofImage}
+                          className="px-2.5 py-1 rounded-lg bg-red-950/60 hover:bg-red-900 border border-red-500/30 text-red-300 text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                        >
+                          <Trash2 size={12} />
+                          <span>Remove</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className={`w-full flex flex-col items-center justify-center p-3 rounded-xl border border-dashed border-white/20 hover:border-[#d4af37]/60 bg-white/5 hover:bg-white/10 transition-all cursor-pointer text-center ${
+                          isCompressingProof ? 'opacity-50 pointer-events-none' : ''
+                        }`}>
+                          <Upload size={16} className="text-[#d4af37] mb-1" />
+                          <span className="text-xs text-white font-medium">
+                            {isCompressingProof ? 'Compressing Slip...' : 'Upload POS slip / transfer screenshot (Optional)'}
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleProofImageChange}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <input
+                        type="text"
+                        placeholder="POS Terminal RRN #849201, Transfer Ref, or Slip # (Optional)"
+                        value={walkInForm.proofOfPayment}
+                        onChange={(e) => setWalkInForm({ ...walkInForm, proofOfPayment: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 font-mono text-xs focus:outline-none focus:border-[#d4af37]"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -3273,15 +3540,26 @@ export default function ReceptionPortal({ onNavigate }) {
               </span>
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
+                  onClick={() => handleSendWhatsApp(selectedReceiptBooking)}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+                  title={`Send Official Receipt via WhatsApp to ${selectedReceiptBooking.phone}`}
+                >
+                  <MessageSquare size={14} />
+                  <span>Send to WhatsApp</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => window.print()}
-                  className="px-3.5 py-1.5 rounded-xl bg-[#5c0725] text-white hover:bg-[#3d0418] text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md"
+                  className="px-3.5 py-1.5 rounded-xl bg-[#5c0725] text-white hover:bg-[#3d0418] text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
                 >
                   <Printer size={14} />
                   <span>Print Receipt</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => setSelectedReceiptBooking(null)}
-                  className="p-1.5 rounded-lg text-gray-500 hover:text-black hover:bg-gray-100"
+                  className="p-1.5 rounded-lg text-gray-500 hover:text-black hover:bg-gray-100 cursor-pointer"
                 >
                   <X size={18} />
                 </button>
@@ -3358,6 +3636,18 @@ export default function ReceptionPortal({ onNavigate }) {
                   {selectedReceiptBooking.proofOfPayment && (
                     <div className="text-gray-800 text-[11px] mt-0.5 font-mono">
                       Proof of Payment: <strong>{selectedReceiptBooking.proofOfPayment}</strong>
+                    </div>
+                  )}
+                  {selectedReceiptBooking.proofOfPaymentImage && (
+                    <div className="mt-1.5 flex items-center gap-1.5 sm:justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedProofBooking(selectedReceiptBooking)}
+                        className="px-2 py-1 rounded bg-[#5c0725]/10 hover:bg-[#5c0725]/20 border border-[#5c0725]/30 text-[#5c0725] text-[10px] font-bold inline-flex items-center gap-1 print:hidden cursor-pointer"
+                      >
+                        <ImageIcon size={11} />
+                        <span>View Attached Proof Slip</span>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -3483,10 +3773,46 @@ export default function ReceptionPortal({ onNavigate }) {
                 </p>
               </div>
 
+              {/* Staff Dispatch Actions Bar: Send to WhatsApp & Print (Hidden in Print) */}
+              <div className="p-4 rounded-2xl bg-[#5c0725]/5 border border-[#5c0725]/20 flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden">
+                <div className="text-left">
+                  <span className="font-bold text-gray-900 text-xs block">Official Guest Dispatch & Hardcopy</span>
+                  <span className="text-[11px] text-gray-600">
+                    Send full folio directly to customer's WhatsApp (<strong className="font-mono text-gray-900">{selectedReceiptBooking.phone}</strong>) or print for physical filing.
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleSendWhatsApp(selectedReceiptBooking)}
+                    className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                  >
+                    <MessageSquare size={15} />
+                    <span>Send to WhatsApp</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="px-4 py-2.5 rounded-xl bg-[#5c0725] hover:bg-[#3d0418] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
+                  >
+                    <Printer size={15} />
+                    <span>Print Receipt</span>
+                  </button>
+                </div>
+              </div>
+
             </div>
 
           </div>
         </div>
+      )}
+
+      {/* Proof of Payment Lightbox Modal */}
+      {selectedProofBooking && (
+        <ProofOfPaymentModal
+          booking={selectedProofBooking}
+          onClose={() => setSelectedProofBooking(null)}
+        />
       )}
 
       {/* Modal: Read-Only Dining & Bar Menu Lookup for Front Desk */}
