@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Utensils, Wine, Sparkles, Search, 
-  GlassWater, Beer, MessageSquare, ChevronRight, AlertCircle, CheckCircle2, Soup, Drumstick, Coffee, ArrowRight, Plus, Minus, CircleDot, Zap
+  GlassWater, Beer, MessageSquare, ChevronRight, AlertCircle, CheckCircle2, Soup, Drumstick, Coffee, ArrowRight, Plus, Minus, CircleDot, Zap,
+  ShoppingBag, Receipt, Building2, KeyRound, X
 } from 'lucide-react';
 import { portalStore } from '../data/portalStore';
+import DiningOrderModal from '../components/DiningOrderModal';
 
 export default function DiningPage({ onNavigate, onOpenBooking }) {
   const goldGradient = 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black';
@@ -19,17 +21,86 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
   const [swallowTypes, setSwallowTypes] = useState({});
   const [swallowCounts, setSwallowCounts] = useState({});
 
-  // Load live menu & subscribe to real-time Admin price updates
+  // Food (ARB-FDD) & Drink (ARB-DRK) Order Tray + Modal State
+  const [orderCart, setOrderCart] = useState([]);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [activeLodgeSession, setActiveLodgeSession] = useState(null);
+
+  // Order Code Lookup (ARB-FDD-... / ARB-DRK-...)
+  const [lookupCode, setLookupCode] = useState('');
+  const [lookupResult, setLookupResult] = useState(null);
+  const [lookupError, setLookupError] = useState('');
+
+  // Load live menu & subscribe to real-time Admin price updates + Guest Lodge Session
   useEffect(() => {
     const initial = portalStore.getDiningMenu();
     setMenuItems(initial);
+
+    const syncSession = () => {
+      const sess = portalStore.getCustomerSession();
+      if (sess && sess.activeBooking && !sess.isCheckedOut) {
+        setActiveLodgeSession(sess);
+      } else {
+        setActiveLodgeSession(null);
+      }
+    };
+    syncSession();
 
     const unsubscribe = portalStore.subscribeDiningMenu((updatedMenu) => {
       setMenuItems(updatedMenu);
     });
 
-    return () => unsubscribe();
+    window.addEventListener('ash_customer_session_updated', syncSession);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('ash_customer_session_updated', syncSession);
+    };
   }, []);
+
+  const handleAddConfiguredItemToCart = (configuredItem, openModalImmediately = false) => {
+    setOrderCart((prev) => {
+      const existingIdx = prev.findIndex((c) => c.cartKey === configuredItem.cartKey);
+      if (existingIdx >= 0) {
+        if (openModalImmediately) return prev;
+        const copy = [...prev];
+        copy[existingIdx] = { ...copy[existingIdx], qty: copy[existingIdx].qty + 1 };
+        return copy;
+      }
+      return [...prev, { ...configuredItem, qty: 1 }];
+    });
+    if (openModalImmediately) {
+      setIsOrderModalOpen(true);
+    }
+  };
+
+  const handleUpdateCartQty = (cartKey, delta) => {
+    setOrderCart((prev) =>
+      prev
+        .map((c) => (c.cartKey === cartKey ? { ...c, qty: c.qty + delta } : c))
+        .filter((c) => c.qty > 0)
+    );
+  };
+
+  const handleRemoveCartItem = (cartKey) => {
+    setOrderCart((prev) => prev.filter((c) => c.cartKey !== cartKey));
+  };
+
+  const handleLookupOrderCode = (e) => {
+    if (e) e.preventDefault();
+    setLookupError('');
+    setLookupResult(null);
+    if (!lookupCode.trim()) return;
+    const found = portalStore.findDiningOrderByCode(lookupCode.trim());
+    if (!found) {
+      setLookupError(`No Food or Drink booking found for code "${lookupCode.trim().toUpperCase()}". Expected ARB-FDD-... or ARB-DRK-...`);
+      return;
+    }
+    setLookupResult(found);
+  };
+
+  const totalTrayItems = orderCart.reduce((sum, i) => sum + i.qty, 0);
+  const totalTrayAmount = orderCart.reduce((sum, i) => sum + Number(i.unitPrice) * i.qty, 0);
 
   // Extract live protein add-ons and Semo / Garri swallows from the menu so Admin price changes reflect in pairings too
   const proteinAddons = menuItems.filter((i) => i.category === 'proteins' && i.isProteinAddon);
@@ -305,6 +376,102 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
 
       {/* 3. INTERACTIVE LIVE FOOD & DRINKS MENU */}
       <section id="menu-section" className="py-10 px-4 sm:px-6 max-w-7xl mx-auto space-y-8">
+        
+        {/* Active Lodge Guest Auto-Link Banner + Order Code Lookup */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div className="lg:col-span-7 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#2c0515] via-[#1c040e] to-[#15020a] border border-[#d4af37]/40 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#d4af37]/20 border border-[#d4af37]/50 flex items-center justify-center text-[#f3e5ab] flex-shrink-0">
+                <Building2 size={18} />
+              </div>
+              {activeLodgeSession?.activeBooking ? (
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-extrabold text-white">
+                      In-Lodge Suite Linked: {activeLodgeSession.activeBooking.guestName}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">
+                      Suite #{activeLodgeSession.activeBooking.roomNumber} ({activeLodgeSession.activeBooking.id})
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-300">
+                    Book any food (<span className="font-mono text-[#f3e5ab]">ARB-FDD</span>) or drink (<span className="font-mono text-[#f3e5ab]">ARB-DRK</span>) below and add it directly to your Suite Bill!
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-0.5">
+                  <span className="text-xs font-extrabold text-[#f3e5ab] block">
+                    Staying in Our Hotel Lodge? Add Food & Drinks to Your Room Bill!
+                  </span>
+                  <p className="text-[11px] text-gray-300 leading-relaxed">
+                    Select any dishes or chilled bottles below — get your official <strong className="font-mono text-white">ARB-FDD-...</strong> or <strong className="font-mono text-white">ARB-DRK-...</strong> code and charge straight to your Suite (<span className="font-mono text-[#f3e5ab]">ARS-BGD</span> / <span className="font-mono text-[#f3e5ab]">ARS-EXT</span>) or pay online.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsOrderModalOpen(true)}
+              className={`px-4 py-2.5 rounded-xl ${goldGradient} text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 whitespace-nowrap shadow-lg`}
+            >
+              <ShoppingBag size={14} />
+              <span>Tray ({totalTrayItems})</span>
+            </button>
+          </div>
+
+          {/* Track Existing Food / Drink Booking Code (ARB-FDD / ARB-DRK) */}
+          <div className="lg:col-span-5 p-4 sm:p-5 rounded-2xl bg-[#18030c] border border-white/15 shadow-xl space-y-2.5">
+            <form onSubmit={handleLookupOrderCode} className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <KeyRound size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#d4af37]" />
+                <input
+                  type="text"
+                  value={lookupCode}
+                  onChange={(e) => setLookupCode(e.target.value.toUpperCase())}
+                  placeholder="Check Order Code (ARB-FDD-... / ARB-DRK-...)"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-black/60 border border-[#d4af37]/35 text-xs font-mono text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
+                />
+              </div>
+              <button
+                type="submit"
+                className="px-4 py-2.5 rounded-xl bg-[#5c0725] hover:bg-[#750930] border border-[#d4af37]/40 text-xs font-bold text-[#f3e5ab] whitespace-nowrap transition-all"
+              >
+                Track Code
+              </button>
+            </form>
+
+            {lookupError && (
+              <p className="text-[11px] text-rose-300 font-mono flex items-center gap-1.5">
+                <AlertCircle size={12} className="text-rose-400 flex-shrink-0" />
+                <span>{lookupError}</span>
+              </p>
+            )}
+
+            {lookupResult && (
+              <div className="p-3 rounded-xl bg-black/65 border border-[#d4af37]/40 text-[11px] font-mono space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-[#f3e5ab]">{lookupResult.id} • {lookupResult.guestName}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
+                      {lookupResult.orderStatus}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setLookupResult(null)}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                </div>
+                <div className="text-gray-300">
+                  {lookupResult.serviceLocation} • <strong className="text-amber-200">{lookupResult.paymentStatus}</strong> • ₦{Number(lookupResult.amount).toLocaleString()}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
         
         {/* Menu Header & Search Bar */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-white/10 pb-8">
@@ -893,17 +1060,64 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                           </div>
                         </div>
 
-                        {/* Item Availability Footer */}
-                        <div className="px-5 py-3 border-t border-white/5 bg-black/20 flex items-center justify-between text-xs">
-                          <span className="text-[11px] text-emerald-400 flex items-center gap-1.5 font-mono">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            Available Daily
-                          </span>
+                        {/* Item Booking & Tray Footer */}
+                        {(() => {
+                          const pairingText = needsProtein
+                            ? `${chosenProteinLabels.join(' + ')}${swallowQty > 0 ? ` + ${swallowQty}x ${activeSwallowLabel}` : ''}`
+                            : '';
+                          const cartKey = needsProtein ? `${item.id}::${pairingText}` : item.id;
+                          const displayName = needsProtein ? `${item.name} (${pairingText})` : item.name;
+                          const configuredPayload = {
+                            cartKey,
+                            id: item.id,
+                            name: item.name,
+                            displayName,
+                            pairingSummary: needsProtein ? `Paired with ${pairingText}` : '',
+                            unitPrice: combinedTotal,
+                            type: item.type === 'drinks' ? 'drinks' : 'food'
+                          };
+                          const inTrayObj = orderCart.find((c) => c.cartKey === cartKey);
 
-                          <span className="text-[10px] text-[#f3e5ab]/70 font-mono tracking-wider">
-                            {item.type === 'drinks' ? 'VIP Bar & Lounge' : 'Hotel Kitchen'}
-                          </span>
-                        </div>
+                          return (
+                            <div className="px-4 py-3.5 border-t border-white/10 bg-black/35 space-y-2.5">
+                              <div className="flex items-center justify-between text-[11px] font-mono">
+                                <span className="text-emerald-400 flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                  {item.type === 'drinks' ? 'ARB-DRK Code Ready' : 'ARB-FDD Code Ready'}
+                                </span>
+                                {inTrayObj ? (
+                                  <span className="px-2 py-0.5 rounded-full bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#f3e5ab] font-bold">
+                                    {inTrayObj.qty} in Tray
+                                  </span>
+                                ) : (
+                                  <span className="text-[#f3e5ab]/75">
+                                    ₦{combinedTotal.toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddConfiguredItemToCart(configuredPayload, false)}
+                                  className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-all"
+                                >
+                                  <Plus size={13} className="text-[#d4af37]" />
+                                  <span>Add to Tray</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddConfiguredItemToCart(configuredPayload, true)}
+                                  className={`px-3 py-2.5 rounded-xl ${goldGradient} text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md transition-all`}
+                                >
+                                  {item.type === 'drinks' ? <Wine size={13} /> : <Utensils size={13} />}
+                                  <span>{item.type === 'drinks' ? 'Book Drink' : 'Book Food'}</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}
@@ -948,6 +1162,59 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
           </div>
         </div>
       </section>
+
+      {/* Floating Bottom Food & Drink Tray Checkout Bar */}
+      {totalTrayItems > 0 && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 w-[94%] max-w-3xl rounded-2xl bg-gradient-to-r from-[#2c0414] via-[#19020b] to-[#120108] border border-[#d4af37]/60 shadow-2xl px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#d4af37]/20 border border-[#d4af37]/50 flex items-center justify-center text-[#f3e5ab]">
+              <ShoppingBag size={18} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 text-xs font-bold text-white">
+                <span>{totalTrayItems} Selected Item{totalTrayItems > 1 ? 's' : ''}</span>
+                <span className="text-[#d4af37]">•</span>
+                <span className="font-mono text-[#f3e5ab]">₦{totalTrayAmount.toLocaleString()}</span>
+              </div>
+              <p className="text-[10px] font-mono text-gray-300">
+                {activeLodgeSession?.activeBooking
+                  ? `Ready to add to Suite #${activeLodgeSession.activeBooking.roomNumber} (${activeLodgeSession.activeBooking.id}) bill`
+                  : 'Generates official ARB-FDD / ARB-DRK code • Add to Suite Bill or Pay Online'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setOrderCart([])}
+              className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-[11px] font-mono text-gray-300"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsOrderModalOpen(true)}
+              className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl ${goldGradient} text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg`}
+            >
+              <Receipt size={14} />
+              <span>{activeLodgeSession?.activeBooking ? 'Add to Suite Bill / Checkout' : 'Checkout & Get Code'}</span>
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Food & Drink Booking Modal */}
+      <DiningOrderModal
+        isOpen={isOrderModalOpen}
+        onClose={() => setIsOrderModalOpen(false)}
+        cartItems={orderCart}
+        onUpdateQty={handleUpdateCartQty}
+        onRemoveItem={handleRemoveCartItem}
+        onClearCart={() => setOrderCart([])}
+        onNavigate={onNavigate}
+      />
 
     </div>
   );

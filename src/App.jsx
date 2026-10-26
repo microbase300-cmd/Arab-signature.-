@@ -20,8 +20,10 @@ import ContactPage from './pages/ContactPage';
 // Separate Password-Restricted Operations Portals (Zero public links on main site)
 import AdminLogin from './pages/AdminLogin';
 import ReceptionLogin from './pages/ReceptionLogin';
+import AccountantLogin from './pages/AccountantLogin';
 import ReceptionPortal from './pages/ReceptionPortal';
 import AdminPortal from './pages/AdminPortal';
+import AccountantPortal from './pages/AccountantPortal';
 
 // Lightweight Hotel AI Concierge
 import HotelAiChat from './components/HotelAiChat';
@@ -83,12 +85,30 @@ export default function App() {
       // Dedicated Receptionist Front Desk (#reception) - Protected
       if (rawHash === 'reception') {
         const user = portalStore.getCurrentUser();
-        if (!user) {
+        if (!user || !['reception', 'admin'].includes(user.role)) {
           setCurrentPage('reception-login');
           window.location.hash = 'reception-login';
           return;
         }
         setCurrentPage('reception');
+        return;
+      }
+
+      // Dedicated Accountant Login Gate (#accountant-login)
+      if (rawHash === 'accountant-login') {
+        setCurrentPage('accountant-login');
+        return;
+      }
+
+      // Dedicated Accountant Financial Audit Portal (#accountant) - Protected
+      if (rawHash === 'accountant') {
+        const user = portalStore.getCurrentUser();
+        if (!user || !['accountant', 'admin'].includes(user.role)) {
+          setCurrentPage('accountant-login');
+          window.location.hash = 'accountant-login';
+          return;
+        }
+        setCurrentPage('accountant');
         return;
       }
 
@@ -138,7 +158,7 @@ export default function App() {
   };
 
   // Determine if viewing staff operations portal
-  const isPortalPage = ['admin-login', 'reception-login', 'reception', 'admin'].includes(currentPage);
+  const isPortalPage = ['admin-login', 'reception-login', 'accountant-login', 'reception', 'admin', 'accountant'].includes(currentPage);
 
   // Render the appropriate dedicated page
   const renderCurrentPage = () => {
@@ -151,6 +171,10 @@ export default function App() {
         return <ReceptionLogin onNavigate={handleNavigate} />;
       case 'reception':
         return <ReceptionPortal onNavigate={handleNavigate} />;
+      case 'accountant-login':
+        return <AccountantLogin onNavigate={handleNavigate} />;
+      case 'accountant':
+        return <AccountantPortal onNavigate={handleNavigate} />;
       case 'guest-portal':
         return <CustomerDashboardPage onNavigate={handleNavigate} onOpenBooking={handleOpenBooking} />;
       case 'about':

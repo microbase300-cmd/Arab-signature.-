@@ -185,7 +185,42 @@ export const hotelAiEngine = {
     }
 
     // ========================================================
-    // 2. SECURE BOOKING STATUS TRACKER (With Data Masking)
+    // 2A. FOOD (ARB-FDD) & DRINK (ARB-DRK) ORDER TRACKER
+    // ========================================================
+    const diningCodeMatch = query.match(/arb[-_]?(?:fdd|drk)[-_]?\d+[a-z]{0,2}/i);
+    if (diningCodeMatch) {
+      const dCode = diningCodeMatch[0].toUpperCase().replace(/_/g, '-');
+      const matchedOrder = portalStore.findDiningOrderByCode(dCode);
+
+      if (matchedOrder) {
+        const maskGuest = (name) => {
+          if (!name) return 'Valued Patron';
+          return name.trim().split(' ').map(p => (p[0] || '') + '****').join(' ');
+        };
+        const itemSummary = (matchedOrder.items || [])
+          .map(it => `${it.qty || 1}x ${it.name}`)
+          .join(', ');
+
+        return {
+          text: `${matchedOrder.orderType === 'drink' ? '🍾' : '🍽️'} **Amira ${matchedOrder.orderType === 'drink' ? 'VIP Bar & Drinks' : 'Al-Sultan Kitchen'} Order Verification (${matchedOrder.id}):**\n\n` +
+                `• **Patron:** ${maskGuest(matchedOrder.guestName)}\n` +
+                `• **Items Ordered:** ${itemSummary || 'Custom Selection'}\n` +
+                `• **Order Total:** ₦${Number(matchedOrder.totalAmount || 0).toLocaleString()}\n` +
+                `• **Destination:** ${matchedOrder.isLodgeGuest ? `In-Lodge Suite ${matchedOrder.roomNumber} (${matchedOrder.linkedBookingId})` : (matchedOrder.tableOrSpot || 'Restaurant / Lounge')}\n` +
+                `• **Kitchen / Bar Status:** **${matchedOrder.orderStatus || 'Received'}**\n` +
+                `• **Billing Status:** ${matchedOrder.paymentStatus === 'Paid' ? 'Paid & Settled' : matchedOrder.paymentStatus === 'Added to Room Bill' ? 'Charged to Active Suite Room Bill' : matchedOrder.paymentStatus}`,
+          suggestions: ["Dining Menu", "Track My Booking", "Check Available Suites"]
+        };
+      } else {
+        return {
+          text: `🔍 I could not find a Food or Drink order matching code **${dCode}**. Please check your **ARB-FDD-...** (Kitchen) or **ARB-DRK-...** (Drinks) pass on the Dining page or contact Al-Sultan Restaurant at **0812 578 6875**.`,
+          suggestions: ["Dining Menu", "Chat on WhatsApp"]
+        };
+      }
+    }
+
+    // ========================================================
+    // 2B. SECURE SUITE BOOKING STATUS TRACKER (With Data Masking)
     // ========================================================
     // Detect booking codes matching pattern like ARS-BGD-1234AB, ARS-EXT-1234XK, ASH-1234, or digits+letters
     const bookingCodeMatch = query.match(/(ars[-_]?(?:bgd|ext)[-_]?\d+[a-z]{0,2})|(ash[-_\s]?\d+[a-z]{0,2})|(\b\d{4,5}[a-z]{0,2}\b)/i);

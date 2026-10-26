@@ -4,7 +4,8 @@ import {
   Building2, BedDouble, Calendar, User, Phone, CheckCircle2, Clock, 
   Search, Filter, Plus, Printer, MessageSquare, LogOut, ArrowLeft, ArrowRight, 
   Sparkles, RefreshCw, Key, ShieldCheck, Check, AlertCircle, X, ChevronRight,
-  TrendingUp, DoorOpen, Sparkle, Utensils, Lock, Wine, Bell, Volume2, VolumeX
+  TrendingUp, DoorOpen, Sparkle, Utensils, Lock, Wine, Bell, Volume2, VolumeX,
+  Copy, Receipt, CreditCard
 } from 'lucide-react';
 
 export default function ReceptionPortal({ onNavigate }) {
@@ -13,9 +14,14 @@ export default function ReceptionPortal({ onNavigate }) {
   const [bookings, setBookings] = useState([]);
   const [rates, setRates] = useState([]);
   const [diningMenu, setDiningMenu] = useState([]);
+  const [diningOrders, setDiningOrders] = useState([]);
+  const [diningOrderFilter, setDiningOrderFilter] = useState('all'); // 'all' | 'room_unpaid' | 'food' | 'drinks'
+  const [counterChargeRoom, setCounterChargeRoom] = useState('');
   const [isDiningMenuOpen, setIsDiningMenuOpen] = useState(false);
   const [diningSearchQuery, setDiningSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('rooms'); // 'rooms' | 'ledger'
+  const [activeTab, setActiveTab] = useState('rooms'); // 'rooms' | 'ledger' | 'dining_orders' | 'chat'
+  const [copiedGeneratedCode, setCopiedGeneratedCode] = useState(false);
+  const [returningPatronHint, setReturningPatronHint] = useState(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const activeTabRef = React.useRef(activeTab);
   useEffect(() => {
@@ -115,8 +121,10 @@ export default function ReceptionPortal({ onNavigate }) {
     }
   };
 
-  // Walk-in form state
+  // Walk-in / Counter Booking form state (includes live Booking Code Generator)
   const [walkInForm, setWalkInForm] = useState({
+    generatedCode: '',
+    bookingMode: 'Checked In', // 'Checked In' (Immediate Room Key) | 'Confirmed' (Counter Reservation Hold)
     guestName: '',
     phone: '',
     email: '',
@@ -144,6 +152,7 @@ export default function ReceptionPortal({ onNavigate }) {
     setBookings(portalStore.getBookings());
     setRates(portalStore.getRoomRates());
     setDiningMenu(portalStore.getDiningMenu());
+    setDiningOrders(portalStore.getDiningOrders());
     setChatMessages(portalStore.getChatMessages('reception'));
   };
 
@@ -196,12 +205,43 @@ export default function ReceptionPortal({ onNavigate }) {
     return getBookingBuilding(b) === desk;
   };
 
-  const handleOpenNewWalkIn = () => {
+  const generateCounterBookingCode = (roomNumber, roomType) => {
+    const desk = getDeskBuilding();
+    const inferredBuilding = roomNumber
+      ? (String(roomNumber).startsWith('1') ? 'Extension Building' : 'Main Building')
+      : (desk === 'Extension Building' ? 'Extension Building' : 'Main Building');
+    return portalStore.generateUniqueBookingCode({
+      building: inferredBuilding,
+      roomNumber,
+      roomType
+    });
+  };
+
+  const handleOpenNewWalkIn = (preselectedRoom = null) => {
     const desk = getDeskBuilding();
     const deskRooms = rooms.filter(r => isDeskRoom(r));
-    const firstAvailableRoom = deskRooms.find(r => r.status === 'available') || deskRooms[0];
-    const initialType = firstAvailableRoom?.type || (desk === 'Extension Building' ? 'superior' : 'deluxe');
-    handleRoomTypeChange(initialType);
+    const targetRoom = preselectedRoom || deskRooms.find(r => r.status === 'available') || deskRooms[0];
+    const initialType = targetRoom?.type || (desk === 'Extension Building' ? 'superior' : 'deluxe');
+    const rateObj = rates.find(r => r.id === initialType);
+    const price = targetRoom?.price || (rateObj ? rateObj.price : 45000);
+    const roomNum = targetRoom?.roomNumber || '';
+    const freshCode = generateCounterBookingCode(roomNum, initialType);
+
+    setReturningPatronHint(null);
+    setWalkInForm({
+      generatedCode: freshCode,
+      bookingMode: 'Checked In',
+      guestName: '',
+      phone: '',
+      email: '',
+      roomType: initialType,
+      roomNumber: roomNum,
+      checkIn: new Date().toISOString().split('T')[0],
+      checkOut: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+      nights: 1,
+      paymentMethod: 'POS Terminal (Front Desk)',
+      amount: price
+    });
     setIsWalkInOpen(true);
   };
 
@@ -244,6 +284,18 @@ export default function ReceptionPortal({ onNavigate }) {
     window.addEventListener('ash_menu_updated', handleLiveSync);
     const unsubscribeRooms = portalStore.subscribeRooms(() => refreshData());
     const unsubscribeDining = portalStore.subscribeDiningMenu(() => refreshData());
+    const unsubscribeDiningOrders = portalStore.subscribeDiningOrders((detail) => {
+      refreshData();
+      if (detail?.isNewOrder && detail?.newOrder) {
+        playIntercomChime();
+        const o = detail.newOrder;
+        showToast(
+          o.chargeToRoom
+            ? `🍽️ Room Bill Order ${o.id} (₦${Number(o.amount).toLocaleString()}) added to Suite #${o.roomNumber}!`
+            : `🍽️ New ${o.orderType === 'drinks' ? 'Drink' : 'Food'} Booking ${o.id} (${o.guestName})`
+        );
+      }
+    });
     // 4. Live Chat Intercom Subscription & Real-Time Cloud Heartbeat
     let lastSeenCount = portalStore.getChatMessages('reception').length;
     let lastSeenId = (portalStore.getChatMessages('reception').slice(-1)[0]?.id) || '';
@@ -296,6 +348,7 @@ export default function ReceptionPortal({ onNavigate }) {
       window.removeEventListener('ash_menu_updated', handleLiveSync);
       unsubscribeRooms();
       unsubscribeDining();
+      unsubscribeDiningOrders();
       clearInterval(chatHeartbeat);
       unsubscribeChat();
     };
@@ -376,13 +429,77 @@ export default function ReceptionPortal({ onNavigate }) {
       refreshData();
       showToast(`Guest ${booking.guestName} Checked In to Room ${assignedRoom}`);
     } else if (booking.status === 'Checked In') {
+      const folio = portalStore.getBookingFolioSummary(booking);
+      if (folio.balanceDue > 0) {
+        const confirmSettle = window.confirm(
+          `Guest ${booking.guestName} (Suite #${booking.roomNumber}) has an unsettled Food/Drink Room Bill of ₦${folio.balanceDue.toLocaleString()}.\n\nClick OK to settle this ₦${folio.balanceDue.toLocaleString()} bill via Counter POS and complete Check-Out.`
+        );
+        if (!confirmSettle) return;
+        portalStore.settleBookingDiningBill(booking.id, 'POS Terminal (Front Desk Check-Out)');
+      }
       portalStore.updateBookingStatus(booking.id, 'Completed', booking.roomNumber);
       refreshData();
-      showToast(`Guest ${booking.guestName} Checked Out. Room ${booking.roomNumber} is now AVAILABLE.`);
+      showToast(`Guest ${booking.guestName} Checked Out & Bill Cleared. Room ${booking.roomNumber} is now AVAILABLE.`);
     }
   };
 
-  // Walk-in room change handler (Restricted to receptionist's building)
+  const handleSettleBookingRoomBill = (booking) => {
+    if (!isDeskBooking(booking)) {
+      showToast(`Access Restricted: Managed by ${getBookingBuilding(booking)} Desk.`);
+      return;
+    }
+    const folio = portalStore.getBookingFolioSummary(booking);
+    if (folio.balanceDue <= 0) return;
+    portalStore.settleBookingDiningBill(booking.id, 'POS Terminal (Front Desk)');
+    refreshData();
+    showToast(`Settled ₦${folio.balanceDue.toLocaleString()} Food/Drink Room Bill for ${booking.guestName} (${booking.id})!`);
+  };
+
+  const handleCounterAddDiningToRoom = (item) => {
+    if (!counterChargeRoom) {
+      alert('Please select an active occupied/confirmed Guest Suite above to add this item to their bill, or leave as Counter POS Walk-In.');
+    }
+    const isDrink = item.type === 'drinks';
+    const matchedBooking = counterChargeRoom
+      ? bookings.find((b) => String(b.id) === String(counterChargeRoom) && ['Checked In', 'Confirmed'].includes(b.status))
+      : null;
+
+    const created = portalStore.addDiningOrder({
+      orderType: isDrink ? 'drinks' : 'food',
+      guestName: matchedBooking ? matchedBooking.guestName : 'Front Desk Counter Diner',
+      phone: matchedBooking ? matchedBooking.phone : '',
+      email: matchedBooking ? matchedBooking.email : '',
+      isLodgeGuest: Boolean(matchedBooking),
+      bookingId: matchedBooking ? matchedBooking.id : null,
+      roomNumber: matchedBooking ? matchedBooking.roomNumber : null,
+      building: matchedBooking ? getBookingBuilding(matchedBooking) : getDeskBuilding(),
+      serviceLocation: matchedBooking ? `Suite #${matchedBooking.roomNumber} (Front Desk Counter Order)` : 'Front Desk Counter Order',
+      chargeToRoom: Boolean(matchedBooking),
+      paymentStatus: matchedBooking ? 'Added to Room Bill' : 'Paid',
+      paymentMethod: matchedBooking ? 'Room Bill (Unsettled)' : 'POS Terminal (Front Desk)',
+      items: [
+        {
+          id: item.id,
+          name: item.name,
+          qty: 1,
+          unitPrice: Number(item.price) || 0,
+          totalPrice: Number(item.price) || 0,
+          type: isDrink ? 'drinks' : 'food'
+        }
+      ],
+      amount: Number(item.price) || 0,
+      source: 'Reception Counter Desk'
+    });
+
+    refreshData();
+    showToast(
+      matchedBooking
+        ? `Generated ${created.id} & added ₦${Number(item.price).toLocaleString()} (${item.name}) to ${matchedBooking.guestName}'s Suite #${matchedBooking.roomNumber} bill!`
+        : `Generated ${created.id} (${item.name} • ₦${Number(item.price).toLocaleString()}) — Paid at Counter POS!`
+    );
+  };
+
+  // Walk-in room change handler (Restricted to receptionist's building & updates Booking Code prefix)
   const handleRoomTypeChange = (type) => {
     const rateObj = rates.find(r => r.id === type);
     const price = rateObj ? rateObj.price : 45000;
@@ -391,12 +508,15 @@ export default function ReceptionPortal({ onNavigate }) {
       r.status === 'available' &&
       isDeskRoom(r)
     );
+    const nextRoomNum = availableRoomsOfType.length > 0 ? availableRoomsOfType[0].roomNumber : '';
+    const nextCode = generateCounterBookingCode(nextRoomNum, type);
     
     setWalkInForm(prev => ({
       ...prev,
+      generatedCode: nextCode,
       roomType: type,
       amount: price * (prev.nights || 1),
-      roomNumber: availableRoomsOfType.length > 0 ? availableRoomsOfType[0].roomNumber : ''
+      roomNumber: nextRoomNum
     }));
   };
 
@@ -450,7 +570,13 @@ export default function ReceptionPortal({ onNavigate }) {
       return;
     }
 
+    const finalBookingCode =
+      walkInForm.generatedCode || generateCounterBookingCode(selectedRoomNum, walkInForm.roomType);
+    const chosenStatus = walkInForm.bookingMode === 'Confirmed' ? 'Confirmed' : 'Checked In';
+
     const newBooking = portalStore.addBooking({
+      id: finalBookingCode,
+      building: targetRoom.building || (String(selectedRoomNum).startsWith('1') ? 'Extension Building' : 'Main Building'),
       guestName: walkInForm.guestName,
       phone: walkInForm.phone,
       email: walkInForm.email,
@@ -461,20 +587,24 @@ export default function ReceptionPortal({ onNavigate }) {
       checkOut: walkInForm.checkOut,
       nights: walkInForm.nights,
       amount: walkInForm.amount,
-      status: "Checked In",
+      status: chosenStatus,
       paymentMethod: walkInForm.paymentMethod,
       paymentStatus: "Paid",
-      source: "Front Desk Walk-In"
+      source: "Front Desk Counter"
     });
 
-    // Mark room as occupied immediately
-    portalStore.updateRoomStatus(selectedRoomNum, 'occupied', walkInForm.guestName);
+    // Update room status immediately ('occupied' if Checked In, 'reserved' if Counter Reservation)
+    portalStore.updateRoomStatus(
+      selectedRoomNum,
+      chosenStatus === 'Checked In' ? 'occupied' : 'reserved',
+      walkInForm.guestName
+    );
 
     refreshData();
     setIsWalkInOpen(false);
-    showToast(`Walk-in booked! Room ${selectedRoomNum} assigned to ${walkInForm.guestName}`);
+    showToast(`Booking Code ${newBooking.id} generated! Room #${selectedRoomNum} assigned to ${walkInForm.guestName}`);
     
-    // Automatically open folio receipt for printing
+    // Automatically open folio receipt with Customer Portal Booking Code for printing / sharing
     setSelectedReceiptBooking(newBooking);
   };
 
@@ -571,13 +701,13 @@ export default function ReceptionPortal({ onNavigate }) {
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
             
-            {/* New Walk-In Booking Trigger */}
+            {/* New Walk-In / Counter Booking Code Generator Trigger */}
             <button
-              onClick={handleOpenNewWalkIn}
+              onClick={() => handleOpenNewWalkIn()}
               className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-semibold text-xs flex items-center gap-1.5 shadow-lg shadow-[#d4af37]/20 hover:scale-102 active:scale-98 transition-all"
             >
-              <Plus size={15} className="stroke-[2.5]" />
-              <span>New Walk-In</span>
+              <Key size={14} className="stroke-[2.5]" />
+              <span>Counter Booking & Code</span>
             </button>
 
             {/* View Dining Menu Prices (Read-Only Front Desk) */}
@@ -773,7 +903,7 @@ export default function ReceptionPortal({ onNavigate }) {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
           
           {/* Tabs */}
-          <div className="flex items-center gap-2 bg-[#16030c] p-1 rounded-xl border border-white/10 w-fit">
+          <div className="flex flex-wrap items-center gap-2 bg-[#16030c] p-1 rounded-xl border border-white/10 w-fit">
             <button
               onClick={() => setActiveTab('rooms')}
               className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 ${
@@ -795,6 +925,22 @@ export default function ReceptionPortal({ onNavigate }) {
             >
               <Calendar size={14} />
               <span>Bookings & Ledger ({bookings.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('dining_orders')}
+              className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 ${
+                activeTab === 'dining_orders'
+                  ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black shadow-md'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Utensils size={14} />
+              <span>Food & Drinks ({diningOrders.length})</span>
+              {diningOrders.filter(o => o.paymentStatus !== 'Paid' && o.orderStatus !== 'Cancelled').length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-black text-[9px] font-mono font-extrabold">
+                  {diningOrders.filter(o => o.paymentStatus !== 'Paid' && o.orderStatus !== 'Cancelled').length} DUE
+                </span>
+              )}
             </button>
 
             <button
@@ -1132,24 +1278,17 @@ export default function ReceptionPortal({ onNavigate }) {
                               {isAvailable && (
                                 <div className="flex items-center gap-1.5">
                                   <button
-                                    onClick={() => {
-                                      setWalkInForm(prev => ({
-                                        ...prev,
-                                        roomType: room.type,
-                                        roomNumber: room.roomNumber,
-                                        amount: room.price
-                                      }));
-                                      setIsWalkInOpen(true);
-                                    }}
-                                    className="flex-1 py-1.5 px-2 rounded-lg bg-[#5c0725]/60 hover:bg-[#5c0725] border border-[#d4af37]/40 text-[#f3e5ab] text-xs font-medium transition-all flex items-center justify-center gap-1"
+                                    onClick={() => handleOpenNewWalkIn(room)}
+                                    className="flex-1 py-1.5 px-2 rounded-lg bg-[#5c0725]/80 hover:bg-[#5c0725] border border-[#d4af37]/50 text-[#f3e5ab] text-xs font-semibold transition-all flex items-center justify-center gap-1"
+                                    title="Assign room & generate Customer Portal Booking Code"
                                   >
                                     <Key size={12} className="text-[#d4af37]" />
-                                    <span>Assign Walk-In</span>
+                                    <span>Assign & Gen Code</span>
                                   </button>
                                   <button
-                                    onClick={() => handleUpdateRoomStatus(room.roomNumber, 'occupied', 'Walk-In Guest')}
+                                    onClick={() => handleOpenNewWalkIn(room)}
                                     className="py-1.5 px-2 rounded-lg bg-rose-950/50 hover:bg-rose-900/70 border border-rose-500/30 text-rose-200 text-[10px] font-medium transition-all"
-                                    title="Quick mark as Occupied"
+                                    title="Counter Walk-In Assignment"
                                   >
                                     Occupy
                                   </button>
@@ -1344,29 +1483,39 @@ export default function ReceptionPortal({ onNavigate }) {
                             </div>
                           </td>
 
-                          {/* Amount & Backend Confirmation Check */}
+                          {/* Amount & Backend Confirmation Check + Attached Room Bill */}
                           <td className="py-3.5 px-4">
-                            {b.paymentStatus === 'Paid' ? (
-                              <>
-                                <div className="font-bold text-[#f3e5ab] font-mono">
-                                  ₦{Number(b.amount).toLocaleString()}
+                            {(() => {
+                              const folio = portalStore.getBookingFolioSummary(b);
+                              return b.paymentStatus === 'Paid' ? (
+                                <div className="space-y-0.5">
+                                  <div className="font-bold text-[#f3e5ab] font-mono">
+                                    ₦{Number(b.amount).toLocaleString()}
+                                  </div>
+                                  <div className="text-[10px] text-emerald-400 flex items-center gap-1 font-medium">
+                                    <CheckCircle2 size={11} />
+                                    <span>Suite Paid</span>
+                                  </div>
+                                  {folio.totalDiningAmount > 0 && (
+                                    <div className={`text-[10px] font-mono font-bold ${folio.unpaidDiningAmount > 0 ? 'text-amber-300' : 'text-sky-300'}`}>
+                                      {folio.unpaidDiningAmount > 0
+                                        ? `+₦${folio.unpaidDiningAmount.toLocaleString()} Room Bill Due`
+                                        : `+₦${folio.totalDiningAmount.toLocaleString()} Dining Settled`}
+                                    </div>
+                                  )}
                                 </div>
-                                <div className="text-[10px] text-emerald-400 flex items-center gap-1 font-medium">
-                                  <CheckCircle2 size={11} />
-                                  <span>Paid • Paystack Auto-Confirmed</span>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <div className="text-amber-400 font-semibold text-xs flex items-center gap-1">
-                                  <Clock size={12} className="text-amber-400" />
-                                  <span>Pending Backend</span>
-                                </div>
-                                <div className="text-[10px] text-gray-500 italic">
-                                  Awaiting GM / Backend Confirmation
-                                </div>
-                              </>
-                            )}
+                              ) : (
+                                <>
+                                  <div className="text-amber-400 font-semibold text-xs flex items-center gap-1">
+                                    <Clock size={12} className="text-amber-400" />
+                                    <span>Pending Backend</span>
+                                  </div>
+                                  <div className="text-[10px] text-gray-500 italic">
+                                    Awaiting GM / Backend Confirmation
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </td>
 
                           {/* Status */}
@@ -1384,11 +1533,22 @@ export default function ReceptionPortal({ onNavigate }) {
 
                           {/* Actions */}
                           <td className="py-3.5 px-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
                               
                               {/* Check In / Out Toggle Button - Only operational if booking belongs to current receptionist desk */}
                               {isDeskBooking(b) ? (
                                 <>
+                                  {portalStore.getBookingFolioSummary(b).balanceDue > 0 && (
+                                    <button
+                                      onClick={() => handleSettleBookingRoomBill(b)}
+                                      className="px-2.5 py-1.5 rounded-lg bg-amber-500/25 hover:bg-amber-500/40 border border-amber-400/50 text-amber-200 text-[11px] font-bold transition-all flex items-center gap-1"
+                                      title="Settle guest's attached Food/Drink Room Bill via POS"
+                                    >
+                                      <CreditCard size={12} />
+                                      <span>Clear Bill</span>
+                                    </button>
+                                  )}
+
                                   {isConfirmed && b.paymentStatus === 'Paid' && (
                                     <button
                                       onClick={() => handleToggleBookingStatus(b)}
@@ -1466,6 +1626,166 @@ export default function ReceptionPortal({ onNavigate }) {
               </table>
             </div>
 
+          </div>
+        )}
+
+        {/* ======================================================== */}
+        {/* 5B. TAB CONTENT: FOOD (ARB-FDD) & DRINKS (ARB-DRK) LEDGER */}
+        {/* ======================================================== */}
+        {activeTab === 'dining_orders' && (
+          <div className="space-y-4">
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#240411] via-[#18030c] to-[#120208] border border-[#d4af37]/35 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-cinzel font-bold text-base sm:text-lg text-white flex items-center gap-2">
+                  <Utensils size={18} className="text-[#d4af37]" />
+                  <span>Food (ARB-FDD) & Drink (ARB-DRK) Bookings & Room Bills</span>
+                </h3>
+                <p className="text-xs text-gray-300 mt-0.5">
+                  Track website dining & VIP bottle orders, manage kitchen/bar delivery status, and settle in-lodge room bills.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsDiningMenuOpen(true)}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 shadow-lg self-start md:self-auto"
+              >
+                <Plus size={14} />
+                <span>Counter Food / Drink Order</span>
+              </button>
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { id: 'all', label: `All Orders (${diningOrders.length})` },
+                { id: 'room_unpaid', label: 'Unsettled Room Bills' },
+                { id: 'food', label: 'Food Only (ARB-FDD)' },
+                { id: 'drinks', label: 'Drinks Only (ARB-DRK)' }
+              ].map((flt) => (
+                <button
+                  key={flt.id}
+                  onClick={() => setDiningOrderFilter(flt.id)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                    diningOrderFilter === flt.id
+                      ? 'bg-[#5c0725] text-[#f3e5ab] border-[#d4af37]'
+                      : 'bg-white/5 text-gray-400 hover:text-white border-white/10'
+                  }`}
+                >
+                  {flt.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-white/10 bg-[#16030c] shadow-xl">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#120208] text-gray-400 uppercase tracking-wider border-b border-white/10 text-[10px]">
+                  <tr>
+                    <th className="py-3 px-4">Order Code</th>
+                    <th className="py-3 px-4">Guest & Suite Link</th>
+                    <th className="py-3 px-4">Items Ordered</th>
+                    <th className="py-3 px-4">Amount & Billing</th>
+                    <th className="py-3 px-4">Kitchen / Bar Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {diningOrders
+                    .filter((o) => {
+                      const q = searchQuery.trim().toLowerCase();
+                      const matchQ =
+                        !q ||
+                        o.id.toLowerCase().includes(q) ||
+                        o.guestName.toLowerCase().includes(q) ||
+                        (o.bookingId && o.bookingId.toLowerCase().includes(q)) ||
+                        (o.roomNumber && String(o.roomNumber).includes(q));
+                      if (!matchQ) return false;
+                      if (diningOrderFilter === 'room_unpaid') return o.paymentStatus !== 'Paid';
+                      if (diningOrderFilter === 'food') return o.orderType === 'food';
+                      if (diningOrderFilter === 'drinks') return o.orderType === 'drinks';
+                      return true;
+                    })
+                    .map((ord) => (
+                      <tr key={ord.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`px-2 py-0.5 rounded font-mono font-bold text-xs inline-block border ${
+                              ord.orderType === 'drinks'
+                                ? 'bg-purple-500/20 text-purple-200 border-purple-400/40'
+                                : 'bg-[#d4af37]/20 text-[#f3e5ab] border-[#d4af37]/40'
+                            }`}
+                          >
+                            {ord.id}
+                          </span>
+                          <span className="text-[10px] text-gray-500 block mt-0.5">{ord.createdAt}</span>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <div className="font-semibold text-white">{ord.guestName}</div>
+                          {ord.bookingId ? (
+                            <div className="text-[11px] font-mono text-[#f3e5ab]">
+                              Suite #{ord.roomNumber} • {ord.bookingId}
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-gray-400">{ord.serviceLocation}</div>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4 max-w-xs">
+                          <div className="text-gray-200">
+                            {ord.items.map((it) => `${it.qty}x ${it.name}`).join(', ')}
+                          </div>
+                          {ord.notes && <div className="text-[10px] text-amber-300 italic mt-0.5">Note: {ord.notes}</div>}
+                        </td>
+
+                        <td className="py-3.5 px-4 font-mono">
+                          <div className="font-bold text-[#f3e5ab]">₦{Number(ord.amount).toLocaleString()}</div>
+                          <span
+                            className={`text-[10px] font-bold ${
+                              ord.paymentStatus === 'Paid' ? 'text-emerald-400' : 'text-amber-300'
+                            }`}
+                          >
+                            {ord.paymentStatus}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <select
+                            value={ord.orderStatus}
+                            onChange={(e) => {
+                              portalStore.updateDiningOrderStatus(ord.id, e.target.value);
+                              refreshData();
+                              showToast(`Order ${ord.id} marked ${e.target.value}`);
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg bg-black/70 border border-white/15 text-xs text-white focus:outline-none focus:border-[#d4af37]"
+                          >
+                            <option value="Confirmed">Confirmed</option>
+                            <option value="Preparing">Preparing</option>
+                            <option value="Delivered">Delivered</option>
+                            <option value="Cancelled">Cancelled</option>
+                          </select>
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right">
+                          {ord.paymentStatus !== 'Paid' && ord.orderStatus !== 'Cancelled' ? (
+                            <button
+                              onClick={() => {
+                                portalStore.settleSingleDiningOrder(ord.id, 'POS Terminal (Front Desk)');
+                                refreshData();
+                                showToast(`Order ${ord.id} settled & marked PAID!`);
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white text-[11px] font-bold transition-all"
+                            >
+                              Mark Paid (POS)
+                            </button>
+                          ) : (
+                            <span className="text-[11px] font-mono text-emerald-400 font-semibold">Settled</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -1715,24 +2035,24 @@ export default function ReceptionPortal({ onNavigate }) {
       )}
 
       {/* ======================================================== */}
-      {/* 6. MODAL: WALK-IN BOOKING (On-the-spot Front Desk) */}
+      {/* 6. MODAL: COUNTER BOOKING & CUSTOMER CODE GENERATOR       */}
       {/* ======================================================== */}
       {isWalkInOpen && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="relative w-full max-w-lg bg-[#16030c] border border-[#d4af37]/40 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+          <div className="relative w-full max-w-xl bg-[#16030c] border border-[#d4af37]/50 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 my-auto">
             
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-[#5c0725] border border-[#d4af37]/50 text-[#d4af37]">
-                  <DoorOpen size={18} />
+                  <Key size={18} />
                 </div>
                 <div>
-                  <h3 className="font-cinzel font-bold text-base text-white">
-                    New Walk-In Reservation
+                  <h3 className="font-cinzel font-bold text-base sm:text-lg text-white">
+                    Counter Room Assignment & Code Generator
                   </h3>
                   <p className="text-[11px] text-gray-400">
-                    Front Desk Direct Check-In • Nsugbe, Onitsha
+                    Generate official Guest Portal Booking Code ({getDeskBuilding() === 'Extension Building' ? 'ARS-EXT-...' : 'ARS-BGD-...'}) at the Counter
                   </p>
                 </div>
               </div>
@@ -1746,6 +2066,83 @@ export default function ReceptionPortal({ onNavigate }) {
 
             {/* Form */}
             <form onSubmit={handleCreateWalkIn} className="space-y-4 text-xs">
+
+              {/* LIVE OFFICIAL BOOKING CODE GENERATOR BOX */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-[#2e0515] via-[#1c030d] to-[#120208] border border-[#d4af37]/55 shadow-lg space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-[#d4af37] font-bold flex items-center gap-1.5">
+                    <Sparkles size={12} />
+                    CUSTOMER PORTAL BOOKING CODE ({String(walkInForm.roomNumber).startsWith('1') ? 'EXTENSION 100 WING' : 'MAIN 600 WING'})
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-300">Unique Non-Repeating</span>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-black/60 px-4 py-3 rounded-xl border border-[#d4af37]/40">
+                  <span className="font-mono text-xl sm:text-2xl font-extrabold tracking-wider text-[#f3e5ab]">
+                    {walkInForm.generatedCode || generateCounterBookingCode(walkInForm.roomNumber, walkInForm.roomType)}
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = generateCounterBookingCode(walkInForm.roomNumber, walkInForm.roomType);
+                        setWalkInForm((prev) => ({ ...prev, generatedCode: next }));
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-gray-200 font-mono text-[11px] font-semibold flex items-center gap-1 transition-all"
+                      title="Generate a fresh random booking code"
+                    >
+                      <RefreshCw size={12} className="text-[#d4af37]" />
+                      <span>Regenerate</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const codeToCopy = walkInForm.generatedCode;
+                        if (codeToCopy) {
+                          navigator.clipboard?.writeText(codeToCopy);
+                          setCopiedGeneratedCode(true);
+                          setTimeout(() => setCopiedGeneratedCode(false), 2000);
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-[#d4af37]/20 hover:bg-[#d4af37] hover:text-black border border-[#d4af37]/40 text-[#f3e5ab] font-mono text-[11px] font-bold flex items-center gap-1 transition-all"
+                    >
+                      {copiedGeneratedCode ? <Check size={12} /> : <Copy size={12} />}
+                      <span>{copiedGeneratedCode ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Counter Mode Toggle: Immediate Check-In vs Counter Reservation */}
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setWalkInForm((prev) => ({ ...prev, bookingMode: 'Checked In' }))}
+                    className={`py-2 px-3 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      walkInForm.bookingMode !== 'Confirmed'
+                        ? 'bg-emerald-950/70 border-emerald-400 text-emerald-200'
+                        : 'bg-black/40 border-white/10 text-gray-400'
+                    }`}
+                  >
+                    <CheckCircle2 size={13} />
+                    <span>Assign & Check In Now</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setWalkInForm((prev) => ({ ...prev, bookingMode: 'Confirmed' }))}
+                    className={`py-2 px-3 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      walkInForm.bookingMode === 'Confirmed'
+                        ? 'bg-sky-950/70 border-sky-400 text-sky-200'
+                        : 'bg-black/40 border-white/10 text-gray-400'
+                    }`}
+                  >
+                    <Calendar size={13} />
+                    <span>Counter Reservation Hold</span>
+                  </button>
+                </div>
+              </div>
               
               {/* Guest Full Name */}
               <div className="space-y-1">
@@ -1760,7 +2157,7 @@ export default function ReceptionPortal({ onNavigate }) {
                 />
               </div>
 
-              {/* Contact Info (Phone & Email) */}
+              {/* Contact Info (Phone & Email) + Returning Guest Auto-Recognition */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-gray-300 font-medium">Phone Number *</label>
@@ -1769,7 +2166,17 @@ export default function ReceptionPortal({ onNavigate }) {
                     required
                     placeholder="0803 000 0000"
                     value={walkInForm.phone}
-                    onChange={(e) => setWalkInForm({ ...walkInForm, phone: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const ret = portalStore.detectReturningCustomer({ phone: val });
+                      setReturningPatronHint(ret);
+                      setWalkInForm((prev) => ({
+                        ...prev,
+                        phone: val,
+                        guestName: !prev.guestName && ret?.previousGuestName ? ret.previousGuestName : prev.guestName,
+                        email: !prev.email && ret?.previousEmail ? ret.previousEmail : prev.email
+                      }));
+                    }}
                     className="w-full px-3 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
                   />
                 </div>
@@ -1784,6 +2191,15 @@ export default function ReceptionPortal({ onNavigate }) {
                   />
                 </div>
               </div>
+
+              {returningPatronHint && (
+                <div className="p-2.5 rounded-xl bg-[#d4af37]/15 border border-[#d4af37]/40 text-[11px] text-[#f3e5ab] flex items-center gap-2 font-mono">
+                  <Sparkles size={13} className="text-[#d4af37] flex-shrink-0" />
+                  <span>
+                    Returning VIP Patron Recognized: <strong>{returningPatronHint.previousGuestName}</strong> ({returningPatronHint.totalPreviousStays} past stays) — New non-repeating code assigned!
+                  </span>
+                </div>
+              )}
 
               {/* Suite Selection & Available Room Key */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1808,7 +2224,11 @@ export default function ReceptionPortal({ onNavigate }) {
                   <label className="text-gray-300 font-medium">Assign Room #</label>
                   <select
                     value={walkInForm.roomNumber}
-                    onChange={(e) => setWalkInForm({ ...walkInForm, roomNumber: e.target.value })}
+                    onChange={(e) => {
+                      const nextRoom = e.target.value;
+                      const nextCode = generateCounterBookingCode(nextRoom, walkInForm.roomType);
+                      setWalkInForm({ ...walkInForm, roomNumber: nextRoom, generatedCode: nextCode });
+                    }}
                     className="w-full px-3 py-2.5 rounded-xl bg-black/80 border border-white/15 text-white focus:outline-none focus:border-[#d4af37]"
                   >
                     {rooms
@@ -1886,10 +2306,14 @@ export default function ReceptionPortal({ onNavigate }) {
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#d4af37]/20 hover:scale-101 active:scale-99 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-[#d4af37]/20 hover:scale-101 active:scale-99 transition-all flex items-center justify-center gap-2"
                 >
                   <CheckCircle2 size={16} />
-                  <span>Confirm Check-In & Generate Receipt</span>
+                  <span>
+                    {walkInForm.bookingMode === 'Confirmed'
+                      ? `Issue Code ${walkInForm.generatedCode} & Reserve Room`
+                      : `Issue Code ${walkInForm.generatedCode} & Check In Now`}
+                  </span>
                 </button>
               </div>
 
@@ -1964,56 +2388,112 @@ export default function ReceptionPortal({ onNavigate }) {
                 </div>
               </div>
 
-              {/* Stay Breakdown Table */}
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-gray-300 text-gray-500 uppercase tracking-wider text-[10px]">
-                    <th className="py-2 text-left">Accommodation</th>
-                    <th className="py-2 text-center">Room #</th>
-                    <th className="py-2 text-center">Duration</th>
-                    <th className="py-2 text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  <tr>
-                    <td className="py-3">
-                      <div className="font-bold text-gray-900">{selectedReceiptBooking.roomName}</div>
-                      <div className="text-[10px] text-gray-500">
-                        {selectedReceiptBooking.checkIn} to {selectedReceiptBooking.checkOut}
+              {/* Stay & Attached Food/Drink Room Bill Breakdown Table */}
+              {(() => {
+                const recFolio = portalStore.getBookingFolioSummary(selectedReceiptBooking);
+                return (
+                  <>
+                    <div className="p-3 rounded-xl bg-[#5c0725]/10 border border-[#5c0725]/30 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold block">
+                          Customer Portal Login Booking Code
+                        </span>
+                        <span className="font-mono text-base font-extrabold text-[#5c0725]">
+                          {selectedReceiptBooking.id}
+                        </span>
                       </div>
-                    </td>
-                    <td className="py-3 text-center font-mono font-semibold">
-                      #{selectedReceiptBooking.roomNumber || '101'}
-                    </td>
-                    <td className="py-3 text-center">
-                      {selectedReceiptBooking.nights} Night(s)
-                    </td>
-                    <td className="py-3 text-right font-mono font-bold text-gray-900">
-                      ₦{Number(selectedReceiptBooking.amount).toLocaleString()}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(selectedReceiptBooking.id);
+                          showToast(`Copied booking code ${selectedReceiptBooking.id}`);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-[#5c0725] text-white text-[11px] font-bold print:hidden flex items-center gap-1"
+                      >
+                        <Copy size={12} />
+                        <span>Copy Code</span>
+                      </button>
+                    </div>
 
-              {/* Financial Totals */}
-              <div className="border-t-2 border-gray-200 pt-4 space-y-1.5 text-xs">
-                <div className="flex justify-between text-gray-600">
-                  <span>Subtotal:</span>
-                  <span className="font-mono">₦{Number(selectedReceiptBooking.amount).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Service Charge & VAT (Inclusive):</span>
-                  <span className="font-mono">₦0.00</span>
-                </div>
-                <div className="flex justify-between text-sm font-bold text-[#5c0725] pt-2 border-t border-gray-200">
-                  <span>Total Paid:</span>
-                  <span className="font-mono text-base">₦{Number(selectedReceiptBooking.amount).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-[11px] text-emerald-700 pt-1 font-semibold">
-                  <span>Payment Channel:</span>
-                  <span>{selectedReceiptBooking.paymentMethod} (VERIFIED)</span>
-                </div>
-              </div>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-300 text-gray-500 uppercase tracking-wider text-[10px]">
+                          <th className="py-2 text-left">Item / Accommodation</th>
+                          <th className="py-2 text-center">Ref / Room</th>
+                          <th className="py-2 text-center">Qty / Nights</th>
+                          <th className="py-2 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        <tr>
+                          <td className="py-3">
+                            <div className="font-bold text-gray-900">{selectedReceiptBooking.roomName}</div>
+                            <div className="text-[10px] text-gray-500">
+                              {selectedReceiptBooking.checkIn} to {selectedReceiptBooking.checkOut}
+                            </div>
+                          </td>
+                          <td className="py-3 text-center font-mono font-semibold">
+                            #{selectedReceiptBooking.roomNumber || '101'}
+                          </td>
+                          <td className="py-3 text-center">
+                            {selectedReceiptBooking.nights} Night(s)
+                          </td>
+                          <td className="py-3 text-right font-mono font-bold text-gray-900">
+                            ₦{Number(selectedReceiptBooking.amount).toLocaleString()}
+                          </td>
+                        </tr>
+                        {recFolio.diningOrders.map((ord) => (
+                          <tr key={ord.id}>
+                            <td className="py-2.5">
+                              <div className="font-semibold text-gray-800">
+                                {ord.items.map((it) => `${it.qty}x ${it.name}`).join(', ')}
+                              </div>
+                              <div className="text-[10px] text-gray-500">{ord.paymentStatus}</div>
+                            </td>
+                            <td className="py-2.5 text-center font-mono text-[11px] font-bold text-[#5c0725]">
+                              {ord.id}
+                            </td>
+                            <td className="py-2.5 text-center">
+                              {ord.orderType === 'drinks' ? 'VIP Bar' : 'Kitchen'}
+                            </td>
+                            <td className="py-2.5 text-right font-mono font-semibold text-gray-900">
+                              ₦{Number(ord.amount).toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    {/* Financial Totals */}
+                    <div className="border-t-2 border-gray-200 pt-4 space-y-1.5 text-xs">
+                      <div className="flex justify-between text-gray-600">
+                        <span>Suite Accommodation:</span>
+                        <span className="font-mono">₦{Number(recFolio.roomAmount).toLocaleString()}</span>
+                      </div>
+                      {recFolio.totalDiningAmount > 0 && (
+                        <div className="flex justify-between text-gray-600">
+                          <span>Attached Food & Drink Orders ({recFolio.diningOrders.length}):</span>
+                          <span className="font-mono">₦{Number(recFolio.totalDiningAmount).toLocaleString()}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm font-bold text-[#5c0725] pt-2 border-t border-gray-200">
+                        <span>Grand Total Folio:</span>
+                        <span className="font-mono text-base">₦{Number(recFolio.grandTotalBill).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-bold">
+                        <span>Balance Due:</span>
+                        <span className={recFolio.balanceDue > 0 ? 'font-mono text-amber-700' : 'font-mono text-emerald-700'}>
+                          {recFolio.balanceDue > 0 ? `₦${recFolio.balanceDue.toLocaleString()} (UNSETTLED)` : '₦0.00 (SETTLED IN FULL)'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-[11px] text-emerald-700 pt-1 font-semibold">
+                        <span>Payment Channel:</span>
+                        <span>{selectedReceiptBooking.paymentMethod} (VERIFIED)</span>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* Footer Note & Watermark */}
               <div className="pt-6 border-t border-gray-200 text-center space-y-2">
@@ -2063,16 +2543,33 @@ export default function ReceptionPortal({ onNavigate }) {
               </button>
             </div>
 
-            {/* Search filter */}
-            <div className="relative flex-shrink-0">
-              <input
-                type="text"
-                placeholder="Search dish, champagne, Don Julio 1942, beer, cocktail..."
-                value={diningSearchQuery}
-                onChange={(e) => setDiningSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 rounded-xl bg-black/60 border border-white/15 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
-              />
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            {/* Counter Room Bill Selector + Search filter */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-shrink-0">
+              <select
+                value={counterChargeRoom}
+                onChange={(e) => setCounterChargeRoom(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl bg-black/80 border border-[#d4af37]/40 text-xs text-[#f3e5ab] focus:outline-none focus:border-[#d4af37]"
+              >
+                <option value="">Counter Walk-In Diner (Paid Immediately at POS)</option>
+                {bookings
+                  .filter((b) => ['Checked In', 'Confirmed'].includes(b.status) && isDeskBooking(b))
+                  .map((b) => (
+                    <option key={b.id} value={b.id}>
+                      Add to Suite #{b.roomNumber} Bill — {b.guestName} ({b.id})
+                    </option>
+                  ))}
+              </select>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search dish, champagne, Don Julio 1942, beer, cocktail..."
+                  value={diningSearchQuery}
+                  onChange={(e) => setDiningSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-black/60 border border-white/15 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
+                />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              </div>
             </div>
 
             {/* Items List (Scrollable & Read-Only) */}
@@ -2123,13 +2620,17 @@ export default function ReceptionPortal({ onNavigate }) {
                         </div>
                       </div>
 
-                      <div className="text-right flex-shrink-0">
-                        <span className="font-mono text-sm font-bold text-[#d4af37]">
+                      <div className="text-right flex-shrink-0 space-y-1.5">
+                        <span className="font-mono text-sm font-bold text-[#d4af37] block">
                           ₦{Number(item.price).toLocaleString()}
                         </span>
-                        <span className="text-[9px] text-gray-500 block">
-                          {item.requiresProtein ? 'Base Price' : 'Current Price'}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleCounterAddDiningToRoom(item)}
+                          className="px-2.5 py-1 rounded-lg bg-[#d4af37]/20 hover:bg-[#d4af37] hover:text-black border border-[#d4af37]/40 text-[#f3e5ab] text-[10px] font-mono font-bold transition-all"
+                        >
+                          {counterChargeRoom ? '+ Room Bill' : '+ Counter POS'}
+                        </button>
                       </div>
                     </div>
                   ))}

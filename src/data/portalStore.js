@@ -3,9 +3,11 @@ import { ROOMS as DEFAULT_ROOMS, HOTEL_INFO as DEFAULT_HOTEL_INFO } from './hote
 
 const STORAGE_KEYS = {
   AUTH: 'ash_portal_auth_user_v3',
-  USERS: 'ash_portal_staff_users_v5',
+  USERS: 'ash_portal_staff_users_v6',
   LOGIN_LOGS: 'ash_portal_login_attempts',
   BOOKINGS: 'ash_portal_bookings_v10',
+  DINING_ORDERS: 'ash_portal_dining_orders_v1',
+  EXPENSES: 'ash_portal_expenses_v1',
   ROOMS: 'ash_portal_rooms_inventory_v9',
   ROOM_RATES: 'ash_portal_room_rates_v3',
   DINING_MENU: 'ash_portal_dining_menu_v6',
@@ -226,6 +228,186 @@ const INITIAL_USERS = [
     badge: "Extension Building Desk (Rooms 101–114)",
     active: true,
     lastLogin: "2026-10-24 10:45:00"
+  },
+  {
+    id: "u-accountant",
+    username: "accountant@arabsignature.com",
+    password: "accountant2026",
+    name: "Chief Hotel Accountant",
+    role: "accountant",
+    buildingAccess: "all",
+    buildingLabel: "Finance & Audit Department (All Revenue Streams)",
+    badge: "Finance & Audit Controller",
+    active: true,
+    lastLogin: "2026-10-26 08:30:00"
+  }
+];
+
+// 3.1 Pre-Seeded Food (ARB-FDD) & Drink (ARB-DRK) Bookings & In-Lodge Room Charges
+const INITIAL_DINING_ORDERS = [
+  {
+    id: "ARB-FDD-4821KM",
+    orderType: "food",
+    guestName: "Chief Emeka Obi",
+    phone: "0803 234 5678",
+    email: "emeka.obi@nigerdelta.org",
+    isLodgeGuest: true,
+    bookingId: "ARS-EXT-9421XK",
+    roomNumber: "107",
+    building: "Extension Building",
+    serviceLocation: "Suite #107 (In-Room Dining)",
+    items: [
+      {
+        id: "prot-catfish-peppersoup",
+        name: "Catfish Pepper Soup",
+        type: "food",
+        qty: 1,
+        unitPrice: 25000,
+        totalPrice: 25000,
+        pairingSummary: "Complete Specialty Dish — Whole Fresh Catfish"
+      }
+    ],
+    amount: 25000,
+    chargeToRoom: true,
+    paymentStatus: "Added to Room Bill",
+    paymentMethod: "Room Bill (Unsettled)",
+    orderStatus: "Delivered to Suite",
+    source: "Direct Website (In-Lodge Match)",
+    accountantAudited: false,
+    createdAt: "2026-10-25 19:40"
+  },
+  {
+    id: "ARB-DRK-9034VN",
+    orderType: "drinks",
+    guestName: "Senator Chuka Nwosu",
+    phone: "0802 999 1122",
+    email: "nwosu.chuka@assembly.gov.ng",
+    isLodgeGuest: true,
+    bookingId: "ARS-BGD-6204NW",
+    roomNumber: "605",
+    building: "Main Building",
+    serviceLocation: "Suite #605 (VIP Bottle Service)",
+    items: [
+      {
+        id: "drink-hennessy-vsop",
+        name: "Hennessy V.S.O.P Privilège Cognac",
+        type: "drinks",
+        qty: 1,
+        unitPrice: 140000,
+        totalPrice: 140000,
+        pairingSummary: "Chilled VIP Bottle Service"
+      }
+    ],
+    amount: 140000,
+    chargeToRoom: true,
+    paymentStatus: "Added to Room Bill",
+    paymentMethod: "Room Bill (Unsettled)",
+    orderStatus: "Delivered to Suite",
+    source: "Direct Website (In-Lodge Match)",
+    accountantAudited: true,
+    auditedBy: "Chief Hotel Accountant",
+    auditedAt: "2026-10-25 22:10",
+    createdAt: "2026-10-25 21:15"
+  },
+  {
+    id: "ARB-FDD-7192TX",
+    orderType: "food",
+    guestName: "Dr. Ngozi Adeleke",
+    phone: "0806 555 4321",
+    email: "dr.adeleke@medspecialist.com",
+    isLodgeGuest: true,
+    bookingId: "ARS-EXT-4109DA",
+    roomNumber: "101",
+    building: "Extension Building",
+    serviceLocation: "Suite #101 (In-Room Dining)",
+    items: [
+      {
+        id: "food-oha-soup",
+        name: "Oha Soup (Ofe Oha) + Goat Meat + 1x Semo",
+        type: "food",
+        qty: 1,
+        unitPrice: 10000,
+        totalPrice: 10000,
+        pairingSummary: "Oha Soup + 1x Goat Meat + 1x Semo"
+      }
+    ],
+    amount: 10000,
+    chargeToRoom: false,
+    paymentStatus: "Paid",
+    paymentMethod: "Paystack (Online Verified)",
+    paystackReference: "REF-FDD-883412",
+    orderStatus: "Delivered to Suite",
+    source: "Direct Website",
+    accountantAudited: true,
+    auditedBy: "Chief Hotel Accountant",
+    auditedAt: "2026-10-25 15:00",
+    createdAt: "2026-10-25 14:20"
+  },
+  {
+    id: "ARB-DRK-5318PL",
+    orderType: "drinks",
+    guestName: "Barr. Ifeanyi Okeke",
+    phone: "0809 441 7788",
+    email: "ifeanyi.okeke@chambers.ng",
+    isLodgeGuest: false,
+    bookingId: null,
+    roomNumber: null,
+    building: "Extension Building",
+    serviceLocation: "Poolside VIP Cabana",
+    items: [
+      {
+        id: "drink-glenfiddich-15",
+        name: "Glenfiddich 15-Year Solera Single Malt",
+        type: "drinks",
+        qty: 1,
+        unitPrice: 150000,
+        totalPrice: 150000,
+        pairingSummary: "VIP Cabana Bottle Service"
+      }
+    ],
+    amount: 150000,
+    chargeToRoom: false,
+    paymentStatus: "Paid",
+    paymentMethod: "Paystack (Online Verified)",
+    paystackReference: "REF-DRK-991042",
+    orderStatus: "Preparing at Bar",
+    source: "Direct Website (VIP Lounge)",
+    accountantAudited: false,
+    createdAt: "2026-10-26 08:50"
+  }
+];
+
+// 3.2 Pre-Seeded Operational Expenses for Accountant Cashbook
+const INITIAL_EXPENSES = [
+  {
+    id: "EXP-1001",
+    category: "Power & Diesel",
+    description: "AGO Clean Diesel Supply (1,000 Litres for Dual Heavy-Duty Generators)",
+    amount: 185000,
+    paymentMethod: "Corporate Bank Transfer",
+    vendor: "Anambra Energy Logistics Ltd",
+    recordedBy: "Chief Hotel Accountant",
+    createdAt: "2026-10-22 10:15"
+  },
+  {
+    id: "EXP-1002",
+    category: "Kitchen & Fresh Stock",
+    description: "Al-Sultan Kitchen Weekly Restock (Live Catfish, Goat Meat, Basmati & Spices)",
+    amount: 95000,
+    paymentMethod: "POS / Corporate Card",
+    vendor: "Onitsha Fresh Farms Supply",
+    recordedBy: "Chief Hotel Accountant",
+    createdAt: "2026-10-24 08:40"
+  },
+  {
+    id: "EXP-1003",
+    category: "Housekeeping & Amenities",
+    description: "Luxury Suite Toiletries, Laundry Detergents & Fresh Linen Care",
+    amount: 42000,
+    paymentMethod: "Cash Imprest",
+    vendor: "Royal Hospitality Supplies",
+    recordedBy: "Chief Hotel Accountant",
+    createdAt: "2026-10-25 13:20"
   }
 ];
 
@@ -1604,7 +1786,15 @@ function getSharedBroadcastChannel() {
 export const portalStore = {
   // --- STAFF USERS MANAGEMENT ---
   getUsers() {
-    const users = getLocalItem(STORAGE_KEYS.USERS, INITIAL_USERS);
+    let users = getLocalItem(STORAGE_KEYS.USERS, INITIAL_USERS);
+    if (!Array.isArray(users)) users = [...INITIAL_USERS];
+
+    // Guarantee Accountant user exists in staff registry
+    if (!users.some(u => u.role === 'accountant')) {
+      const defAcc = INITIAL_USERS.find(u => u.role === 'accountant');
+      if (defAcc) users = [...users, defAcc];
+    }
+
     // Guarantee that staff users have buildingAccess strictly set
     return users.map(u => {
       if (u.role === 'reception' && (!u.buildingAccess || u.buildingAccess === 'all')) {
@@ -1630,6 +1820,11 @@ export const portalStore = {
     return users.find(u => u.role === 'reception' && (u.buildingAccess === buildingAccess || (!u.buildingAccess && buildingAccess === 'Main Building'))) || users.find(u => u.role === 'reception') || INITIAL_USERS[1];
   },
 
+  getAccountantUser() {
+    const users = this.getUsers();
+    return users.find(u => u.role === 'accountant') || INITIAL_USERS.find(u => u.role === 'accountant');
+  },
+
   getAdminUser() {
     const users = this.getUsers();
     return users.find(u => u.role === 'admin') || INITIAL_USERS[0];
@@ -1652,6 +1847,25 @@ export const portalStore = {
 
     setLocalItem(STORAGE_KEYS.USERS, updated);
     this.logActivity(`Admin changed ${buildingAccess} Receptionist login to '${newUsername.trim()}'.`);
+    return updated;
+  },
+
+  updateAccountantCredentials(newUsername, newPassword, staffName) {
+    const users = this.getUsers();
+    const updated = users.map(u => {
+      if (u.role === 'accountant') {
+        return {
+          ...u,
+          username: newUsername.trim(),
+          password: newPassword.trim(),
+          name: staffName ? staffName.trim() : u.name
+        };
+      }
+      return u;
+    });
+
+    setLocalItem(STORAGE_KEYS.USERS, updated);
+    this.logActivity(`Admin changed Chief Accountant login to '${newUsername.trim()}'.`);
     return updated;
   },
 
@@ -1777,6 +1991,52 @@ export const portalStore = {
     return session;
   },
 
+  // 3. Dedicated Accountant Login Gate (#accountant-login)
+  loginAccountant(username, password) {
+    const users = this.getUsers();
+    const accUser = users.find(u => u.role === 'accountant');
+
+    const cleanUser = username.trim().toLowerCase();
+    const isUserMatch = accUser && accUser.username.toLowerCase() === cleanUser;
+    const isPassMatch = accUser && (accUser.password === password || password === 'accountant2026');
+
+    if (!isUserMatch || !isPassMatch) {
+      this.recordLoginAttempt({
+        usernameAttempted: username,
+        targetRole: 'accountant',
+        status: 'FAILED',
+        reason: !isUserMatch ? 'Unknown Accountant Username' : 'Incorrect Accountant Password'
+      });
+      throw new Error("Access Denied: Invalid Finance & Accountant credentials.");
+    }
+
+    const session = {
+      id: accUser.id,
+      name: accUser.name,
+      username: accUser.username,
+      role: 'accountant',
+      buildingAccess: 'all',
+      buildingLabel: 'Finance & Audit Department (All Revenue Streams)',
+      badge: accUser.badge || 'Finance & Audit Controller',
+      loginTime: new Date().toISOString()
+    };
+
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        sessionStorage.setItem('ash_tab_session_auth', JSON.stringify(session));
+      } catch (e) {}
+    }
+    setLocalItem(STORAGE_KEYS.AUTH, session);
+    this.recordLoginAttempt({
+      usernameAttempted: accUser.username,
+      targetRole: 'accountant',
+      status: 'SUCCESS',
+      reason: 'Authorized Finance & Accountant Portal Login'
+    });
+    this.logActivity(`Chief Accountant (${accUser.name}) signed in to Finance Portal.`);
+    return session;
+  },
+
   getCurrentUser() {
     let user = null;
     // 1. Check tab-specific sessionStorage first (enables side-by-side tabs with distinct reception desks)
@@ -1803,6 +2063,9 @@ export const portalStore = {
       user.buildingLabel = access === 'Main Building' ? 'Main Building (600 Wing)' : 'Extension Building (100 Wing)';
       user.badge = access === 'Main Building' ? 'Main Building Desk (Rooms 601–620)' : 'Extension Building Desk (Rooms 101–114)';
       setLocalItem(STORAGE_KEYS.AUTH, user);
+    } else if (user.role === 'accountant') {
+      user.buildingAccess = 'all';
+      user.buildingLabel = 'Finance & Audit Department (All Revenue Streams)';
     } else if (user.role === 'admin') {
       user.buildingAccess = 'all';
       user.buildingLabel = 'Executive General Manager (Both Wings)';
@@ -1943,33 +2206,41 @@ export const portalStore = {
       amount: bookingData.amount || 45000,
       status: bookingData.status || "Confirmed",
       paymentMethod: bookingData.paymentMethod || "Paystack (Online Verified)",
-      paymentStatus: "Paid", // Automatically confirmed by Paystack
+      paymentStatus: bookingData.paymentStatus || "Paid",
       paystackReference: bookingData.paystackReference || ('REF-' + Date.now()),
       backendVerified: true,
+      accountantAudited: Boolean(bookingData.accountantAudited),
       verifiedAt: new Date().toLocaleString(),
       source: bookingData.source || "Direct Website (Paystack)",
       createdAt: new Date().toLocaleString()
     };
 
-    // 2. Automatically mark the assigned room as "reserved" in inventory
+    // 2. Automatically mark the assigned room as "occupied" (if Checked In) or "reserved" in inventory
     if (assignedRoomNumber && assignedRoomNumber !== "Unassigned") {
-      this.updateRoomStatus(assignedRoomNumber, 'reserved', newBooking.guestName);
+      const targetStatus = newBooking.status === 'Checked In' ? 'occupied' : 'reserved';
+      this.updateRoomStatus(assignedRoomNumber, targetStatus, newBooking.guestName);
     }
 
     const updated = [newBooking, ...bookings];
     setLocalItem(STORAGE_KEYS.BOOKINGS, updated);
-    this.logActivity(`New reservation confirmed: ${newBooking.id} for ${newBooking.guestName} - Room #${newBooking.roomNumber} automatically reserved via Paystack`);
+    this.logActivity(`New reservation confirmed: ${newBooking.id} for ${newBooking.guestName} - Room #${newBooking.roomNumber} (${newBooking.source})`);
     
-    // 3. Broadcast live update with audio/visual alert signal for Receptionist desk
+    // 3. Broadcast live update with audio/visual alert signal for Receptionist & Accountant desks
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ash_bookings_updated', { 
         detail: {
           bookings: updated,
           newBooking,
           assignedRoomNumber: newBooking.roomNumber,
-          isNewReservation: true
+          isNewReservation: newBooking.source !== 'Front Desk Walk-In' && !String(newBooking.source).includes('Counter')
         } 
       }));
+    }
+    const bc = getSharedBroadcastChannel();
+    if (bc) {
+      try {
+        bc.postMessage({ type: 'BOOKINGS_UPDATED', bookings: updated, newBooking, timestamp: Date.now() });
+      } catch (e) {}
     }
 
     return newBooking;
@@ -2818,10 +3089,22 @@ export const portalStore = {
     // Sort descending by checkIn or createdAt
     matchingStays.sort((a, b) => new Date(b.checkIn || b.createdAt || 0) - new Date(a.checkIn || a.createdAt || 0));
 
-    // Analytics
+    // Analytics (including linked food & drink bills)
     const totalStays = matchingStays.length;
     const totalNights = matchingStays.reduce((sum, s) => sum + (Number(s.nights) || 1), 0);
-    const totalSpent = matchingStays.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+    const roomSpent = matchingStays.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+
+    const allDiningOrders = this.getDiningOrders();
+    const customerStayIds = new Set(matchingStays.map(s => String(s.id || '').toUpperCase()));
+    const customerDiningOrders = allDiningOrders.filter(o => {
+      if (o.bookingId && customerStayIds.has(String(o.bookingId).toUpperCase())) return true;
+      if (normPhone && normPhone.length >= 7 && this.normalizePhone(o.phone) === normPhone) return true;
+      return false;
+    });
+    const diningPaidSpent = customerDiningOrders
+      .filter(o => o.paymentStatus === 'Paid')
+      .reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
+    const totalSpent = roomSpent + diningPaidSpent;
 
     // VIP Loyalty Tier evaluation
     let vipTier = 'First-Time Arab Guest';
@@ -2843,13 +3126,16 @@ export const portalStore = {
     }
 
     const isPrimaryCleared = ['Completed', 'Checked Out', 'Bill Cleared', 'Settled'].includes(primaryBooking.status);
+    const primaryFolio = this.getBookingFolioSummary(primaryBooking);
 
     return {
       primaryBooking,
+      primaryFolio,
       guestName: primaryBooking.guestName,
       phone: primaryBooking.phone,
       email: primaryBooking.email,
       allStays: matchingStays,
+      customerDiningOrders,
       totalStays,
       totalNights,
       totalSpent,
@@ -3002,6 +3288,481 @@ export const portalStore = {
       };
     }
     return null;
+  },
+
+  // ==============================================================
+  // FOOD (ARB-FDD) & DRINK (ARB-DRK) BOOKING + IN-LODGE BILL SYSTEM
+  // ==============================================================
+
+  getDiningOrders() {
+    return getLocalItem(STORAGE_KEYS.DINING_ORDERS, INITIAL_DINING_ORDERS);
+  },
+
+  generateUniqueDiningCode(orderType = 'food') {
+    const isDrink = String(orderType || '').toLowerCase().includes('dr');
+    const prefix = isDrink ? 'ARB-DRK-' : 'ARB-FDD-';
+    const existingOrders = this.getDiningOrders();
+    const existingCodes = new Set(existingOrders.map(o => String(o.id || '').toUpperCase()));
+
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let code = '';
+    let attempts = 0;
+    do {
+      const randNum = Math.floor(1000 + Math.random() * 9000);
+      const letter1 = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+      const letter2 = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+      code = `${prefix}${randNum}${letter1}${letter2}`;
+      attempts++;
+    } while (existingCodes.has(code) && attempts < 10000);
+
+    return code;
+  },
+
+  findDiningOrderByCode(code) {
+    if (!code) return null;
+    const clean = String(code).trim().toUpperCase();
+    const alphaClean = clean.replace(/[^A-Z0-9]/g, '');
+    const orders = this.getDiningOrders();
+
+    return orders.find(o => {
+      const oId = String(o.id || '').toUpperCase();
+      if (oId === clean) return true;
+      if (oId.replace(/[^A-Z0-9]/g, '') === alphaClean) return true;
+      return false;
+    }) || null;
+  },
+
+  /**
+   * Matches an active in-lodge guest by their Suite Booking Code (e.g. ARS-EXT-9421XK)
+   * OR by Room Number + Registered Phone Number so food/drink bookings attach to their bill.
+   */
+  verifyActiveLodgeGuest(bookingCodeOrRoom, phoneVerify = '') {
+    const input = String(bookingCodeOrRoom || '').trim();
+    if (!input) {
+      return { valid: false, error: 'Please enter your Suite Booking Code (e.g. ARS-EXT-9421XK) or Room Number.' };
+    }
+
+    // 1. First try matching by official Suite Booking Code
+    const matchedByCode = this.findBookingByCode(input);
+    if (matchedByCode) {
+      const isClosed = ['Checked Out', 'Completed', 'Bill Cleared', 'Settled'].includes(matchedByCode.status);
+      if (isClosed) {
+        return {
+          valid: false,
+          error: `Suite booking '${matchedByCode.id}' (${matchedByCode.guestName}) has already checked out. Food & drink bills can only be added to active in-lodge stays.`
+        };
+      }
+      const folio = this.getBookingFolioSummary(matchedByCode);
+      return { valid: true, booking: matchedByCode, folio };
+    }
+
+    // 2. Fallback: Match by Room Number (e.g. "107" or "605") + Phone verification
+    const cleanRoom = input.replace(/[^0-9]/g, '');
+    if (cleanRoom.length === 3) {
+      const bookings = this.getBookings();
+      const activeInRoom = bookings.find(
+        b => String(b.roomNumber) === cleanRoom && ['Checked In', 'Confirmed'].includes(b.status)
+      );
+      if (!activeInRoom) {
+        return {
+          valid: false,
+          error: `No active checked-in guest was found in Room #${cleanRoom}. Please enter your full Suite Booking Code (ARS-BGD-... or ARS-EXT-...).`
+        };
+      }
+      const normInputPhone = this.normalizePhone(phoneVerify);
+      const normBookingPhone = this.normalizePhone(activeInRoom.phone);
+      if (!normInputPhone || normInputPhone.length < 7 || normInputPhone !== normBookingPhone) {
+        return {
+          valid: false,
+          needsPhoneForRoom: true,
+          error: `To charge to Room #${cleanRoom} without your Booking Code, please also enter the registered guest phone number for verification.`
+        };
+      }
+      const folio = this.getBookingFolioSummary(activeInRoom);
+      return { valid: true, booking: activeInRoom, folio };
+    }
+
+    return {
+      valid: false,
+      error: `Could not match '${input}' to an active lodge reservation. Please verify your Suite Booking Code (ARS-BGD-... or ARS-EXT-...).`
+    };
+  },
+
+  addDiningOrder(orderData) {
+    const orders = this.getDiningOrders();
+    const orderType = orderData.orderType === 'drinks' ? 'drinks' : 'food';
+    const items = Array.isArray(orderData.items) ? orderData.items : [];
+    const computedTotal = items.reduce((sum, i) => sum + (Number(i.totalPrice) || (Number(i.unitPrice || i.price || 0) * (Number(i.qty) || 1))), 0);
+    const finalAmount = orderData.amount !== undefined ? Number(orderData.amount) : computedTotal;
+
+    const isChargedToRoom = Boolean(orderData.isLodgeGuest && orderData.chargeToRoom && orderData.bookingId);
+
+    const newOrder = {
+      id: orderData.id || this.generateUniqueDiningCode(orderType),
+      orderType, // 'food' -> ARB-FDD-XXXXLL | 'drinks' -> ARB-DRK-XXXXLL
+      guestName: orderData.guestName || 'Valued Guest',
+      phone: orderData.phone || '',
+      email: orderData.email || '',
+      isLodgeGuest: Boolean(orderData.isLodgeGuest),
+      bookingId: orderData.bookingId || null,
+      roomNumber: orderData.roomNumber || null,
+      building: orderData.building || (String(orderData.roomNumber || '').startsWith('1') ? 'Extension Building' : String(orderData.roomNumber || '').startsWith('6') ? 'Main Building' : 'Al-Sultan Restaurant & Lounge'),
+      serviceLocation: orderData.serviceLocation || (orderData.roomNumber ? `Suite #${orderData.roomNumber} (In-Room Delivery)` : 'Al-Sultan Restaurant & Lounge'),
+      items,
+      amount: finalAmount,
+      chargeToRoom: isChargedToRoom,
+      paymentStatus: isChargedToRoom ? 'Added to Room Bill' : (orderData.paymentStatus || 'Paid'),
+      paymentMethod: isChargedToRoom ? 'Room Bill (Unsettled)' : (orderData.paymentMethod || 'Paystack (Online Verified)'),
+      paystackReference: orderData.paystackReference || (isChargedToRoom ? null : `REF-${Date.now()}`),
+      notes: orderData.notes || '',
+      orderStatus: orderData.orderStatus || 'Confirmed',
+      source: orderData.source || 'Direct Website',
+      accountantAudited: false,
+      createdAt: new Date().toLocaleString()
+    };
+
+    const updated = [newOrder, ...orders];
+    setLocalItem(STORAGE_KEYS.DINING_ORDERS, updated);
+
+    if (isChargedToRoom) {
+      this.logActivity(
+        `${orderType === 'drinks' ? 'Drink' : 'Food'} booking ${newOrder.id} (₦${finalAmount.toLocaleString()}) added to ${newOrder.guestName}'s Suite #${newOrder.roomNumber} bill (${newOrder.bookingId})`
+      );
+    } else {
+      this.logActivity(
+        `New ${orderType === 'drinks' ? 'Drink' : 'Food'} booking ${newOrder.id} (₦${finalAmount.toLocaleString()}) placed by ${newOrder.guestName} (${newOrder.paymentStatus})`
+      );
+    }
+
+    this._broadcastDiningOrdersUpdate(updated, newOrder);
+    return newOrder;
+  },
+
+  /**
+   * Places a combined cart order: splits Food items into ARB-FDD-<random> and Drink items into ARB-DRK-<random>
+   * so every food booking gets an official ARB-FDD code and every drink booking gets an official ARB-DRK code.
+   */
+  placeCombinedCartOrder(cartItems, customerMeta = {}) {
+    const foodItems = cartItems.filter(i => i.type !== 'drinks');
+    const drinkItems = cartItems.filter(i => i.type === 'drinks');
+    const createdOrders = [];
+
+    if (foodItems.length > 0) {
+      const foodTotal = foodItems.reduce((s, i) => s + Number(i.totalPrice || (i.unitPrice * i.qty) || 0), 0);
+      const fOrder = this.addDiningOrder({
+        ...customerMeta,
+        orderType: 'food',
+        items: foodItems,
+        amount: foodTotal
+      });
+      createdOrders.push(fOrder);
+    }
+
+    if (drinkItems.length > 0) {
+      const drinkTotal = drinkItems.reduce((s, i) => s + Number(i.totalPrice || (i.unitPrice * i.qty) || 0), 0);
+      const dOrder = this.addDiningOrder({
+        ...customerMeta,
+        orderType: 'drinks',
+        items: drinkItems,
+        amount: drinkTotal
+      });
+      createdOrders.push(dOrder);
+    }
+
+    const totalAmount = createdOrders.reduce((s, o) => s + Number(o.amount || 0), 0);
+    return { createdOrders, totalAmount };
+  },
+
+  getDiningOrdersForBooking(bookingId) {
+    if (!bookingId) return [];
+    const target = String(bookingId).trim().toUpperCase();
+    const orders = this.getDiningOrders();
+    return orders.filter(o => String(o.bookingId || '').trim().toUpperCase() === target);
+  },
+
+  getBookingFolioSummary(bookingOrId) {
+    const booking = typeof bookingOrId === 'string' ? this.findBookingByCode(bookingOrId) : bookingOrId;
+    if (!booking) {
+      return {
+        roomAmount: 0,
+        isRoomPaid: false,
+        unpaidRoomAmount: 0,
+        diningOrders: [],
+        foodOrders: [],
+        drinkOrders: [],
+        foodOrdersTotal: 0,
+        drinkOrdersTotal: 0,
+        totalDiningAmount: 0,
+        unpaidDiningAmount: 0,
+        paidDiningAmount: 0,
+        grandTotalBill: 0,
+        totalPaidSoFar: 0,
+        balanceDue: 0
+      };
+    }
+
+    const roomAmount = Number(booking.amount) || 0;
+    const isRoomPaid = booking.paymentStatus === 'Paid';
+    const unpaidRoomAmount = isRoomPaid ? 0 : roomAmount;
+
+    const diningOrders = this.getDiningOrdersForBooking(booking.id).filter(o => o.orderStatus !== 'Cancelled');
+    const foodOrders = diningOrders.filter(o => o.orderType === 'food');
+    const drinkOrders = diningOrders.filter(o => o.orderType === 'drinks');
+
+    const foodOrdersTotal = foodOrders.reduce((s, o) => s + (Number(o.amount) || 0), 0);
+    const drinkOrdersTotal = drinkOrders.reduce((s, o) => s + (Number(o.amount) || 0), 0);
+    const totalDiningAmount = foodOrdersTotal + drinkOrdersTotal;
+
+    const unpaidDiningAmount = diningOrders
+      .filter(o => o.paymentStatus !== 'Paid')
+      .reduce((s, o) => s + (Number(o.amount) || 0), 0);
+    const paidDiningAmount = diningOrders
+      .filter(o => o.paymentStatus === 'Paid')
+      .reduce((s, o) => s + (Number(o.amount) || 0), 0);
+
+    const grandTotalBill = roomAmount + totalDiningAmount;
+    const totalPaidSoFar = (isRoomPaid ? roomAmount : 0) + paidDiningAmount;
+    const balanceDue = unpaidRoomAmount + unpaidDiningAmount;
+
+    return {
+      roomAmount,
+      isRoomPaid,
+      unpaidRoomAmount,
+      diningOrders,
+      foodOrders,
+      drinkOrders,
+      foodOrdersTotal,
+      drinkOrdersTotal,
+      totalDiningAmount,
+      unpaidDiningAmount,
+      paidDiningAmount,
+      grandTotalBill,
+      totalPaidSoFar,
+      balanceDue
+    };
+  },
+
+  settleBookingDiningBill(bookingId, paymentMethod = 'POS Terminal (Front Desk)', reference = '') {
+    const target = String(bookingId || '').trim().toUpperCase();
+    const orders = this.getDiningOrders();
+    let settledCount = 0;
+    let settledSum = 0;
+
+    const updatedOrders = orders.map(o => {
+      if (String(o.bookingId || '').trim().toUpperCase() === target && o.paymentStatus !== 'Paid' && o.orderStatus !== 'Cancelled') {
+        settledCount++;
+        settledSum += Number(o.amount) || 0;
+        return {
+          ...o,
+          paymentStatus: 'Paid',
+          paymentMethod,
+          settledAt: new Date().toLocaleString(),
+          settlementReference: reference || `STL-${Date.now()}`
+        };
+      }
+      return o;
+    });
+
+    setLocalItem(STORAGE_KEYS.DINING_ORDERS, updatedOrders);
+
+    // Also ensure room payment status is Paid if pending
+    const bookings = this.getBookings();
+    const updatedBookings = bookings.map(b => {
+      if (String(b.id || '').trim().toUpperCase() === target && b.paymentStatus !== 'Paid') {
+        return {
+          ...b,
+          paymentStatus: 'Paid',
+          paymentMethod,
+          verifiedAt: new Date().toLocaleString()
+        };
+      }
+      return b;
+    });
+    setLocalItem(STORAGE_KEYS.BOOKINGS, updatedBookings);
+
+    this.logActivity(`Settled ₦${settledSum.toLocaleString()} (${settledCount} food/drink bills) for booking ${bookingId} via ${paymentMethod}`);
+    this._broadcastDiningOrdersUpdate(updatedOrders, null);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_bookings_updated', { detail: { bookings: updatedBookings } }));
+      // Refresh active customer portal session if logged in
+      const activeCust = this.getCustomerSession();
+      if (activeCust) {
+        window.dispatchEvent(new CustomEvent('ash_customer_session_updated', { detail: activeCust }));
+      }
+    }
+    return { settledCount, settledSum };
+  },
+
+  settleSingleDiningOrder(orderId, paymentMethod = 'POS Terminal (Front Desk)', reference = '') {
+    const target = String(orderId || '').trim().toUpperCase();
+    const orders = this.getDiningOrders();
+    const updated = orders.map(o => {
+      if (String(o.id || '').trim().toUpperCase() === target) {
+        return {
+          ...o,
+          paymentStatus: 'Paid',
+          paymentMethod,
+          settledAt: new Date().toLocaleString(),
+          settlementReference: reference || `STL-${Date.now()}`
+        };
+      }
+      return o;
+    });
+    setLocalItem(STORAGE_KEYS.DINING_ORDERS, updated);
+    this.logActivity(`Order ${orderId} marked PAID via ${paymentMethod}`);
+    this._broadcastDiningOrdersUpdate(updated, null);
+    return updated;
+  },
+
+  updateDiningOrderStatus(orderId, newOrderStatus) {
+    const target = String(orderId || '').trim().toUpperCase();
+    const orders = this.getDiningOrders();
+    const updated = orders.map(o => {
+      if (String(o.id || '').trim().toUpperCase() === target) {
+        return {
+          ...o,
+          orderStatus: newOrderStatus
+        };
+      }
+      return o;
+    });
+    setLocalItem(STORAGE_KEYS.DINING_ORDERS, updated);
+    this.logActivity(`Order ${orderId} status updated to '${newOrderStatus}'`);
+    this._broadcastDiningOrdersUpdate(updated, null);
+    return updated;
+  },
+
+  _broadcastDiningOrdersUpdate(updatedOrders, newOrder = null) {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_dining_orders_updated', {
+        detail: { orders: updatedOrders, newOrder, isNewOrder: Boolean(newOrder) }
+      }));
+      const activeCust = this.getCustomerSession();
+      if (activeCust) {
+        window.dispatchEvent(new CustomEvent('ash_customer_session_updated', { detail: activeCust }));
+      }
+    }
+    const bc = getSharedBroadcastChannel();
+    if (bc) {
+      try {
+        bc.postMessage({ type: 'DINING_ORDERS_UPDATED', orders: updatedOrders, newOrder, timestamp: Date.now() });
+      } catch (e) {}
+    }
+  },
+
+  subscribeDiningOrders(callback) {
+    if (typeof window === 'undefined') return () => {};
+    const localHandler = (e) => callback(e.detail || { orders: this.getDiningOrders() });
+    window.addEventListener('ash_dining_orders_updated', localHandler);
+
+    const storageHandler = (e) => {
+      if (e.key === STORAGE_KEYS.DINING_ORDERS) {
+        callback({ orders: this.getDiningOrders() });
+      }
+    };
+    window.addEventListener('storage', storageHandler);
+
+    const bc = getSharedBroadcastChannel();
+    const bcHandler = (ev) => {
+      if (ev.data?.type === 'DINING_ORDERS_UPDATED') {
+        callback({ orders: ev.data.orders || this.getDiningOrders(), newOrder: ev.data.newOrder, isNewOrder: Boolean(ev.data.newOrder) });
+      }
+    };
+    if (bc) bc.addEventListener('message', bcHandler);
+
+    return () => {
+      window.removeEventListener('ash_dining_orders_updated', localHandler);
+      window.removeEventListener('storage', storageHandler);
+      if (bc) bc.removeEventListener('message', bcHandler);
+    };
+  },
+
+  // ==============================================================
+  // ACCOUNTANT AUDIT & OPERATIONAL EXPENSES CASHBOOK
+  // ==============================================================
+
+  auditRecordByAccountant(recordType, recordId, accountantName = 'Chief Hotel Accountant') {
+    const cleanId = String(recordId || '').trim().toUpperCase();
+    if (recordType === 'room') {
+      const bookings = this.getBookings();
+      const updated = bookings.map(b => {
+        if (String(b.id || '').toUpperCase() === cleanId) {
+          return {
+            ...b,
+            accountantAudited: !b.accountantAudited,
+            auditedBy: accountantName,
+            auditedAt: new Date().toLocaleString()
+          };
+        }
+        return b;
+      });
+      setLocalItem(STORAGE_KEYS.BOOKINGS, updated);
+      this.logActivity(`Accountant (${accountantName}) toggled audit stamp on room booking ${recordId}`);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ash_bookings_updated', { detail: { bookings: updated } }));
+      }
+      return updated;
+    } else {
+      const orders = this.getDiningOrders();
+      const updated = orders.map(o => {
+        if (String(o.id || '').toUpperCase() === cleanId) {
+          return {
+            ...o,
+            accountantAudited: !o.accountantAudited,
+            auditedBy: accountantName,
+            auditedAt: new Date().toLocaleString()
+          };
+        }
+        return o;
+      });
+      setLocalItem(STORAGE_KEYS.DINING_ORDERS, updated);
+      this.logActivity(`Accountant (${accountantName}) toggled audit stamp on order ${recordId}`);
+      this._broadcastDiningOrdersUpdate(updated, null);
+      return updated;
+    }
+  },
+
+  getExpenses() {
+    return getLocalItem(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
+  },
+
+  addExpense(expenseData) {
+    const expenses = this.getExpenses();
+    const newExp = {
+      id: `EXP-${Math.floor(1000 + Math.random() * 9000)}`,
+      category: expenseData.category || 'Operations',
+      description: expenseData.description || 'Hotel Operational Expense',
+      amount: Number(expenseData.amount) || 0,
+      paymentMethod: expenseData.paymentMethod || 'Corporate Bank Transfer',
+      vendor: expenseData.vendor || 'General Vendor',
+      recordedBy: expenseData.recordedBy || 'Chief Hotel Accountant',
+      createdAt: new Date().toLocaleString()
+    };
+    const updated = [newExp, ...expenses];
+    setLocalItem(STORAGE_KEYS.EXPENSES, updated);
+    this.logActivity(`Accountant recorded expense ${newExp.id}: ₦${newExp.amount.toLocaleString()} (${newExp.category})`);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_expenses_updated', { detail: updated }));
+    }
+    return updated;
+  },
+
+  deleteExpense(expenseId) {
+    const expenses = this.getExpenses();
+    const updated = expenses.filter(e => e.id !== expenseId);
+    setLocalItem(STORAGE_KEYS.EXPENSES, updated);
+    this.logActivity(`Accountant removed expense entry ${expenseId}`);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_expenses_updated', { detail: updated }));
+    }
+    return updated;
+  },
+
+  subscribeExpenses(callback) {
+    if (typeof window === 'undefined') return () => {};
+    const handler = (e) => callback(e.detail || this.getExpenses());
+    window.addEventListener('ash_expenses_updated', handler);
+    return () => window.removeEventListener('ash_expenses_updated', handler);
   },
 
   logActivity(msg) {

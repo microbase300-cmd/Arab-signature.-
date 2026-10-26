@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { HOTEL_INFO, ROOMS } from '../data/hotelData';
 import { portalStore } from '../data/portalStore';
+import { payWithPaystack, getPaystackMode } from '../utils/paystack';
 import {
   Key,
   User,
@@ -43,7 +44,10 @@ import {
   Wine,
   Beer,
   Flame,
-  Tag
+  Tag,
+  CreditCard,
+  Plus,
+  ShoppingBag
 } from 'lucide-react';
 
 export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
@@ -72,6 +76,10 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
   const [diningItems, setDiningItems] = useState([]);
   const [diningSearch, setDiningSearch] = useState('');
   const [diningCategory, setDiningCategory] = useState('all');
+  const [recentRoomOrderBanner, setRecentRoomOrderBanner] = useState(null);
+  const [isSettlingBill, setIsSettlingBill] = useState(false);
+  const [, setFolioTick] = useState(0);
+  const paystackMode = getPaystackMode();
 
   // Sync profile on mount and subscribe to live changes
   useEffect(() => {
@@ -87,7 +95,16 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
       setDiningItems(updatedMenu);
     });
 
-    return () => unsubMenu();
+    const unsubDiningOrders = portalStore.subscribeDiningOrders(() => {
+      const fresh = portalStore.getCustomerSession();
+      if (fresh) setCustomerProfile({ ...fresh });
+      setFolioTick((t) => t + 1);
+    });
+
+    return () => {
+      unsubMenu();
+      unsubDiningOrders();
+    };
   }, []);
 
   useEffect(() => {
@@ -264,6 +281,82 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
     window.open(`https://wa.me/${HOTEL_INFO.whatsapp}?text=${text}`, '_blank');
   };
 
+  // Book Food (ARB-FDD-...) or Drink (ARB-DRK-...) directly onto active In-Lodge Suite Bill
+  const handleChargeItemToRoomBill = (item) => {
+    const primary = customerProfile?.primaryBooking;
+    if (!primary || customerProfile?.isPrimaryCleared) return;
+
+    const isDrink = item.type === 'drinks' || ['drinks', 'spirits', 'wines', 'beers', 'softdrinks', 'energy', 'juices'].includes(item.category);
+    const created = portalStore.addDiningOrder({
+      orderType: isDrink ? 'drinks' : 'food',
+      guestName: customerProfile.guestName || primary.guestName,
+      phone: customerProfile.phone || primary.phone || '',
+      email: customerProfile.email || primary.email || '',
+      isLodgeGuest: true,
+      bookingId: primary.id,
+      roomNumber: primary.roomNumber,
+      building: primary.building || (String(primary.roomNumber || '').startsWith('1') ? 'Extension Building' : 'Main Building'),
+      serviceLocation: `Suite #${primary.roomNumber} (In-Suite Guest Portal Order)`,
+      chargeToRoom: true,
+      items: [
+        {
+          id: item.id,
+          name: item.name,
+          qty: 1,
+          unitPrice: Number(item.price) || 0,
+          totalPrice: Number(item.price) || 0,
+          type: isDrink ? 'drinks' : 'food'
+        }
+      ],
+      amount: Number(item.price) || 0,
+      source: 'Guest Portal In-Room Bill'
+    });
+
+    const refreshed = portalStore.getCustomerSession();
+    if (refreshed) setCustomerProfile({ ...refreshed });
+    setFolioTick((t) => t + 1);
+    setRecentRoomOrderBanner(created);
+  };
+
+  // Settle Outstanding Suite Dining/Drink Bill via Paystack or Instant Demo
+  const handleSettleRoomBill = async (useInstantDemo = false, autoCheckoutAfter = false) => {
+    const primary = customerProfile?.primaryBooking;
+    if (!primary) return;
+    const summary = portalStore.getBookingFolioSummary(primary);
+    if (summary.balanceDue <= 0) return;
+
+    const finishSettlement = (methodLabel, ref) => {
+      portalStore.settleBookingDiningBill(primary.id, methodLabel, ref);
+      const refreshed = portalStore.getCustomerSession();
+      if (refreshed) setCustomerProfile({ ...refreshed });
+      setFolioTick((t) => t + 1);
+      setIsSettlingBill(false);
+      if (autoCheckoutAfter) {
+        setTimeout(() => handleConfirmCheckout(), 150);
+      }
+    };
+
+    if (useInstantDemo) {
+      setIsSettlingBill(true);
+      finishSettlement('Paystack Online (Guest Portal Verified)', `ASH-PORTAL-${Date.now().toString(36).toUpperCase()}`);
+      return;
+    }
+
+    setIsSettlingBill(true);
+    await payWithPaystack({
+      email: primary.email || customerProfile.email || 'guest@arabsignature.com',
+      amount: summary.balanceDue,
+      guestName: customerProfile.guestName || primary.guestName,
+      guestPhone: customerProfile.phone || primary.phone || '',
+      roomName: `Suite #${primary.roomNumber} Room Bill Settlement (${primary.id})`,
+      onSuccess: (res) => {
+        finishSettlement('Paystack Online (Guest Portal Verified)', res.reference);
+      },
+      onClose: () => setIsSettlingBill(false),
+      onError: () => setIsSettlingBill(false)
+    });
+  };
+
   const handlePrintReceipt = () => {
     window.print();
   };
@@ -274,9 +367,15 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
     }
   };
 
-  // Find suite metadata & photo for the active booking
+  // Find suite metadata & photo for the active booking + Live Room & Dining Folio Summary
   const activeRoomMeta = ROOMS.find(r => r.id === customerProfile?.primaryBooking?.roomType) || ROOMS[0];
   const activeRoomImage = activeRoomMeta?.image || '/rooms/suite-royal-penthouse.jpg';
+  const activeFolio = customerProfile?.primaryBooking
+    ? portalStore.getBookingFolioSummary(customerProfile.primaryBooking)
+    : null;
+  const receiptFolio = receiptStay
+    ? portalStore.getBookingFolioSummary(receiptStay)
+    : null;
 
   // Dining Category Filtering
   const diningCategories = [
@@ -284,7 +383,7 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
     { id: 'rice', label: 'Rice, Pasta & Sides' },
     { id: 'soups', label: 'Native Soups & Swallows' },
     { id: 'proteins', label: 'Fresh Proteins & Grills' },
-    { id: 'drinks', label: 'Chilled Drinks & Yoghurts' },
+    { id: 'drinks', label: 'Chilled Drinks & Bottle Service' },
   ];
 
   const filteredDiningItems = diningItems.filter((item) => {
@@ -299,7 +398,7 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
     if (diningCategory === 'soups') return item.category === 'soups';
     if (diningCategory === 'proteins') return item.category === 'proteins';
     if (diningCategory === 'drinks') {
-      return item.type === 'drink' || ['drinks', 'soft', 'energy', 'spirits', 'juices'].includes(item.category);
+      return item.type === 'drinks' || item.type === 'drink' || ['drinks', 'softdrinks', 'beers', 'wines', 'energy', 'spirits', 'juices'].includes(item.category);
     }
     return true;
   });
@@ -859,9 +958,17 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
 
             <div className="p-5 rounded-2xl bg-gradient-to-br from-[#1a030d] to-[#100108] border border-[#d4af37]/30 shadow-xl flex items-center justify-between">
               <div>
-                <span className="text-[11px] text-gray-400 uppercase tracking-widest block font-medium">Total Invoiced & Cleared</span>
-                <div className="text-xl font-extrabold text-emerald-400 font-mono mt-1">₦{customerProfile.totalSpent.toLocaleString()}</div>
-                <span className="text-xs text-gray-400 mt-0.5 block font-mono">Zero Outstanding Balance</span>
+                <span className="text-[11px] text-gray-400 uppercase tracking-widest block font-medium">Current Suite & Dining Folio</span>
+                <div className="text-xl font-extrabold text-emerald-400 font-mono mt-1">
+                  ₦{Number(activeFolio ? activeFolio.grandTotalBill : customerProfile.totalSpent).toLocaleString()}
+                </div>
+                {activeFolio && activeFolio.balanceDue > 0 ? (
+                  <span className="text-xs text-amber-300 mt-0.5 block font-mono font-bold">
+                    Unsettled Room Bill: ₦{activeFolio.balanceDue.toLocaleString()}
+                  </span>
+                ) : (
+                  <span className="text-xs text-gray-400 mt-0.5 block font-mono">Zero Outstanding Balance</span>
+                )}
               </div>
               <div className="w-12 h-12 rounded-2xl bg-sky-500/15 border border-sky-500/40 flex items-center justify-center text-sky-400">
                 <Receipt size={24} />
@@ -1057,9 +1164,13 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                         </div>
 
                         <div className="p-3 rounded-xl bg-black/50 border border-white/10">
-                          <span className="text-gray-400 uppercase tracking-wider block text-[10px]">Settled Folio</span>
-                          <strong className="text-emerald-400 font-mono text-sm block mt-0.5">₦{customerProfile.primaryBooking.amount?.toLocaleString()}</strong>
-                          <span className="text-gray-400 text-[10px]">Cleared & Paid</span>
+                          <span className="text-gray-400 uppercase tracking-wider block text-[10px]">Suite + Dining Bill</span>
+                          <strong className={`font-mono text-sm block mt-0.5 ${activeFolio?.balanceDue > 0 ? 'text-amber-300' : 'text-emerald-400'}`}>
+                            ₦{Number(activeFolio ? activeFolio.grandTotalBill : customerProfile.primaryBooking.amount).toLocaleString()}
+                          </strong>
+                          <span className={activeFolio?.balanceDue > 0 ? 'text-amber-300 text-[10px] font-bold' : 'text-gray-400 text-[10px]'}>
+                            {activeFolio?.balanceDue > 0 ? `₦${activeFolio.balanceDue.toLocaleString()} Due` : 'Cleared & Paid'}
+                          </span>
                         </div>
                       </div>
 
@@ -1135,6 +1246,143 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
 
                 </div>
               </div>
+
+              {/* ---------------------------------------------------------- */}
+              {/* IN-LODGE FOOD (ARB-FDD) & DRINK (ARB-DRK) ROOM BILL LEDGER */}
+              {/* ---------------------------------------------------------- */}
+              {activeFolio && (
+                <div className="p-6 rounded-3xl bg-gradient-to-br from-[#1b030e] via-[#130209] to-black border border-[#d4af37]/40 shadow-2xl space-y-5">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
+                    <div>
+                      <span className="text-[11px] font-mono uppercase tracking-widest text-[#d4af37] font-bold flex items-center gap-1.5">
+                        <Receipt size={13} />
+                        IN-LODGE FOOD & DRINK ROOM BILL FOLIO • {customerProfile.primaryBooking.id}
+                      </span>
+                      <h3 className="font-cinzel text-xl sm:text-2xl font-bold text-white mt-1">
+                        Suite Kitchen (<span className="text-[#f3e5ab]">ARB-FDD</span>) & VIP Bar (<span className="text-[#f3e5ab]">ARB-DRK</span>) Charges
+                      </h3>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      {!customerProfile.isPrimaryCleared && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('dining')}
+                          className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-[#d4af37]/35 text-xs font-bold text-[#f3e5ab] flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Plus size={14} className="text-[#d4af37]" />
+                          <span>Order Food / Drinks to Bill</span>
+                        </button>
+                      )}
+
+                      {activeFolio.balanceDue > 0 && (
+                        <>
+                          {paystackMode.isTest && (
+                            <button
+                              type="button"
+                              disabled={isSettlingBill}
+                              onClick={() => handleSettleRoomBill(true, false)}
+                              className="px-4 py-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-400/40 text-emerald-200 text-xs font-bold cursor-pointer"
+                            >
+                              Instant Clear Bill
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            disabled={isSettlingBill}
+                            onClick={() => handleSettleRoomBill(false, false)}
+                            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 shadow-lg cursor-pointer"
+                          >
+                            <CreditCard size={14} />
+                            <span>Settle ₦{activeFolio.balanceDue.toLocaleString()} Now</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Summary Strip */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+                    <div className="p-3 rounded-xl bg-black/50 border border-white/10">
+                      <span className="text-[10px] text-gray-400 block">SUITE ACCOMMODATION</span>
+                      <span className="text-sm font-bold text-white">₦{activeFolio.roomAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-black/50 border border-[#d4af37]/25">
+                      <span className="text-[10px] text-[#f3e5ab] block">FOOD ORDERS (ARB-FDD)</span>
+                      <span className="text-sm font-bold text-[#f3e5ab]">₦{activeFolio.foodOrdersTotal.toLocaleString()}</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-black/50 border border-purple-400/25">
+                      <span className="text-[10px] text-purple-200 block">DRINK ORDERS (ARB-DRK)</span>
+                      <span className="text-sm font-bold text-purple-200">₦{activeFolio.drinkOrdersTotal.toLocaleString()}</span>
+                    </div>
+                    <div className={`p-3 rounded-xl border ${activeFolio.balanceDue > 0 ? 'bg-amber-950/35 border-amber-400/40' : 'bg-emerald-950/35 border-emerald-400/40'}`}>
+                      <span className="text-[10px] text-gray-300 block">BALANCE DUE</span>
+                      <span className={`text-sm font-extrabold ${activeFolio.balanceDue > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>
+                        ₦{activeFolio.balanceDue.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Attached Orders List */}
+                  {activeFolio.diningOrders.length === 0 ? (
+                    <div className="p-4 rounded-2xl bg-black/40 border border-white/10 text-xs text-gray-400 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <span>No food or drink charges have been added to this suite bill yet.</span>
+                      {onNavigate && (
+                        <button
+                          type="button"
+                          onClick={() => onNavigate('dining')}
+                          className="text-[#f3e5ab] hover:underline font-mono font-bold text-left"
+                        >
+                          Explore Full Website Food & Drink Catalog &rarr;
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {activeFolio.diningOrders.map((ord) => (
+                        <div
+                          key={ord.id}
+                          className="p-3.5 rounded-2xl bg-black/55 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span
+                                className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold border ${
+                                  ord.orderType === 'drinks'
+                                    ? 'bg-purple-500/20 text-purple-200 border-purple-400/40'
+                                    : 'bg-[#d4af37]/20 text-[#f3e5ab] border-[#d4af37]/40'
+                                }`}
+                              >
+                                {ord.id}
+                              </span>
+                              <span className="text-[11px] font-mono text-emerald-300">{ord.orderStatus}</span>
+                              <span className="text-[11px] text-gray-400 font-mono">• {ord.createdAt}</span>
+                            </div>
+                            <div className="text-gray-200">
+                              {ord.items.map((it) => `${it.qty}x ${it.name}`).join(', ')}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between sm:justify-end gap-3 font-mono">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                                ord.paymentStatus === 'Paid'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
+                                  : 'bg-amber-500/20 text-amber-200 border-amber-400/40'
+                              }`}
+                            >
+                              {ord.paymentStatus}
+                            </span>
+                            <span className="text-sm font-extrabold text-[#f3e5ab]">
+                              ₦{Number(ord.amount).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* ---------------------------------------------------------- */}
               {/* THE ARAB SIGNATURE EXPERIENCE & HOTEL CULTURE SHOWCASE     */}
@@ -1322,11 +1570,44 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                 </div>
 
                 <div className="shrink-0 p-4 rounded-2xl bg-black/60 border border-white/10 text-xs font-mono space-y-1 text-right">
-                  <span className="text-gray-400 block text-[10px] uppercase">Service Hours</span>
-                  <strong className="text-[#f3e5ab] block">24/7 In-Suite Service</strong>
-                  <span className="text-emerald-400 block text-[11px]">Room Delivery Included</span>
+                  <span className="text-gray-400 block text-[10px] uppercase">Room Bill Link</span>
+                  <strong className="text-[#f3e5ab] block">{customerProfile.primaryBooking.id}</strong>
+                  <span className="text-emerald-400 block text-[11px]">ARB-FDD / ARB-DRK Auto-Billing</span>
                 </div>
               </div>
+
+              {recentRoomOrderBanner && (
+                <div className="p-4 rounded-2xl bg-emerald-950/50 border border-emerald-400/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 size={20} className="text-emerald-400 shrink-0" />
+                    <div>
+                      <strong className="text-white block">
+                        Booked & Added to Suite #{recentRoomOrderBanner.roomNumber} Bill! Code:{' '}
+                        <span className="font-mono text-[#f3e5ab]">{recentRoomOrderBanner.id}</span>
+                      </strong>
+                      <span className="text-gray-300 font-mono">
+                        {recentRoomOrderBanner.items.map((i) => `${i.qty}x ${i.name}`).join(', ')} • ₦{Number(recentRoomOrderBanner.amount).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('overview')}
+                      className="px-3 py-1.5 rounded-lg bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#f3e5ab] font-bold cursor-pointer"
+                    >
+                      View Room Bill
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRecentRoomOrderBanner(null)}
+                      className="text-gray-400 hover:text-white px-2"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Search & Category Filter Pills */}
               <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
@@ -1414,15 +1695,27 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                       </div>
                     </div>
 
-                    {/* Order Button */}
-                    <div className="p-4 pt-0">
+                    {/* Order Buttons: Add Directly to Suite Bill (ARB-FDD / ARB-DRK) + WhatsApp */}
+                    <div className="p-4 pt-0 space-y-2">
+                      {!customerProfile.isPrimaryCleared && (
+                        <button
+                          type="button"
+                          onClick={() => handleChargeItemToRoomBill(item)}
+                          className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa820a] hover:brightness-105 text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                        >
+                          <Receipt size={13} />
+                          <span>
+                            Add to Suite Bill ({item.type === 'drinks' ? 'ARB-DRK' : 'ARB-FDD'})
+                          </span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleOrderDiningToRoom(item)}
-                        className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa820a] hover:brightness-105 text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                        className="w-full py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-gray-200 font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                       >
-                        <Phone size={13} />
-                        <span>Order to Room #{customerProfile.primaryBooking.roomNumber || 'Assigned Suite'}</span>
+                        <Phone size={12} className="text-emerald-400" />
+                        <span>Order via WhatsApp Butler</span>
                       </button>
                     </div>
 
@@ -1599,6 +1892,20 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                     <span className="font-mono font-bold">₦{receiptStay.amount?.toLocaleString()}</span>
                   </div>
 
+                  {/* Itemized Food (ARB-FDD) & Drink (ARB-DRK) Charges Attached to Stay */}
+                  {receiptFolio?.diningOrders?.map((ord) => (
+                    <div key={ord.id} className="flex justify-between py-1.5 text-gray-200 text-xs border-t border-white/5">
+                      <div>
+                        <span className="font-mono font-bold text-[#f3e5ab] mr-2">{ord.id}</span>
+                        <span>{ord.items.map((it) => `${it.qty}x ${it.name}`).join(', ')}</span>
+                        <span className={`ml-2 text-[10px] font-mono ${ord.paymentStatus === 'Paid' ? 'text-emerald-400' : 'text-amber-300'}`}>
+                          ({ord.paymentStatus})
+                        </span>
+                      </div>
+                      <span className="font-mono font-bold text-[#f3e5ab]">₦{Number(ord.amount).toLocaleString()}</span>
+                    </div>
+                  ))}
+
                   <div className="flex justify-between py-1.5 text-gray-400 text-xs">
                     <span>Complimentary Morning Buffet & VIP Poolside Cabana Access</span>
                     <span className="font-mono text-emerald-400">₦0.00 (Complimentary)</span>
@@ -1622,13 +1929,27 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                       <span className="font-mono text-emerald-400">{receiptStay.paystackReference}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-base font-bold pt-2 border-t border-white/10">
+                  <div className="flex justify-between text-xs text-gray-300 pt-2 border-t border-white/10">
+                    <span>Grand Total Folio (Suite + Food/Drinks):</span>
+                    <span className="text-white font-mono font-bold">
+                      ₦{Number(receiptFolio ? receiptFolio.grandTotalBill : receiptStay.amount).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-base font-bold">
                     <span className="text-white">Total Amount Paid:</span>
-                    <span className="text-emerald-400 font-mono text-lg">₦{receiptStay.amount?.toLocaleString()}</span>
+                    <span className="text-emerald-400 font-mono text-lg">
+                      ₦{Number(receiptFolio ? receiptFolio.totalPaidSoFar : receiptStay.amount).toLocaleString()}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm font-bold text-[#f3e5ab]">
                     <span>Outstanding Balance Due:</span>
-                    <span className="font-mono text-emerald-300">₦0.00 (SETTLED IN FULL)</span>
+                    {receiptFolio && receiptFolio.balanceDue > 0 ? (
+                      <span className="font-mono text-amber-300">
+                        ₦{receiptFolio.balanceDue.toLocaleString()} (UNSETTLED ROOM BILL)
+                      </span>
+                    ) : (
+                      <span className="font-mono text-emerald-300">₦0.00 (SETTLED IN FULL)</span>
+                    )}
                   </div>
                 </div>
 
@@ -1686,31 +2007,63 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
               </p>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-black/60 border border-white/10 text-left text-xs font-mono text-gray-300 space-y-1">
+            <div className="p-3.5 rounded-xl bg-black/60 border border-white/10 text-left text-xs font-mono text-gray-300 space-y-1.5">
               <div>Booking Code: <strong className="text-[#f3e5ab]">{customerProfile.primaryBooking.id}</strong></div>
-              <div>Folio Balance: <strong className="text-emerald-400">₦0.00 (Settled)</strong></div>
+              <div>
+                Folio Balance:{' '}
+                {activeFolio?.balanceDue > 0 ? (
+                  <strong className="text-amber-300">₦{activeFolio.balanceDue.toLocaleString()} (Unsettled Food/Drink Bill)</strong>
+                ) : (
+                  <strong className="text-emerald-400">₦0.00 (Settled)</strong>
+                )}
+              </div>
+              {activeFolio?.balanceDue > 0 && (
+                <div className="text-amber-200 text-[11px] pt-1 border-t border-white/10">
+                  Please settle your ₦{activeFolio.balanceDue.toLocaleString()} room food/drink bill below or at the Front Desk before checking out.
+                </div>
+              )}
               <div className="text-rose-400 text-[11px] pt-1 border-t border-white/10">
                 ⚠️ Once checked out, this booking code will expire and become invalid.
               </div>
             </div>
 
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowCheckoutConfirm(false)}
-                className="flex-1 py-3 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
-              >
-                Cancel
-              </button>
+            {activeFolio?.balanceDue > 0 ? (
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  disabled={isSettlingBill}
+                  onClick={() => handleSettleRoomBill(paystackMode.isTest, true)}
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa820a] text-black font-extrabold text-xs uppercase tracking-wider transition-all shadow-lg cursor-pointer"
+                >
+                  Settle ₦{activeFolio.balanceDue.toLocaleString()} Bill & Check Out
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCheckoutConfirm(false)}
+                  className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCheckoutConfirm(false)}
+                  className="flex-1 py-3 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
 
-              <button
-                type="button"
-                onClick={handleConfirmCheckout}
-                className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-extrabold text-xs uppercase tracking-wider transition-all shadow-lg cursor-pointer"
-              >
-                Confirm Check Out
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={handleConfirmCheckout}
+                  className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-extrabold text-xs uppercase tracking-wider transition-all shadow-lg cursor-pointer"
+                >
+                  Confirm Check Out
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

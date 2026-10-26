@@ -203,9 +203,26 @@ export default function ReceptionLogin({ onNavigate }) {
         </form>
 
         {/* Operational Security Notice */}
-        <div className="pt-4 border-t border-white/10 text-center space-y-1">
+        <div className="pt-4 border-t border-white/10 text-center space-y-1.5">
           <div className="text-[11px] text-gray-400">
             Authorized Front Desk Staff Only • Passwords managed by General Manager
+          </div>
+          <div className="flex items-center justify-center gap-3 text-[11px] font-mono text-gray-400 py-0.5">
+            <button
+              type="button"
+              onClick={() => onNavigate('accountant-login')}
+              className="hover:text-[#f3e5ab] underline underline-offset-2"
+            >
+              Accountant Portal
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => onNavigate('admin-login')}
+              className="hover:text-[#f3e5ab] underline underline-offset-2"
+            >
+              Executive GM Login
+            </button>
           </div>
           <div className="text-[10px] text-gray-500">
             All shift sign-ins and operational actions are logged to the Security Audit Trail.

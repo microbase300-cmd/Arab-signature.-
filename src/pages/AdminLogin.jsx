@@ -146,7 +146,7 @@ export default function AdminLogin({ onNavigate }) {
         </form>
 
         {/* Quick Test Helper (for client verification) */}
-        <div className="pt-4 border-t border-white/10 text-center space-y-2">
+        <div className="pt-4 border-t border-white/10 text-center space-y-2.5">
           <div className="text-[11px] text-gray-400">
             For verified administrators only. All login attempts are recorded.
           </div>
@@ -156,6 +156,23 @@ export default function AdminLogin({ onNavigate }) {
           >
             Autofill Admin Credentials (Test)
           </button>
+          <div className="flex items-center justify-center gap-3 text-[11px] font-mono text-gray-400 pt-1">
+            <button
+              type="button"
+              onClick={() => onNavigate('reception-login')}
+              className="hover:text-[#f3e5ab] underline underline-offset-2"
+            >
+              Front Desk Login
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => onNavigate('accountant-login')}
+              className="hover:text-[#f3e5ab] underline underline-offset-2"
+            >
+              Accountant Portal
+            </button>
+          </div>
         </div>
 
       </div>
