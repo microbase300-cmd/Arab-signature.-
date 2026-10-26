@@ -165,3 +165,17 @@
   2. Increased MantleDB cloud timeout to 4000ms for stable connectivity on Nigerian mobile networks.
   3. Enforced an ironclad 60-second cooldown (`_lastApiRoomsFallbackCall`) in `portalStore.js` so `/api/rooms` can never be called more than once per minute per client session under any circumstance.
 - **Permanent Guardrail**: Never run sub-10s polling intervals on public customer-facing components that can cascade to serverless `/api/` endpoints. Always protect serverless fallbacks with a cooldown throttle.
+
+---
+
+### `BUG-012` — Audio Feedback Loop & Server Overhead in Voice AI Assistant
+- **Date**: 2026-10-26
+- **Affected Files**: `src/utils/clientVoiceAssistant.js`, `src/components/HotelAiChat.jsx`
+- **Symptom**: If speech recognition and speech synthesis run simultaneously, the microphone captures Amira speaking through device speakers, creating an infinite voice input loop. External audio APIs (OpenAI Whisper, ElevenLabs) would also create massive recurring server costs and serverless compute overhead.
+- **Root Cause**: Unmanaged concurrency between SpeechSynthesis and SpeechRecognition, and reliance on server-side audio models.
+- **Fix Applied**:
+  1. Built `clientVoiceAssistant.js` running 100% on the client browser via Web Speech API (`SpeechRecognition` + `SpeechSynthesis`). Zero external audio API calls, zero Vercel serverless function invocations.
+  2. Implemented mandatory audio muting: whenever speech recognition begins, `speechSynthesis.cancel()` is immediately called. Whenever Amira begins speaking, `recognition.stop()` is invoked to prevent acoustic feedback loops.
+  3. Added markdown syntax cleaning so asterisks, URLs, and table markup are stripped before synthesis, delivering smooth human speech.
+  4. Provided user controls: 1-click Mute/Unmute toggle, message-level "Listen" buttons, and a prominent "Stop Speaking" action.
+- **Permanent Guardrail**: Keep voice interactions 100% client-side to protect server compute quotas, and always halt speech synthesis before activating microphone recognition.
