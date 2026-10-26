@@ -252,6 +252,8 @@ const INITIAL_DINING_ORDERS = [
     phone: "0803 234 5678",
     email: "emeka.obi@nigerdelta.org",
     isLodgeGuest: true,
+    isOutsideRoom: false,
+    targetDesk: "Extension Building",
     bookingId: "ARS-EXT-9421XK",
     roomNumber: "107",
     building: "Extension Building",
@@ -283,6 +285,8 @@ const INITIAL_DINING_ORDERS = [
     phone: "0802 999 1122",
     email: "nwosu.chuka@assembly.gov.ng",
     isLodgeGuest: true,
+    isOutsideRoom: false,
+    targetDesk: "Main Building",
     bookingId: "ARS-BGD-6204NW",
     roomNumber: "605",
     building: "Main Building",
@@ -316,6 +320,8 @@ const INITIAL_DINING_ORDERS = [
     phone: "0806 555 4321",
     email: "dr.adeleke@medspecialist.com",
     isLodgeGuest: true,
+    isOutsideRoom: false,
+    targetDesk: "Extension Building",
     bookingId: "ARS-EXT-4109DA",
     roomNumber: "101",
     building: "Extension Building",
@@ -350,9 +356,11 @@ const INITIAL_DINING_ORDERS = [
     phone: "0809 441 7788",
     email: "ifeanyi.okeke@chambers.ng",
     isLodgeGuest: false,
+    isOutsideRoom: true,
+    targetDesk: "Main Building",
     bookingId: null,
     roomNumber: null,
-    building: "Extension Building",
+    building: "Main Building",
     serviceLocation: "Poolside VIP Cabana",
     items: [
       {
@@ -374,6 +382,40 @@ const INITIAL_DINING_ORDERS = [
     source: "Direct Website (VIP Lounge)",
     accountantAudited: false,
     createdAt: "2026-10-26 08:50"
+  },
+  {
+    id: "ARB-FDD-3102GH",
+    orderType: "food",
+    guestName: "Alhaji Bello Danladi",
+    phone: "0805 777 8899",
+    email: "bello.danladi@kanotrade.com",
+    isLodgeGuest: false,
+    isOutsideRoom: true,
+    targetDesk: "Main Building",
+    bookingId: null,
+    roomNumber: null,
+    building: "Main Building",
+    serviceLocation: "Al-Sultan Dining Hall (Dine-In)",
+    items: [
+      {
+        id: "rice-arabian-mandi",
+        name: "Arabian Lamb Mandi Rice",
+        type: "food",
+        qty: 2,
+        unitPrice: 18000,
+        totalPrice: 36000,
+        pairingSummary: "Slow-roasted tender lamb over fragrant spiced basmati"
+      }
+    ],
+    amount: 36000,
+    chargeToRoom: false,
+    paymentStatus: "Paid",
+    paymentMethod: "Paystack (Online Verified)",
+    paystackReference: "REF-FDD-310294",
+    orderStatus: "Cooking in Kitchen",
+    source: "Direct Website (Restaurant Dine-In)",
+    accountantAudited: false,
+    createdAt: "2026-10-26 09:15"
   }
 ];
 
@@ -3396,6 +3438,10 @@ export const portalStore = {
     const finalAmount = orderData.amount !== undefined ? Number(orderData.amount) : computedTotal;
 
     const isChargedToRoom = Boolean(orderData.isLodgeGuest && orderData.chargeToRoom && orderData.bookingId);
+    const isOutsideRoom = Boolean(!orderData.isLodgeGuest || !orderData.roomNumber || !orderData.bookingId);
+    const targetDesk = isOutsideRoom
+      ? 'Main Building'
+      : (String(orderData.roomNumber || '').startsWith('1') ? 'Extension Building' : 'Main Building');
 
     const newOrder = {
       id: orderData.id || this.generateUniqueDiningCode(orderType),
@@ -3404,10 +3450,12 @@ export const portalStore = {
       phone: orderData.phone || '',
       email: orderData.email || '',
       isLodgeGuest: Boolean(orderData.isLodgeGuest),
+      isOutsideRoom,
+      targetDesk, // 'Main Building' receives all outside-room orders
       bookingId: orderData.bookingId || null,
       roomNumber: orderData.roomNumber || null,
-      building: orderData.building || (String(orderData.roomNumber || '').startsWith('1') ? 'Extension Building' : String(orderData.roomNumber || '').startsWith('6') ? 'Main Building' : 'Al-Sultan Restaurant & Lounge'),
-      serviceLocation: orderData.serviceLocation || (orderData.roomNumber ? `Suite #${orderData.roomNumber} (In-Room Delivery)` : 'Al-Sultan Restaurant & Lounge'),
+      building: orderData.building || (isOutsideRoom ? 'Main Building' : (String(orderData.roomNumber || '').startsWith('1') ? 'Extension Building' : 'Main Building')),
+      serviceLocation: orderData.serviceLocation || (orderData.roomNumber ? `Suite #${orderData.roomNumber} (In-Room Delivery)` : 'Al-Sultan Dining Hall (Outside Room)'),
       items,
       amount: finalAmount,
       chargeToRoom: isChargedToRoom,

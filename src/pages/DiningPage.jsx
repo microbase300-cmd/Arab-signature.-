@@ -1083,7 +1083,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                               <div className="flex items-center justify-between text-[11px] font-mono">
                                 <span className="text-emerald-400 flex items-center gap-1.5">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                  {item.type === 'drinks' ? 'ARB-DRK Code Ready' : 'ARB-FDD Code Ready'}
+                                  {item.type === 'drinks' ? 'Chilled & Available' : 'Kitchen Prepared Fresh'}
                                 </span>
                                 {inTrayObj ? (
                                   <span className="px-2 py-0.5 rounded-full bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#f3e5ab] font-bold">

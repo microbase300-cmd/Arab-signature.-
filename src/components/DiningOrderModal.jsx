@@ -51,6 +51,7 @@ export default function DiningOrderModal({
     setFormError('');
     setLodgeError('');
 
+    // If active session found, auto-select lodge mode and verify
     const activeSession = portalStore.getCustomerSession();
     if (activeSession && activeSession.activeBooking && !activeSession.isCheckedOut) {
       const check = portalStore.verifyActiveLodgeGuest(activeSession.activeBooking.id);
@@ -62,10 +63,9 @@ export default function DiningOrderModal({
         return;
       }
     }
-    // Default to walkin if no active session, unless user clicks In-Lodge tab
-    if (!verifiedLodge) {
-      setDinerMode('lodge');
-    }
+    // Default to 'walkin' (Book Food & Drinks Only) so general visitors can order smoothly
+    setDinerMode('walkin');
+    setVerifiedLodge(null);
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -239,6 +239,12 @@ export default function DiningOrderModal({
     }
     if (!guestPhone.trim() || guestPhone.replace(/[^0-9]/g, '').length < 7) {
       setFormError('Please enter a valid phone / WhatsApp number.');
+      return;
+    }
+
+    // Food orders strictly require instant online payment (no counter POS)
+    if (foodItems.length > 0 && walkinPaymentChoice === 'counter_pos') {
+      setFormError('Kitchen Policy: Fresh food orders require confirmed online payment. Pay on counter POS is only allowed for bar drinks or when charged to a verified in-lodge suite bill.');
       return;
     }
 
@@ -505,12 +511,12 @@ export default function DiningOrderModal({
                   <div className="flex items-center gap-2 text-[10px] font-mono">
                     {foodItems.length > 0 && (
                       <span className="px-2 py-0.5 rounded-full bg-[#d4af37]/15 border border-[#d4af37]/40 text-[#f3e5ab]">
-                        ARB-FDD Code Ready
+                        {foodItems.reduce((s, i) => s + i.qty, 0)} Kitchen Dish{foodItems.length > 1 ? 'es' : ''}
                       </span>
                     )}
                     {drinkItems.length > 0 && (
                       <span className="px-2 py-0.5 rounded-full bg-purple-500/20 border border-purple-400/40 text-purple-200">
-                        ARB-DRK Code Ready
+                        {drinkItems.reduce((s, i) => s + i.qty, 0)} Chilled Drink{drinkItems.length > 1 ? 's' : ''}
                       </span>
                     )}
                   </div>
@@ -587,59 +593,89 @@ export default function DiningOrderModal({
                 )}
               </div>
 
-              {/* 2. WHO IS ORDERING? (IN-LODGE SUITE BILL vs WALK-IN / WEBSITE DINER) */}
-              <div className="space-y-3">
-                <span className="text-xs font-mono uppercase tracking-wider text-[#f3e5ab] font-bold block">
-                  2. Select Booking & Billing Mode
-                </span>
+              {/* 2. PROMINENT ORDER SELECTION & BILLING GUIDE */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#240312] via-[#16030c] to-[#0c0106] border border-[#d4af37]/45 shadow-xl space-y-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-white/10 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={16} className="text-[#d4af37]" />
+                    <h4 className="font-cinzel text-sm sm:text-base font-bold text-white tracking-wide">
+                      2. Choose Your Booking & Billing Option
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-mono text-[#f3e5ab] bg-[#d4af37]/15 px-2.5 py-0.5 rounded-full border border-[#d4af37]/30 self-start sm:self-auto">
+                    Important Order Guide
+                  </span>
+                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDinerMode('lodge');
-                      setFormError('');
-                    }}
-                    className={`p-4 rounded-2xl border text-left transition-all ${
-                      dinerMode === 'lodge'
-                        ? 'bg-gradient-to-br from-[#350619] to-[#1a030c] border-[#d4af37] shadow-lg shadow-[#d4af37]/15'
-                        : 'bg-black/40 border-white/10 hover:border-white/25 text-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#f3e5ab]">
-                        <Building2 size={15} className="text-[#d4af37]" />
-                        In-Lodge Hotel Guest
-                      </span>
-                      {dinerMode === 'lodge' && <CheckCircle2 size={16} className="text-[#d4af37]" />}
-                    </div>
-                    <p className="text-[11px] text-gray-300 leading-relaxed">
-                      Match your Suite Booking Code (<span className="font-mono text-[#f3e5ab]">ARS-BGD</span> / <span className="font-mono text-[#f3e5ab]">ARS-EXT</span>) to add food & drinks directly to your room bill.
-                    </p>
-                  </button>
+                <p className="text-xs text-gray-300 leading-relaxed">
+                  Anyone can order fresh food and chilled drinks directly from our website. <strong className="text-[#f3e5ab]">Charging to a room bill is strictly reserved for guests currently lodged in our hotel suites</strong>.
+                </p>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {/* Option A: Book Food & Drinks Only */}
                   <button
                     type="button"
                     onClick={() => {
                       setDinerMode('walkin');
                       setFormError('');
                     }}
-                    className={`p-4 rounded-2xl border text-left transition-all ${
+                    className={`p-4 rounded-2xl border text-left transition-all relative ${
                       dinerMode === 'walkin'
-                        ? 'bg-gradient-to-br from-[#350619] to-[#1a030c] border-[#d4af37] shadow-lg shadow-[#d4af37]/15'
-                        : 'bg-black/40 border-white/10 hover:border-white/25 text-gray-300'
+                        ? 'bg-gradient-to-br from-[#40071e] to-[#1c030d] border-[#d4af37] shadow-lg shadow-[#d4af37]/25 ring-1 ring-[#d4af37]'
+                        : 'bg-black/40 border-white/10 hover:border-white/20 text-gray-300'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#f3e5ab]">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#f3e5ab]">
                         <Utensils size={15} className="text-[#d4af37]" />
-                        Restaurant / VIP Lounge / Takeout
+                        Book Food & Drinks Only
                       </span>
-                      {dinerMode === 'walkin' && <CheckCircle2 size={16} className="text-[#d4af37]" />}
+                      {dinerMode === 'walkin' ? (
+                        <CheckCircle2 size={16} className="text-[#d4af37]" />
+                      ) : (
+                        <span className="text-[10px] font-mono text-gray-400">Open to All</span>
+                      )}
                     </div>
                     <p className="text-[11px] text-gray-300 leading-relaxed">
-                      Not lodging in a room? Book tableside dining, VIP cabana bottles, or pickup with your <span className="font-mono text-[#f3e5ab]">ARB-FDD / DRK</span> code.
+                      <strong>For non-lodging visitors, restaurant dine-in, VIP lounge, pool cabana, or takeout.</strong> Order your food and pay securely online via Paystack. No room reservation required!
                     </p>
+                    <div className="mt-2 text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+                      <span>✓ Instant online checkout (Paystack Card / Transfer / USSD)</span>
+                    </div>
+                  </button>
+
+                  {/* Option B: Add to Suite Bill (In-Lodge Only) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDinerMode('lodge');
+                      setFormError('');
+                    }}
+                    className={`p-4 rounded-2xl border text-left transition-all relative ${
+                      dinerMode === 'lodge'
+                        ? 'bg-gradient-to-br from-[#40071e] to-[#1c030d] border-[#d4af37] shadow-lg shadow-[#d4af37]/25 ring-1 ring-[#d4af37]'
+                        : 'bg-black/40 border-white/10 hover:border-white/20 text-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#f3e5ab]">
+                        <Building2 size={15} className="text-[#d4af37]" />
+                        Add to Suite Bill (Lodged Only)
+                      </span>
+                      {dinerMode === 'lodge' ? (
+                        <CheckCircle2 size={16} className="text-[#d4af37]" />
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full bg-[#d4af37]/15 text-[#f3e5ab] text-[9px] font-mono font-bold">
+                          Lodged Guests
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-gray-300 leading-relaxed">
+                      <strong>STRICTLY for residents currently staying in a suite (Rooms 601–620 or 101–114).</strong> Match your Suite Booking Code (<span className="text-[#f3e5ab] font-mono">ARS-BGD / EXT</span>) or room number to charge this order to your suite folio and settle at checkout.
+                    </p>
+                    <div className="mt-2 text-[10px] font-mono text-amber-300 flex items-center gap-1">
+                      <span>⚠ Requires verified active room reservation</span>
+                    </div>
                   </button>
                 </div>
               </div>
@@ -866,39 +902,57 @@ export default function DiningOrderModal({
                   </div>
 
                   {/* Walk-in Payment Method */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => setWalkinPaymentChoice('paystack')}
-                      className={`p-3 rounded-xl border text-left text-xs transition-all flex items-center justify-between ${
-                        walkinPaymentChoice === 'paystack'
-                          ? 'bg-[#3b071b] border-[#d4af37] text-white font-bold'
-                          : 'bg-black/40 border-white/10 text-gray-300'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <CreditCard size={15} className="text-emerald-400" />
-                        Pay Now Online (Paystack)
-                      </span>
-                      {walkinPaymentChoice === 'paystack' && <CheckCircle2 size={15} className="text-emerald-400" />}
-                    </button>
+                  {foodItems.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="p-3.5 rounded-xl bg-[#3b071b] border border-[#d4af37] text-white flex items-center justify-between text-xs font-bold shadow-md">
+                        <span className="flex items-center gap-2">
+                          <CreditCard size={16} className="text-emerald-400" />
+                          Pay Online via Paystack (Instant Card / Bank Transfer / USSD)
+                        </span>
+                        <CheckCircle2 size={16} className="text-emerald-400" />
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-200 text-[11px] flex items-center gap-2">
+                        <ShieldCheck size={14} className="text-amber-400 flex-shrink-0" />
+                        <span>
+                          <strong>Kitchen Policy:</strong> Fresh food preparation commences once online payment is confirmed. (Counter POS is disabled for outside food orders).
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setWalkinPaymentChoice('paystack')}
+                        className={`p-3 rounded-xl border text-left text-xs transition-all flex items-center justify-between ${
+                          walkinPaymentChoice === 'paystack'
+                            ? 'bg-[#3b071b] border-[#d4af37] text-white font-bold'
+                            : 'bg-black/40 border-white/10 text-gray-300'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <CreditCard size={15} className="text-emerald-400" />
+                          Pay Now Online (Paystack)
+                        </span>
+                        {walkinPaymentChoice === 'paystack' && <CheckCircle2 size={15} className="text-emerald-400" />}
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setWalkinPaymentChoice('counter_pos')}
-                      className={`p-3 rounded-xl border text-left text-xs transition-all flex items-center justify-between ${
-                        walkinPaymentChoice === 'counter_pos'
-                          ? 'bg-[#3b071b] border-[#d4af37] text-white font-bold'
-                          : 'bg-black/40 border-white/10 text-gray-300'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <ShieldCheck size={15} className="text-[#d4af37]" />
-                        Pay at Restaurant Counter POS
-                      </span>
-                      {walkinPaymentChoice === 'counter_pos' && <CheckCircle2 size={15} className="text-[#d4af37]" />}
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => setWalkinPaymentChoice('counter_pos')}
+                        className={`p-3 rounded-xl border text-left text-xs transition-all flex items-center justify-between ${
+                          walkinPaymentChoice === 'counter_pos'
+                            ? 'bg-[#3b071b] border-[#d4af37] text-white font-bold'
+                            : 'bg-black/40 border-white/10 text-gray-300'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <ShieldCheck size={15} className="text-[#d4af37]" />
+                          Pay at Bar Counter POS
+                        </span>
+                        {walkinPaymentChoice === 'counter_pos' && <CheckCircle2 size={15} className="text-[#d4af37]" />}
+                      </button>
+                    </div>
+                  )}
 
                   <input
                     type="text"

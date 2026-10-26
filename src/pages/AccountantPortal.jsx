@@ -123,6 +123,22 @@ export default function AccountantPortal({ onNavigate }) {
     .reduce((s, t) => s + t.amount, 0);
   const transferCashCollected = Math.max(0, totalCollectedCashflow - paystackCollected - posCollected);
 
+  // Outside Room vs In-Suite Dining Segmentation
+  const isOutsideRoomOrder = (ord) => Boolean(
+    ord.isOutsideRoom ||
+    !ord.isLodgeGuest ||
+    !ord.roomNumber ||
+    !ord.bookingId ||
+    ['dining hall', 'restaurant', 'vip executive bar', 'poolside', 'cabana', 'takeout', 'pickup', 'front desk counter order'].some(spot =>
+      String(ord.serviceLocation || '').toLowerCase().includes(spot)
+    )
+  );
+
+  const outsideRoomOrders = validDining.filter(isOutsideRoomOrder);
+  const inRoomDiningOrders = validDining.filter((o) => !isOutsideRoomOrder(o));
+  const outsideRoomCollected = outsideRoomOrders.filter((o) => o.paymentStatus === 'Paid').reduce((s, o) => s + (Number(o.amount) || 0), 0);
+  const inRoomCollected = inRoomDiningOrders.filter((o) => o.paymentStatus === 'Paid').reduce((s, o) => s + (Number(o.amount) || 0), 0);
+
   const auditedSuitesCount = validBookings.filter((b) => b.accountantAudited).length;
   const auditedDiningCount = validDining.filter((o) => o.accountantAudited).length;
 
@@ -687,9 +703,11 @@ export default function AccountantPortal({ onNavigate }) {
             <div className="flex flex-wrap items-center gap-2">
               {[
                 { id: 'all', label: `All Orders (${validDining.length})` },
+                { id: 'outside', label: `Outside Room Orders (${outsideRoomOrders.length})` },
+                { id: 'in_room', label: `In-Suite Dining (${inRoomDiningOrders.length})` },
                 { id: 'food', label: `Food ARB-FDD (${foodOrders.length})` },
                 { id: 'drinks', label: `Drinks ARB-DRK (${drinkOrders.length})` },
-                { id: 'unpaid', label: 'Unsettled Room Bills / POS' }
+                { id: 'unpaid', label: `Unsettled Room Bills (${validDining.filter(o => o.paymentStatus !== 'Paid').length})` }
               ].map((f) => (
                 <button
                   key={f.id}
@@ -710,7 +728,7 @@ export default function AccountantPortal({ onNavigate }) {
                 <thead className="bg-[#120208] text-gray-400 uppercase tracking-wider border-b border-white/10 text-[10px]">
                   <tr>
                     <th className="py-3 px-4">Order Code</th>
-                    <th className="py-3 px-4">Guest & Linked Suite</th>
+                    <th className="py-3 px-4">Guest & Destination</th>
                     <th className="py-3 px-4">Items</th>
                     <th className="py-3 px-4">Payment Status</th>
                     <th className="py-3 px-4">Amount</th>
@@ -725,8 +743,12 @@ export default function AccountantPortal({ onNavigate }) {
                         !q ||
                         o.id.toLowerCase().includes(q) ||
                         o.guestName.toLowerCase().includes(q) ||
-                        (o.bookingId && o.bookingId.toLowerCase().includes(q));
+                        (o.bookingId && o.bookingId.toLowerCase().includes(q)) ||
+                        (o.roomNumber && String(o.roomNumber).includes(q)) ||
+                        (o.serviceLocation && o.serviceLocation.toLowerCase().includes(q));
                       if (!matchQ) return false;
+                      if (diningTypeFilter === 'outside') return isOutsideRoomOrder(o);
+                      if (diningTypeFilter === 'in_room') return !isOutsideRoomOrder(o);
                       if (diningTypeFilter === 'food') return o.orderType === 'food';
                       if (diningTypeFilter === 'drinks') return o.orderType === 'drinks';
                       if (diningTypeFilter === 'unpaid') return o.paymentStatus !== 'Paid';
@@ -748,9 +770,22 @@ export default function AccountantPortal({ onNavigate }) {
                         </td>
                         <td className="py-3.5 px-4">
                           <div className="font-semibold text-white">{o.guestName}</div>
-                          <div className="text-[11px] font-mono text-[#f3e5ab]">
-                            {o.bookingId ? `${o.bookingId} (Suite #${o.roomNumber})` : o.serviceLocation}
-                          </div>
+                          {isOutsideRoomOrder(o) ? (
+                            <div className="mt-1">
+                              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-semibold inline-flex items-center gap-1">
+                                <Utensils size={10} />
+                                <span>Outside Room • {o.serviceLocation || 'Restaurant / Lounge'}</span>
+                              </span>
+                              {o.phone && <span className="text-[10px] text-gray-400 font-mono block mt-0.5">{o.phone}</span>}
+                            </div>
+                          ) : (
+                            <div className="mt-0.5">
+                              <span className="text-[11px] font-mono text-[#f3e5ab]">
+                                {o.bookingId} (Suite #{o.roomNumber})
+                              </span>
+                              {o.phone && <span className="text-[10px] text-gray-400 font-mono block">{o.phone}</span>}
+                            </div>
+                          )}
                         </td>
                         <td className="py-3.5 px-4 max-w-xs text-gray-200">
                           {o.items.map((i) => `${i.qty}x ${i.name}`).join(', ')}

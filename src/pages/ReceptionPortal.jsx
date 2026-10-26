@@ -205,6 +205,40 @@ export default function ReceptionPortal({ onNavigate }) {
     return getBookingBuilding(b) === desk;
   };
 
+  // Helper to determine if an order was placed outside of guest rooms (Restaurant, VIP Lounge, Cabana, Takeout)
+  const isOutsideRoomOrder = (ord) => {
+    if (!ord) return false;
+    return Boolean(
+      ord.isOutsideRoom ||
+      !ord.isLodgeGuest ||
+      !ord.roomNumber ||
+      !ord.bookingId ||
+      ['dining hall', 'restaurant', 'vip executive bar', 'poolside', 'cabana', 'takeout', 'pickup', 'front desk counter order'].some(spot =>
+        String(ord.serviceLocation || '').toLowerCase().includes(spot)
+      )
+    );
+  };
+
+  // Receptionist Desk Assignment for Dining Orders:
+  // Every food and drinks order outside room MUST be seen by the receptionist of the Main Building!
+  const isDeskDiningOrder = (ord) => {
+    if (!ord) return false;
+    const desk = getDeskBuilding();
+    if (desk === 'all') return true;
+
+    // All outside-room orders belong to the Main Building front desk terminal
+    if (isOutsideRoomOrder(ord)) {
+      return desk === 'Main Building';
+    }
+
+    // In-room orders follow room wing assignment
+    const rNum = String(ord.roomNumber || '');
+    if (rNum.startsWith('6')) return desk === 'Main Building';
+    if (rNum.startsWith('1')) return desk === 'Extension Building';
+    if (ord.building === 'Extension Building') return desk === 'Extension Building';
+    return desk === 'Main Building';
+  };
+
   const generateCounterBookingCode = (roomNumber, roomType) => {
     const desk = getDeskBuilding();
     const inferredBuilding = roomNumber
@@ -935,10 +969,10 @@ export default function ReceptionPortal({ onNavigate }) {
               }`}
             >
               <Utensils size={14} />
-              <span>Food & Drinks ({diningOrders.length})</span>
-              {diningOrders.filter(o => o.paymentStatus !== 'Paid' && o.orderStatus !== 'Cancelled').length > 0 && (
+              <span>Food & Drinks ({diningOrders.filter(isDeskDiningOrder).length})</span>
+              {diningOrders.filter(isDeskDiningOrder).filter(o => o.paymentStatus !== 'Paid' && o.orderStatus !== 'Cancelled').length > 0 && (
                 <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-black text-[9px] font-mono font-extrabold">
-                  {diningOrders.filter(o => o.paymentStatus !== 'Paid' && o.orderStatus !== 'Cancelled').length} DUE
+                  {diningOrders.filter(isDeskDiningOrder).filter(o => o.paymentStatus !== 'Paid' && o.orderStatus !== 'Cancelled').length} DUE
                 </span>
               )}
             </button>
@@ -1634,14 +1668,27 @@ export default function ReceptionPortal({ onNavigate }) {
         {/* ======================================================== */}
         {activeTab === 'dining_orders' && (
           <div className="space-y-4">
-            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#240411] via-[#18030c] to-[#120208] border border-[#d4af37]/35 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#240411] via-[#18030c] to-[#120208] border border-[#d4af37]/35 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
               <div>
-                <h3 className="font-cinzel font-bold text-base sm:text-lg text-white flex items-center gap-2">
-                  <Utensils size={18} className="text-[#d4af37]" />
-                  <span>Food (ARB-FDD) & Drink (ARB-DRK) Bookings & Room Bills</span>
-                </h3>
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <h3 className="font-cinzel font-bold text-base sm:text-lg text-white flex items-center gap-2">
+                    <Utensils size={18} className="text-[#d4af37]" />
+                    <span>Food (ARB-FDD) & Drink (ARB-DRK) Orders & Room Bills</span>
+                  </h3>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
+                    getDeskBuilding() === 'Extension Building'
+                      ? 'bg-sky-500/20 text-sky-300 border-sky-400/40'
+                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
+                  }`}>
+                    {getDeskBuilding() === 'Extension Building'
+                      ? 'Extension Desk Terminal (100 Wing)'
+                      : 'Main Desk Terminal • Handles All Outside-Room Orders & 600 Wing'}
+                  </span>
+                </div>
                 <p className="text-xs text-gray-300 mt-0.5">
-                  Track website dining & VIP bottle orders, manage kitchen/bar delivery status, and settle in-lodge room bills.
+                  {getDeskBuilding() === 'Extension Building'
+                    ? 'Managing Extension Wing Suite 101–114 in-room dining orders and attached room bills.'
+                    : 'Responsible for all outside-room orders (Al-Sultan Restaurant, VIP Lounge, Pool Cabana, Takeout) and Main Building Suite 601–620 bills.'}
                 </p>
               </div>
 
@@ -1657,10 +1704,19 @@ export default function ReceptionPortal({ onNavigate }) {
             {/* Filter Pills */}
             <div className="flex flex-wrap items-center gap-2">
               {[
-                { id: 'all', label: `All Orders (${diningOrders.length})` },
+                { id: 'all', label: `My Desk Orders (${diningOrders.filter(isDeskDiningOrder).length})` },
+                ...(getDeskBuilding() === 'Main Building' || getDeskBuilding() === 'all'
+                  ? [
+                      { id: 'outside', label: `Outside Room Orders (${diningOrders.filter(isOutsideRoomOrder).length})` },
+                      { id: 'main_suites', label: 'Main Suites (600 Wing)' }
+                    ]
+                  : [
+                      { id: 'ext_suites', label: 'Extension Suites (100 Wing)' }
+                    ]),
                 { id: 'room_unpaid', label: 'Unsettled Room Bills' },
                 { id: 'food', label: 'Food Only (ARB-FDD)' },
-                { id: 'drinks', label: 'Drinks Only (ARB-DRK)' }
+                { id: 'drinks', label: 'Drinks Only (ARB-DRK)' },
+                { id: 'view_all', label: `All Hotel Orders (${diningOrders.length})` }
               ].map((flt) => (
                 <button
                   key={flt.id}
@@ -1681,7 +1737,7 @@ export default function ReceptionPortal({ onNavigate }) {
                 <thead className="bg-[#120208] text-gray-400 uppercase tracking-wider border-b border-white/10 text-[10px]">
                   <tr>
                     <th className="py-3 px-4">Order Code</th>
-                    <th className="py-3 px-4">Guest & Suite Link</th>
+                    <th className="py-3 px-4">Guest & Destination</th>
                     <th className="py-3 px-4">Items Ordered</th>
                     <th className="py-3 px-4">Amount & Billing</th>
                     <th className="py-3 px-4">Kitchen / Bar Status</th>
@@ -1697,8 +1753,16 @@ export default function ReceptionPortal({ onNavigate }) {
                         o.id.toLowerCase().includes(q) ||
                         o.guestName.toLowerCase().includes(q) ||
                         (o.bookingId && o.bookingId.toLowerCase().includes(q)) ||
-                        (o.roomNumber && String(o.roomNumber).includes(q));
+                        (o.roomNumber && String(o.roomNumber).includes(q)) ||
+                        (o.serviceLocation && o.serviceLocation.toLowerCase().includes(q));
                       if (!matchQ) return false;
+
+                      // Desk assignment filter unless user chose 'view_all'
+                      if (diningOrderFilter !== 'view_all' && !isDeskDiningOrder(o)) return false;
+
+                      if (diningOrderFilter === 'outside') return isOutsideRoomOrder(o);
+                      if (diningOrderFilter === 'main_suites') return !isOutsideRoomOrder(o) && String(o.roomNumber || '').startsWith('6');
+                      if (diningOrderFilter === 'ext_suites') return !isOutsideRoomOrder(o) && String(o.roomNumber || '').startsWith('1');
                       if (diningOrderFilter === 'room_unpaid') return o.paymentStatus !== 'Paid';
                       if (diningOrderFilter === 'food') return o.orderType === 'food';
                       if (diningOrderFilter === 'drinks') return o.orderType === 'drinks';
@@ -1721,12 +1785,21 @@ export default function ReceptionPortal({ onNavigate }) {
 
                         <td className="py-3.5 px-4">
                           <div className="font-semibold text-white">{ord.guestName}</div>
-                          {ord.bookingId ? (
-                            <div className="text-[11px] font-mono text-[#f3e5ab]">
-                              Suite #{ord.roomNumber} • {ord.bookingId}
+                          {isOutsideRoomOrder(ord) ? (
+                            <div className="mt-1">
+                              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-semibold inline-flex items-center gap-1">
+                                <Utensils size={10} />
+                                <span>Outside Room • {ord.serviceLocation || 'Restaurant / Lounge'}</span>
+                              </span>
+                              {ord.phone && <div className="text-[10px] text-gray-400 font-mono mt-0.5">Tel: {ord.phone}</div>}
                             </div>
                           ) : (
-                            <div className="text-[11px] text-gray-400">{ord.serviceLocation}</div>
+                            <div className="mt-0.5">
+                              <span className="text-[11px] font-mono text-[#f3e5ab]">
+                                Suite #{ord.roomNumber} • {ord.bookingId} ({ord.building || 'In-Room'})
+                              </span>
+                              {ord.phone && <div className="text-[10px] text-gray-400 font-mono">Tel: {ord.phone}</div>}
+                            </div>
                           )}
                         </td>
 
