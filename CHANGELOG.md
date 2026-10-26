@@ -5,7 +5,7 @@ This document records the complete history of every single commit, feature, bug 
 ---
 
 ## Summary Statistics
-- **Total Commits Logged**: 88 Commits
+- **Total Commits Logged**: 91 Commits
 - **Repository**: `https://github.com/microbase300-cmd/Arab-signature.-.git` (`main` branch)
 - **Active Portals**: Public Website, VIP Guest Portal (`CustomerDashboardPage`), Main & Extension Reception Portals (`ReceptionPortal`), Accountant Portal (`AccountantPortal`), Executive Admin Portal (`AdminPortal`), and Food/Drink Order Tracker (`OrderTrackingPage`).
 
@@ -15,6 +15,9 @@ This document records the complete history of every single commit, feature, bug 
 
 | Commit Hash | Date | Type | Detailed Description |
 | :--- | :--- | :--- | :--- |
+| `a619f25` | 2026-10-26 | `feat` | **100% Client-Side Voice AI Assistant ("Amira")**: Built `clientVoiceAssistant.js` using browser Web Speech API (`SpeechRecognition` for voice input, `SpeechSynthesis` for speech output) with **zero serverless function calls and zero cloud audio API costs**. Added golden microphone input with live interim transcript, audio wave visualizer, natural concierge female voice narration, 1-click Mute/Unmute toggle, message-level "Listen" buttons, and audio feedback protection (`BUG-012`). |
+| `eb7e95e` | 2026-10-26 | `perf` | **Serverless Quota Protection & Anti-Polling Guardrail**: Eliminated 5-second public landing page polling loop in `HotelAiChat.jsx` in favor of event-driven updates (`ash_rooms_updated`, `storage`, `focus`), extended MantleDB cloud timeout to 4000ms for Nigerian cellular networks, and enforced an ironclad 60-second cooldown protection on `/api/rooms` fallback in `portalStore.js` (`BUG-011`). |
+| `986c607` | 2026-10-26 | `docs` | **Foundational Project Governance & Architecture Suite**: Created `BUGS_AND_FIXES.md`, `CHANGELOG.md`, `IMPLEMENTATION_PLAN.md`, `PROJECT_ARCHITECTURE.md`, and `ROADMAP.md` synchronized across all development and repository roots. |
 | `ee6c3b7` | 2026-10-26 | `feat` | **Optional Compressed Proof of Payment Image Upload + Generate Receipt & WhatsApp Dispatch**: Added client-side image compression (`src/utils/imageCompressor.js` shrinking 3–10MB photos to ~50–90KB JPEGs), made proof of payment optional (`required={false}`), created Vercel serverless endpoint `api/proof-of-payment.js` backed by MantleDB, created `ProofOfPaymentModal.jsx` for Admin/Accountant/Reception slip inspection, added prominent **Generate Receipt** button in Bookings Ledger, and added 1-click **Send to WhatsApp** receipt dispatch using the customer's phone number. |
 | `ab425cf` | 2026-10-26 | `feat` | **Expected Check-In & Duration of Stay on Counter Reservation Hold**: Replaced read-only Expected Check-Out under Counter Reservation Hold with editable **Expected Check-In \*** date picker and **Duration of Stay (Nights) \***, auto-computing vacate date (`expectedCheckIn + nights`) and syncing across Guest Pass, Ledger, and Folios. |
 | `e77c377` | 2026-10-26 | `feat` | **Client Home Address, Next of Kin & Dual Counter Booking Modes**: Added Client Home Address and Next of Kin (Full Name, Phone, Relationship) to both Web (`BookingModal.jsx`) and Counter (`ReceptionPortal.jsx`) bookings; introduced two counter modes (**Assign & Check In Now** vs **Counter Reservation Hold**) with Reservation Date and Proof of Payment fields. |
