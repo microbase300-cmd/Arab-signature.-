@@ -34,7 +34,7 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Start 5-second Client-Side AI Brain Auto-Refresh + Cloud API Listeners
+  // Client-Side AI Brain Auto-Refresh + Real-Time Event Listeners (Zero Serverless Spam)
   useEffect(() => {
     const syncCurrentRooms = async (force = false) => {
       // Skip background polling if tab is minimized or hidden (saves data & battery)
@@ -62,27 +62,33 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
     // Immediate initial sync
     syncCurrentRooms();
 
-    // 5-second client-side heartbeat
-    const intervalId = setInterval(syncCurrentRooms, 5000);
+    // Relaxed 60-second client-side heartbeat (drastically reduces serverless & network usage)
+    const intervalId = setInterval(() => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        syncCurrentRooms();
+      }
+    }, 60000);
 
-    // Instant event listeners
+    // Instant event listeners for real-time room updates across tabs
     const unsubPortal = portalStore.subscribeRooms(() => {
-      syncCurrentRooms();
+      syncCurrentRooms(true);
     });
-    window.addEventListener('ash_rooms_updated', syncCurrentRooms);
-    window.addEventListener('ash_ai_brain_refreshed', syncCurrentRooms);
-    window.addEventListener('storage', syncCurrentRooms);
-    window.addEventListener('focus', syncCurrentRooms);
-    document.addEventListener('visibilitychange', syncCurrentRooms);
+    window.addEventListener('ash_rooms_updated', () => syncCurrentRooms(true));
+    window.addEventListener('ash_ai_brain_refreshed', () => syncCurrentRooms(true));
+    window.addEventListener('storage', () => syncCurrentRooms(true));
+    window.addEventListener('focus', () => syncCurrentRooms(true));
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) syncCurrentRooms(true);
+    });
 
     return () => {
       clearInterval(intervalId);
       unsubPortal();
-      window.removeEventListener('ash_rooms_updated', syncCurrentRooms);
-      window.removeEventListener('ash_ai_brain_refreshed', syncCurrentRooms);
-      window.removeEventListener('storage', syncCurrentRooms);
-      window.removeEventListener('focus', syncCurrentRooms);
-      document.removeEventListener('visibilitychange', syncCurrentRooms);
+      window.removeEventListener('ash_rooms_updated', () => syncCurrentRooms(true));
+      window.removeEventListener('ash_ai_brain_refreshed', () => syncCurrentRooms(true));
+      window.removeEventListener('storage', () => syncCurrentRooms(true));
+      window.removeEventListener('focus', () => syncCurrentRooms(true));
+      document.removeEventListener('visibilitychange', () => syncCurrentRooms(true));
     };
   }, []);
 
@@ -94,6 +100,11 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
     if (isOpen) {
       scrollToBottom();
       setHasUnread(false);
+      portalStore.syncRoomsFromCloud().then((cloudRooms) => {
+        if (cloudRooms && Array.isArray(cloudRooms)) {
+          setLiveAvailableCount(cloudRooms.filter(r => r.status === 'available').length);
+        }
+      }).catch(() => {});
     }
   }, [messages, isOpen]);
 

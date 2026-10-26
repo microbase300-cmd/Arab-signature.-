@@ -152,3 +152,16 @@
   - Hidden the floating booking bar on mobile hero screens so the hotel architecture remains unobstructed.
   - Removed `(₦0)` from the WhatsApp button.
 - **Permanent Guardrail**: Keep Google Maps 100% free via keyless embed URLs and preserve clean mobile hero visuals.
+
+---
+
+### `BUG-011` — High-Frequency Client Polling Cascading to Vercel Serverless Function Quota
+- **Date**: 2026-10-26
+- **Affected Files**: `src/components/HotelAiChat.jsx`, `src/data/portalStore.js`
+- **Symptom**: `HotelAiChat` mounted on the public landing page executed a 5-second `setInterval` calling `syncRoomsFromCloud()`. If MantleDB experienced high mobile network latency (> 1.5s), it aborted and hit `/api/rooms`, risking 720 serverless function invocations per hour per visitor.
+- **Root Cause**: Tight 1500ms cloud timeout and unthrottled 5s polling on public pages with no rate-limiting cooldown on the serverless fallback.
+- **Fix Applied**:
+  1. Replaced the 5-second polling interval in `HotelAiChat.jsx` with an event-driven architecture (`ash_rooms_updated`, cross-tab `storage`, window `focus`, and on drawer open) and a relaxed 60s background heartbeat.
+  2. Increased MantleDB cloud timeout to 4000ms for stable connectivity on Nigerian mobile networks.
+  3. Enforced an ironclad 60-second cooldown (`_lastApiRoomsFallbackCall`) in `portalStore.js` so `/api/rooms` can never be called more than once per minute per client session under any circumstance.
+- **Permanent Guardrail**: Never run sub-10s polling intervals on public customer-facing components that can cascade to serverless `/api/` endpoints. Always protect serverless fallbacks with a cooldown throttle.

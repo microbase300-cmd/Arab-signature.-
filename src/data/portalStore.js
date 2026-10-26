@@ -1825,6 +1825,8 @@ function getSharedBroadcastChannel() {
   return sharedBroadcastChannel;
 }
 
+let _lastApiRoomsFallbackCall = 0;
+
 export const portalStore = {
   // --- STAFF USERS MANAGEMENT ---
   getUsers() {
@@ -2538,7 +2540,7 @@ export const portalStore = {
     // Primary: Query MantleDB directly from client (0 Vercel Serverless Function invocations)
     try {
       const ctrl = new AbortController();
-      const timeoutId = setTimeout(() => ctrl.abort(), 1500);
+      const timeoutId = setTimeout(() => ctrl.abort(), 4000);
 
       const res = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-34rooms-prod-v1/inventory?_t=${Date.now()}`, {
         cache: 'no-store',
@@ -2557,10 +2559,17 @@ export const portalStore = {
       // Fall through to secondary fallback
     }
 
-    // Secondary Fallback: Query /api/rooms only if MantleDB is unreachable
+    // Secondary Fallback: Query /api/rooms ONLY if MantleDB is unreachable AND rate-limited
+    // 60-second cooldown prevents exhausting Vercel Serverless Function invocations
+    const now = Date.now();
+    if (now - _lastApiRoomsFallbackCall < 60000) {
+      return this.getRooms();
+    }
+    _lastApiRoomsFallbackCall = now;
+
     try {
       const ctrl2 = new AbortController();
-      const timeoutId2 = setTimeout(() => ctrl2.abort(), 1500);
+      const timeoutId2 = setTimeout(() => ctrl2.abort(), 3500);
 
       const res2 = await fetch(`/api/rooms?_t=${Date.now()}`, {
         cache: 'no-store',
