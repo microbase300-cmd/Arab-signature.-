@@ -1877,7 +1877,17 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                   <div className="p-3.5 rounded-xl bg-black/40 border border-white/5">
                     <span className="text-gray-400 text-xs block uppercase">Primary Guest</span>
                     <strong className="text-white text-base block truncate mt-0.5">{customerProfile.guestName}</strong>
-                    <span className="text-xs text-gray-400 font-mono">{customerProfile.phone}</span>
+                    <span className="text-xs text-gray-400 font-mono block">{customerProfile.phone}</span>
+                    {receiptStay.homeAddress && (
+                      <span className="text-[11px] text-gray-300 block truncate mt-1" title={receiptStay.homeAddress}>
+                        Addr: {receiptStay.homeAddress}
+                      </span>
+                    )}
+                    {receiptStay.nextOfKinName && (
+                      <span className="text-[11px] text-amber-300/90 block truncate" title={`${receiptStay.nextOfKinName} (${receiptStay.nextOfKinPhone})`}>
+                        Kin: {receiptStay.nextOfKinName} ({receiptStay.nextOfKinPhone})
+                      </span>
+                    )}
                   </div>
                   <div className="p-3.5 rounded-xl bg-black/40 border border-white/5">
                     <span className="text-gray-400 text-xs block uppercase">Suite Accommodations</span>
@@ -1886,8 +1896,23 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                   </div>
                   <div className="p-3.5 rounded-xl bg-black/40 border border-white/5">
                     <span className="text-gray-400 text-xs block uppercase">Stay Schedule</span>
-                    <strong className="text-white text-sm block font-mono mt-0.5">{receiptStay.checkIn} to {receiptStay.checkOut || 'N/A'}</strong>
-                    <span className="text-xs text-[#d4af37] font-semibold">{receiptStay.nights} {receiptStay.nights === 1 ? 'Night' : 'Nights'} Duration</span>
+                    {receiptStay.bookingMode === 'Reservation Hold' ? (
+                      <>
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-sky-950 text-sky-300 border border-sky-400/40 inline-block">
+                          Counter Reservation Hold
+                        </span>
+                        <strong className="text-white text-sm block font-mono mt-0.5">Reservation Date: {receiptStay.reservationDate || receiptStay.checkIn}</strong>
+                        <span className="text-xs text-[#d4af37] font-semibold block">{receiptStay.nights} {receiptStay.nights === 1 ? 'Night' : 'Nights'} Duration</span>
+                        {receiptStay.proofOfPayment && (
+                          <div className="text-[10px] text-gray-300 font-mono truncate mt-0.5">Proof: {receiptStay.proofOfPayment}</div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <strong className="text-white text-sm block font-mono mt-0.5">{receiptStay.checkIn} to {receiptStay.checkOut || 'N/A'}</strong>
+                        <span className="text-xs text-[#d4af37] font-semibold">{receiptStay.nights} {receiptStay.nights === 1 ? 'Night' : 'Nights'} Duration</span>
+                      </>
+                    )}
                   </div>
                 </div>
 

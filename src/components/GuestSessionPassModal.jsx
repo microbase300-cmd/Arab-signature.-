@@ -122,11 +122,32 @@ export default function GuestSessionPassModal({ isOpen, onClose, onNavigate }) {
                 <span className="text-gray-400 block text-[10px]">Registered Guest:</span>
                 <strong className="text-white">{session.guestName}</strong>
                 <div className="text-gray-400 text-[10px] font-mono">{session.phone}</div>
+                {session.homeAddress && (
+                  <div className="text-gray-300 text-[10px] truncate mt-0.5" title={session.homeAddress}>
+                    Addr: {session.homeAddress}
+                  </div>
+                )}
+                {session.nextOfKinName && (
+                  <div className="text-amber-300/80 text-[10px] truncate" title={`${session.nextOfKinName} (${session.nextOfKinPhone})`}>
+                    Kin: {session.nextOfKinName} ({session.nextOfKinPhone})
+                  </div>
+                )}
               </div>
               <div className="text-right">
-                <span className="text-gray-400 block text-[10px]">Stay Schedule:</span>
-                <strong className="text-[#f3e5ab]">{session.checkIn} → {session.checkOut}</strong>
+                <span className="text-gray-400 block text-[10px]">
+                  {session.bookingMode === 'Reservation Hold' ? 'Reservation Hold:' : 'Stay Schedule:'}
+                </span>
+                <strong className="text-[#f3e5ab]">
+                  {session.bookingMode === 'Reservation Hold' && session.reservationDate
+                    ? `Res: ${session.reservationDate}`
+                    : `${session.checkIn} → ${session.checkOut}`}
+                </strong>
                 <div className="text-gray-400 text-[10px]">{session.nights} {session.nights === 1 ? 'Night' : 'Nights'} Duration</div>
+                {session.proofOfPayment && (
+                  <div className="text-gray-300 font-mono text-[9px] truncate" title={session.proofOfPayment}>
+                    Proof: {session.proofOfPayment}
+                  </div>
+                )}
               </div>
             </div>
           </div>

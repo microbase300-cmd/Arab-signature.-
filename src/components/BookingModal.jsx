@@ -29,7 +29,9 @@ import {
   Users,
   Clock,
   Wifi,
-  FileText
+  FileText,
+  MapPin,
+  Heart
 } from 'lucide-react';
 
 export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpenGuestPass }) {
@@ -54,6 +56,10 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
   const [guestName, setGuestName] = useState(existingCust?.guestName || existingGuest?.guestName || '');
   const [guestPhone, setGuestPhone] = useState(existingCust?.phone || existingGuest?.phone || '');
   const [guestEmail, setGuestEmail] = useState(existingCust?.email || existingGuest?.email || '');
+  const [guestAddress, setGuestAddress] = useState(existingCust?.homeAddress || existingGuest?.homeAddress || '');
+  const [nextOfKinName, setNextOfKinName] = useState(existingCust?.nextOfKinName || existingGuest?.nextOfKinName || '');
+  const [nextOfKinPhone, setNextOfKinPhone] = useState(existingCust?.nextOfKinPhone || existingGuest?.nextOfKinPhone || '');
+  const [nextOfKinRelationship, setNextOfKinRelationship] = useState(existingCust?.nextOfKinRelationship || existingGuest?.nextOfKinRelationship || 'Spouse');
   const [returningGuestInfo, setReturningGuestInfo] = useState(() => {
     return portalStore.detectReturningCustomer(existingCust?.phone || existingGuest?.phone || '');
   });
@@ -143,6 +149,18 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
       setFormError('Please enter a valid Email Address to receive your Paystack transaction receipt.');
       return;
     }
+    if (!guestAddress.trim()) {
+      setFormError('Please enter your Home / Residential Address for hotel registration.');
+      return;
+    }
+    if (!nextOfKinName.trim()) {
+      setFormError('Please enter your Next of Kin Full Name for emergency contact records.');
+      return;
+    }
+    if (!nextOfKinPhone.trim() || nextOfKinPhone.trim().length < 7) {
+      setFormError('Please enter your Next of Kin Phone Number.');
+      return;
+    }
 
     setStep(3);
   };
@@ -154,6 +172,10 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
       guestName: guestName.trim(),
       phone: guestPhone.trim(),
       email: guestEmail.trim(),
+      homeAddress: guestAddress.trim(),
+      nextOfKinName: nextOfKinName.trim(),
+      nextOfKinPhone: nextOfKinPhone.trim(),
+      nextOfKinRelationship: nextOfKinRelationship.trim(),
       roomType: selectedRoom.id,
       roomName: selectedRoom.name,
       checkIn: checkIn,
@@ -506,6 +528,76 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                   </div>
                 </div>
 
+                {/* Client Home Address */}
+                <div>
+                  <label className="block text-xs uppercase tracking-wider text-gray-300 mb-1.5 font-semibold flex items-center gap-1">
+                    <MapPin size={13} className="text-[#d4af37]" /> Home / Residential Address <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={guestAddress}
+                    onChange={(e) => setGuestAddress(e.target.value)}
+                    placeholder="e.g. Plot 12 GRA, Onitsha / 15 Ozalla Street"
+                    className="w-full bg-black/50 border border-white/20 rounded-xl px-3.5 py-2.5 text-white text-xs focus:border-[#d4af37] focus:outline-none"
+                  />
+                </div>
+
+                {/* Next of Kin Emergency Contact */}
+                <div className="p-3.5 rounded-2xl bg-[#5c0725]/25 border border-[#d4af37]/35 space-y-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <Heart size={13} className="text-[#d4af37]" />
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#d4af37] font-bold">
+                      Next of Kin Information (Emergency Contact) *
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div className="sm:col-span-1">
+                      <label className="block text-[10px] uppercase text-gray-300 mb-1 font-semibold">
+                        Full Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={nextOfKinName}
+                        onChange={(e) => setNextOfKinName(e.target.value)}
+                        placeholder="e.g. Mrs. Ngozi Okafor"
+                        className="w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-white text-xs focus:border-[#d4af37] focus:outline-none"
+                      />
+                    </div>
+                    <div className="sm:col-span-1">
+                      <label className="block text-[10px] uppercase text-gray-300 mb-1 font-semibold">
+                        Phone Number *
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        value={nextOfKinPhone}
+                        onChange={(e) => setNextOfKinPhone(e.target.value)}
+                        placeholder="e.g. 0802 000 0000"
+                        className="w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-white text-xs focus:border-[#d4af37] focus:outline-none"
+                      />
+                    </div>
+                    <div className="sm:col-span-1">
+                      <label className="block text-[10px] uppercase text-gray-300 mb-1 font-semibold">
+                        Relationship
+                      </label>
+                      <select
+                        value={nextOfKinRelationship}
+                        onChange={(e) => setNextOfKinRelationship(e.target.value)}
+                        className="w-full bg-[#1b0812] border border-white/20 rounded-xl px-3 py-2 text-white text-xs focus:border-[#d4af37] focus:outline-none cursor-pointer"
+                      >
+                        <option value="Spouse">Spouse</option>
+                        <option value="Sibling">Sibling</option>
+                        <option value="Parent">Parent</option>
+                        <option value="Child">Child</option>
+                        <option value="Relative">Relative</option>
+                        <option value="Business Associate">Business Associate</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs uppercase tracking-wider text-gray-300 mb-1.5 font-semibold flex items-center gap-1">
@@ -808,6 +900,19 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                     <div className="font-semibold text-[#d4af37]">{checkOut} (12:00 PM)</div>
                   </div>
                 </div>
+
+                {/* Home Address & Next of Kin Record */}
+                {guestAddress && (
+                  <div className="pt-2 border-t border-white/10 text-xs">
+                    <span className="text-gray-400 text-[10px] block">HOME ADDRESS & EMERGENCY CONTACT</span>
+                    <div className="text-gray-200 text-[11px] truncate">{guestAddress}</div>
+                    {nextOfKinName && (
+                      <div className="text-gray-400 text-[10px] mt-0.5">
+                        Next of Kin: <span className="text-white font-medium">{nextOfKinName}</span> ({nextOfKinPhone} • {nextOfKinRelationship})
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* WiFi Credentials */}
                 <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between text-[11px]">

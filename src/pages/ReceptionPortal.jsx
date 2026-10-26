@@ -5,7 +5,7 @@ import {
   Search, Filter, Plus, Printer, MessageSquare, LogOut, ArrowLeft, ArrowRight, 
   Sparkles, RefreshCw, Key, ShieldCheck, Check, AlertCircle, X, ChevronRight,
   TrendingUp, DoorOpen, Sparkle, Utensils, Lock, Wine, Bell, BellRing, Eye, Volume2, VolumeX,
-  Copy, Receipt, CreditCard
+  Copy, Receipt, CreditCard, MapPin, Heart
 } from 'lucide-react';
 
 export default function ReceptionPortal({ onNavigate }) {
@@ -272,16 +272,22 @@ export default function ReceptionPortal({ onNavigate }) {
     setReturningPatronHint(null);
     setWalkInForm({
       generatedCode: freshCode,
-      bookingMode: 'Checked In',
+      bookingMode: 'Checked In', // 'Checked In' ("Assign & Check In Now") | 'Reservation Hold' ("Counter Reservation Hold")
       guestName: '',
       phone: '',
       email: '',
+      homeAddress: '',
+      nextOfKinName: '',
+      nextOfKinPhone: '',
+      nextOfKinRelationship: 'Spouse',
       roomType: initialType,
       roomNumber: roomNum,
       checkIn: new Date().toISOString().split('T')[0],
+      reservationDate: new Date().toISOString().split('T')[0],
       checkOut: new Date(Date.now() + 86400000).toISOString().split('T')[0],
       nights: 1,
       paymentMethod: 'POS Terminal (Front Desk)',
+      proofOfPayment: '',
       amount: price
     });
     setIsWalkInOpen(true);
@@ -658,7 +664,8 @@ export default function ReceptionPortal({ onNavigate }) {
 
     const finalBookingCode =
       walkInForm.generatedCode || generateCounterBookingCode(selectedRoomNum, walkInForm.roomType);
-    const chosenStatus = walkInForm.bookingMode === 'Confirmed' ? 'Confirmed' : 'Checked In';
+    const isReservationHold = walkInForm.bookingMode === 'Reservation Hold' || walkInForm.bookingMode === 'Confirmed';
+    const chosenStatus = isReservationHold ? 'Reservation Hold' : 'Checked In';
 
     const newBooking = portalStore.addBooking({
       id: finalBookingCode,
@@ -666,29 +673,40 @@ export default function ReceptionPortal({ onNavigate }) {
       guestName: walkInForm.guestName,
       phone: walkInForm.phone,
       email: walkInForm.email,
+      homeAddress: walkInForm.homeAddress || '',
+      nextOfKinName: walkInForm.nextOfKinName || '',
+      nextOfKinPhone: walkInForm.nextOfKinPhone || '',
+      nextOfKinRelationship: walkInForm.nextOfKinRelationship || 'Spouse',
+      bookingMode: isReservationHold ? 'Reservation Hold' : 'Checked In',
+      reservationDate: isReservationHold ? (walkInForm.reservationDate || new Date().toISOString().split('T')[0]) : null,
+      proofOfPayment: walkInForm.proofOfPayment || '',
       roomType: walkInForm.roomType,
       roomName: roomName,
       roomNumber: selectedRoomNum,
-      checkIn: walkInForm.checkIn,
+      checkIn: isReservationHold ? (walkInForm.reservationDate || walkInForm.checkIn) : walkInForm.checkIn,
       checkOut: walkInForm.checkOut,
       nights: walkInForm.nights,
       amount: walkInForm.amount,
       status: chosenStatus,
       paymentMethod: walkInForm.paymentMethod,
       paymentStatus: "Paid",
-      source: "Front Desk Counter"
+      source: isReservationHold ? "Counter Reservation Hold" : "Front Desk Counter (Checked In)"
     });
 
-    // Update room status immediately ('occupied' if Checked In, 'reserved' if Counter Reservation)
+    // Update room status immediately ('occupied' if Checked In, 'reserved' if Counter Reservation Hold)
     portalStore.updateRoomStatus(
       selectedRoomNum,
-      chosenStatus === 'Checked In' ? 'occupied' : 'reserved',
+      isReservationHold ? 'reserved' : 'occupied',
       walkInForm.guestName
     );
 
     refreshData();
     setIsWalkInOpen(false);
-    showToast(`Booking Code ${newBooking.id} generated! Room #${selectedRoomNum} assigned to ${walkInForm.guestName}`);
+    showToast(
+      isReservationHold
+        ? `Reservation Hold Created! Code ${newBooking.id} reserved Room #${selectedRoomNum} for ${walkInForm.guestName}`
+        : `Booking Code ${newBooking.id} generated! Room #${selectedRoomNum} checked in for ${walkInForm.guestName}`
+    );
     
     // Automatically open folio receipt with Customer Portal Booking Code for printing / sharing
     setSelectedReceiptBooking(newBooking);
@@ -1609,6 +1627,16 @@ export default function ReceptionPortal({ onNavigate }) {
                               <Phone size={11} className="text-[#d4af37]" />
                               <span>{b.phone}</span>
                             </div>
+                            {b.homeAddress && (
+                              <div className="text-[10px] text-gray-400 truncate max-w-[180px] mt-0.5" title={b.homeAddress}>
+                                Addr: {b.homeAddress}
+                              </div>
+                            )}
+                            {b.nextOfKinName && (
+                              <div className="text-[10px] text-amber-300/80 truncate max-w-[180px]" title={`${b.nextOfKinName} (${b.nextOfKinPhone})`}>
+                                Kin: {b.nextOfKinName} ({b.nextOfKinPhone})
+                              </div>
+                            )}
                           </td>
 
                           {/* Suite */}
@@ -1628,12 +1656,33 @@ export default function ReceptionPortal({ onNavigate }) {
 
                           {/* Dates */}
                           <td className="py-3.5 px-4">
-                            <div className="text-gray-300">
-                              {b.checkIn} → {b.checkOut}
-                            </div>
-                            <div className="text-[10px] text-gray-500">
-                              {b.nights} {b.nights === 1 ? 'Night' : 'Nights'}
-                            </div>
+                            {b.bookingMode === 'Reservation Hold' ? (
+                              <div>
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-sky-950 text-sky-300 border border-sky-400/40 inline-block mb-1">
+                                  Reservation Hold
+                                </span>
+                                <div className="text-sky-200 font-mono text-[11px]">
+                                  Res Date: {b.reservationDate || b.checkIn}
+                                </div>
+                                <div className="text-[10px] text-gray-400">
+                                  {b.nights} {b.nights === 1 ? 'Night' : 'Nights'} held
+                                </div>
+                                {b.proofOfPayment && (
+                                  <div className="text-[9px] text-[#f3e5ab] font-mono truncate max-w-[130px] mt-0.5" title={b.proofOfPayment}>
+                                    Proof: {b.proofOfPayment}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="text-gray-300">
+                                  {b.checkIn} → {b.checkOut}
+                                </div>
+                                <div className="text-[10px] text-gray-500">
+                                  {b.nights} {b.nights === 1 ? 'Night' : 'Nights'}
+                                </div>
+                              </div>
+                            )}
                           </td>
 
                           {/* Amount & Backend Confirmation Check + Attached Room Bill */}
@@ -2776,15 +2825,15 @@ export default function ReceptionPortal({ onNavigate }) {
                   </div>
                 </div>
 
-                {/* Counter Mode Toggle: Immediate Check-In vs Counter Reservation */}
+                {/* Counter Mode Toggle: Immediate Check-In vs Counter Reservation Hold */}
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <button
                     type="button"
                     onClick={() => setWalkInForm((prev) => ({ ...prev, bookingMode: 'Checked In' }))}
-                    className={`py-2 px-3 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all ${
-                      walkInForm.bookingMode !== 'Confirmed'
-                        ? 'bg-emerald-950/70 border-emerald-400 text-emerald-200'
-                        : 'bg-black/40 border-white/10 text-gray-400'
+                    className={`py-2 px-3 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      walkInForm.bookingMode === 'Checked In'
+                        ? 'bg-emerald-950/70 border-emerald-400 text-emerald-200 ring-1 ring-emerald-400'
+                        : 'bg-black/40 border-white/10 text-gray-400 hover:text-white'
                     }`}
                   >
                     <CheckCircle2 size={13} />
@@ -2793,11 +2842,11 @@ export default function ReceptionPortal({ onNavigate }) {
 
                   <button
                     type="button"
-                    onClick={() => setWalkInForm((prev) => ({ ...prev, bookingMode: 'Confirmed' }))}
-                    className={`py-2 px-3 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all ${
-                      walkInForm.bookingMode === 'Confirmed'
-                        ? 'bg-sky-950/70 border-sky-400 text-sky-200'
-                        : 'bg-black/40 border-white/10 text-gray-400'
+                    onClick={() => setWalkInForm((prev) => ({ ...prev, bookingMode: 'Reservation Hold' }))}
+                    className={`py-2 px-3 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      walkInForm.bookingMode === 'Reservation Hold'
+                        ? 'bg-sky-950/70 border-sky-400 text-sky-200 ring-1 ring-sky-400'
+                        : 'bg-black/40 border-white/10 text-gray-400 hover:text-white'
                     }`}
                   >
                     <Calendar size={13} />
@@ -2854,6 +2903,71 @@ export default function ReceptionPortal({ onNavigate }) {
                 </div>
               </div>
 
+              {/* Client Home Address */}
+              <div className="space-y-1">
+                <label className="text-gray-300 font-medium flex items-center gap-1">
+                  <MapPin size={12} className="text-[#d4af37]" />
+                  <span>Client Home / Residential Address *</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Plot 12 GRA, Onitsha / 15 Ozalla Street"
+                  value={walkInForm.homeAddress}
+                  onChange={(e) => setWalkInForm({ ...walkInForm, homeAddress: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
+                />
+              </div>
+
+              {/* Next of Kin Emergency Contact */}
+              <div className="p-3.5 rounded-2xl bg-black/40 border border-white/10 space-y-2.5">
+                <div className="flex items-center gap-1.5">
+                  <Heart size={13} className="text-[#d4af37]" />
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-[#d4af37] font-bold">
+                    Next of Kin Information (Emergency Contact) *
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div className="space-y-1 sm:col-span-1">
+                    <label className="text-gray-400 text-[11px]">Next of Kin Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Full Legal Name"
+                      value={walkInForm.nextOfKinName}
+                      onChange={(e) => setWalkInForm({ ...walkInForm, nextOfKinName: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
+                  <div className="space-y-1 sm:col-span-1">
+                    <label className="text-gray-400 text-[11px]">Phone Number *</label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="0802 000 0000"
+                      value={walkInForm.nextOfKinPhone}
+                      onChange={(e) => setWalkInForm({ ...walkInForm, nextOfKinPhone: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
+                  <div className="space-y-1 sm:col-span-1">
+                    <label className="text-gray-400 text-[11px]">Relationship</label>
+                    <select
+                      value={walkInForm.nextOfKinRelationship}
+                      onChange={(e) => setWalkInForm({ ...walkInForm, nextOfKinRelationship: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-[#1b0812] border border-white/15 text-white text-xs focus:outline-none focus:border-[#d4af37] cursor-pointer"
+                    >
+                      <option value="Spouse">Spouse</option>
+                      <option value="Sibling">Sibling</option>
+                      <option value="Parent">Parent</option>
+                      <option value="Child">Child</option>
+                      <option value="Relative">Relative</option>
+                      <option value="Business Associate">Business Associate</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
               {returningPatronHint && (
                 <div className="p-2.5 rounded-xl bg-[#d4af37]/15 border border-[#d4af37]/40 text-[11px] text-[#f3e5ab] flex items-center gap-2 font-mono">
                   <Sparkles size={13} className="text-[#d4af37] flex-shrink-0" />
@@ -2907,37 +3021,123 @@ export default function ReceptionPortal({ onNavigate }) {
                 </div>
               </div>
 
-              {/* Dates & Duration */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <label className="text-gray-300 font-medium">Check-In Date</label>
-                  <input
-                    type="date"
-                    value={walkInForm.checkIn}
-                    onChange={(e) => setWalkInForm({ ...walkInForm, checkIn: e.target.value })}
-                    className="w-full px-3 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white focus:outline-none focus:border-[#d4af37]"
-                  />
+              {/* Dates & Duration or Reservation Date + Proof of Payment */}
+              {walkInForm.bookingMode === 'Reservation Hold' ? (
+                /* COUNTER RESERVATION HOLD MODE: No Check-In Date, Replaced with Reservation Date + Space for Proof of Payment */
+                <div className="space-y-3 p-3.5 rounded-2xl bg-sky-950/20 border border-sky-500/40">
+                  <div className="flex items-center gap-1.5 text-sky-300 text-[11px] font-mono font-bold">
+                    <Calendar size={13} />
+                    <span>Counter Reservation Hold Parameters (No Check-In Date on Hold)</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-gray-300 font-medium text-xs flex items-center gap-1">
+                        <Calendar size={12} className="text-sky-400" />
+                        <span>Reservation Date *</span>
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={walkInForm.reservationDate}
+                        onChange={(e) => setWalkInForm({ ...walkInForm, reservationDate: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl bg-black/60 border border-sky-500/50 text-sky-200 focus:outline-none focus:border-[#d4af37]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-gray-300 font-medium text-xs">Held Duration (Nights)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={walkInForm.nights}
+                        onChange={(e) => handleNightsChange(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white focus:outline-none focus:border-[#d4af37]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-gray-300 font-medium text-xs">Expected Check-Out</label>
+                      <input
+                        type="date"
+                        readOnly
+                        value={walkInForm.checkOut}
+                        className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-400 cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Dedicated Space for Proof of Payment */}
+                  <div className="space-y-1 pt-1">
+                    <label className="text-gray-300 font-medium text-xs flex items-center justify-between">
+                      <span className="flex items-center gap-1 text-[#f3e5ab]">
+                        <ShieldCheck size={13} className="text-[#d4af37]" />
+                        <span>Proof of Payment / Teller / Transaction Ref *</span>
+                      </span>
+                      <span className="text-[10px] text-gray-400 font-mono">Bank Transfer / POS Slip / Cash Teller</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. TRF/GTB/928401928, POS Terminal RRN #849201, Teller Slip #48201"
+                      value={walkInForm.proofOfPayment}
+                      onChange={(e) => setWalkInForm({ ...walkInForm, proofOfPayment: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/70 border border-[#d4af37]/50 text-white placeholder-gray-500 font-mono text-xs focus:outline-none focus:border-[#d4af37] shadow-inner"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-gray-300 font-medium">Duration (Nights)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={walkInForm.nights}
-                    onChange={(e) => handleNightsChange(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white focus:outline-none focus:border-[#d4af37]"
-                  />
+              ) : (
+                /* ASSIGN & CHECK IN NOW MODE: Standard Check-In Date */
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-gray-300 font-medium flex items-center gap-1">
+                        <Calendar size={12} className="text-emerald-400" />
+                        <span>Check-In Date *</span>
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={walkInForm.checkIn}
+                        onChange={(e) => setWalkInForm({ ...walkInForm, checkIn: e.target.value })}
+                        className="w-full px-3 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white focus:outline-none focus:border-[#d4af37]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-gray-300 font-medium">Duration (Nights)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={walkInForm.nights}
+                        onChange={(e) => handleNightsChange(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white focus:outline-none focus:border-[#d4af37]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-gray-300 font-medium">Check-Out Date</label>
+                      <input
+                        type="date"
+                        readOnly
+                        value={walkInForm.checkOut}
+                        className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Optional Proof of Payment reference for immediate check-in */}
+                  <div className="space-y-1">
+                    <label className="text-gray-300 font-medium text-xs flex items-center gap-1">
+                      <ShieldCheck size={12} className="text-[#d4af37]" />
+                      <span>Proof of Payment / POS Reference (Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. POS Terminal RRN #849201, Transfer Ref, Cash Slip"
+                      value={walkInForm.proofOfPayment}
+                      onChange={(e) => setWalkInForm({ ...walkInForm, proofOfPayment: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 font-mono text-xs focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-gray-300 font-medium">Check-Out Date</label>
-                  <input
-                    type="date"
-                    readOnly
-                    value={walkInForm.checkOut}
-                    className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 cursor-not-allowed"
-                  />
-                </div>
-              </div>
+              )}
 
               {/* Payment Method */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2972,8 +3172,8 @@ export default function ReceptionPortal({ onNavigate }) {
                 >
                   <CheckCircle2 size={16} />
                   <span>
-                    {walkInForm.bookingMode === 'Confirmed'
-                      ? `Issue Code ${walkInForm.generatedCode} & Reserve Room`
+                    {walkInForm.bookingMode === 'Reservation Hold'
+                      ? `Issue Code ${walkInForm.generatedCode} & Confirm Reservation Hold`
                       : `Issue Code ${walkInForm.generatedCode} & Check In Now`}
                   </span>
                 </button>
@@ -3037,16 +3237,45 @@ export default function ReceptionPortal({ onNavigate }) {
               </div>
 
               {/* Receipt Meta */}
-              <div className="grid grid-cols-2 gap-4 text-xs bg-gray-50 p-4 rounded-xl border border-gray-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs bg-gray-50 p-4 rounded-xl border border-gray-200">
                 <div>
-                  <div className="text-gray-400 font-medium">Guest Name</div>
+                  <div className="text-gray-400 font-medium text-[10px] uppercase tracking-wider">Guest Details & Address</div>
                   <div className="font-bold text-gray-900 text-sm mt-0.5">{selectedReceiptBooking.guestName}</div>
-                  <div className="text-gray-600 text-[11px]">{selectedReceiptBooking.phone}</div>
+                  <div className="text-gray-600 text-[11px] font-mono">{selectedReceiptBooking.phone} {selectedReceiptBooking.email ? `• ${selectedReceiptBooking.email}` : ''}</div>
+                  {selectedReceiptBooking.homeAddress && (
+                    <div className="text-gray-700 text-[11px] mt-1">
+                      <strong className="text-gray-900">Address:</strong> {selectedReceiptBooking.homeAddress}
+                    </div>
+                  )}
+                  {selectedReceiptBooking.nextOfKinName && (
+                    <div className="text-gray-700 text-[11px] mt-0.5">
+                      <strong className="text-gray-900">Next of Kin:</strong> {selectedReceiptBooking.nextOfKinName} ({selectedReceiptBooking.nextOfKinPhone} • {selectedReceiptBooking.nextOfKinRelationship})
+                    </div>
+                  )}
                 </div>
-                <div className="text-right">
-                  <div className="text-gray-400 font-medium">Invoice Reference</div>
+                <div className="sm:text-right">
+                  <div className="text-gray-400 font-medium text-[10px] uppercase tracking-wider">Invoice & Reservation Meta</div>
                   <div className="font-mono font-bold text-[#5c0725] text-sm mt-0.5">{selectedReceiptBooking.id}</div>
                   <div className="text-gray-600 text-[11px]">Issued: {new Date().toLocaleDateString()}</div>
+                  <div className="mt-1">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase inline-block ${
+                      selectedReceiptBooking.bookingMode === 'Reservation Hold'
+                        ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                        : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    }`}>
+                      {selectedReceiptBooking.bookingMode === 'Reservation Hold' ? 'Counter Reservation Hold' : 'Assigned & Checked In'}
+                    </span>
+                  </div>
+                  {selectedReceiptBooking.reservationDate && selectedReceiptBooking.bookingMode === 'Reservation Hold' && (
+                    <div className="text-gray-800 text-[11px] mt-1 font-mono">
+                      Reservation Date: <strong>{selectedReceiptBooking.reservationDate}</strong>
+                    </div>
+                  )}
+                  {selectedReceiptBooking.proofOfPayment && (
+                    <div className="text-gray-800 text-[11px] mt-0.5 font-mono">
+                      Proof of Payment: <strong>{selectedReceiptBooking.proofOfPayment}</strong>
+                    </div>
+                  )}
                 </div>
               </div>
 
