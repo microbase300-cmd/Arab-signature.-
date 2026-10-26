@@ -4,7 +4,7 @@ import {
   Building2, BedDouble, Calendar, User, Phone, CheckCircle2, Clock, 
   Search, Filter, Plus, Printer, MessageSquare, LogOut, ArrowLeft, ArrowRight, 
   Sparkles, RefreshCw, Key, ShieldCheck, Check, AlertCircle, X, ChevronRight,
-  TrendingUp, DoorOpen, Sparkle, Utensils, Lock, Wine, Bell, Volume2, VolumeX,
+  TrendingUp, DoorOpen, Sparkle, Utensils, Lock, Wine, Bell, BellRing, Eye, Volume2, VolumeX,
   Copy, Receipt, CreditCard
 } from 'lucide-react';
 
@@ -1928,7 +1928,7 @@ export default function ReceptionPortal({ onNavigate }) {
                                 {ord.orderStatus !== 'Ready for Pickup' && !isCompleted && (
                                   <button
                                     onClick={() => {
-                                      portalStore.updateDiningOrderStatus(ord.id, 'Ready for Pickup', activeAccount?.name || 'Main Receptionist');
+                                      portalStore.updateDiningOrderStatus(ord.id, 'Ready for Pickup', currentUser?.name || 'Main Receptionist');
                                       refreshData();
                                       showToast(`Order ${ord.id} marked READY FOR PICKUP at Main Reception!`);
                                     }}
@@ -1940,7 +1940,7 @@ export default function ReceptionPortal({ onNavigate }) {
 
                                 <button
                                   onClick={() => {
-                                    portalStore.updateDiningOrderStatus(ord.id, 'Picked Up', activeAccount?.name || 'Main Receptionist');
+                                    portalStore.updateDiningOrderStatus(ord.id, 'Picked Up', currentUser?.name || 'Main Receptionist');
                                     refreshData();
                                     showToast(`Order ${ord.id} marked PICKED UP from Main Reception!`);
                                   }}
@@ -1955,7 +1955,7 @@ export default function ReceptionPortal({ onNavigate }) {
 
                                 <button
                                   onClick={() => {
-                                    portalStore.updateDiningOrderStatus(ord.id, 'Delivered', activeAccount?.name || 'Main Receptionist');
+                                    portalStore.updateDiningOrderStatus(ord.id, 'Delivered', currentUser?.name || 'Main Receptionist');
                                     refreshData();
                                     showToast(`Order ${ord.id} marked DELIVERED!`);
                                   }}
@@ -2081,7 +2081,7 @@ export default function ReceptionPortal({ onNavigate }) {
 
                         <td className="py-3.5 px-4 max-w-xs">
                           <div className="text-gray-200">
-                            {ord.items.map((it) => `${it.qty}x ${it.name}`).join(', ')}
+                            {(ord.items || []).map((it) => `${it.qty}x ${it.name}`).join(', ')}
                           </div>
                           {ord.notes && <div className="text-[10px] text-amber-300 italic mt-0.5">Note: {ord.notes}</div>}
                         </td>
@@ -2101,7 +2101,7 @@ export default function ReceptionPortal({ onNavigate }) {
                           <select
                             value={ord.orderStatus}
                             onChange={(e) => {
-                              portalStore.updateDiningOrderStatus(ord.id, e.target.value, activeAccount?.name || 'Main Receptionist');
+                              portalStore.updateDiningOrderStatus(ord.id, e.target.value, currentUser?.name || 'Main Receptionist');
                               refreshData();
                               showToast(`Order ${ord.id} marked ${e.target.value}`);
                             }}
@@ -2134,7 +2134,7 @@ export default function ReceptionPortal({ onNavigate }) {
 
                             <button
                               onClick={() => {
-                                portalStore.updateDiningOrderStatus(ord.id, 'Picked Up', activeAccount?.name || 'Main Receptionist');
+                                portalStore.updateDiningOrderStatus(ord.id, 'Picked Up', currentUser?.name || 'Main Receptionist');
                                 refreshData();
                                 showToast(`Order ${ord.id} marked PICKED UP!`);
                               }}
@@ -2149,7 +2149,7 @@ export default function ReceptionPortal({ onNavigate }) {
 
                             <button
                               onClick={() => {
-                                portalStore.updateDiningOrderStatus(ord.id, 'Delivered', activeAccount?.name || 'Main Receptionist');
+                                portalStore.updateDiningOrderStatus(ord.id, 'Delivered', currentUser?.name || 'Main Receptionist');
                                 refreshData();
                                 showToast(`Order ${ord.id} marked DELIVERED!`);
                               }}
@@ -3165,7 +3165,7 @@ export default function ReceptionPortal({ onNavigate }) {
                     const updated = portalStore.updateDiningOrderStatus(
                       inspectedDiningOrder.id,
                       'Ready for Pickup',
-                      activeAccount?.name || 'Main Receptionist'
+                      currentUser?.name || 'Main Receptionist'
                     );
                     setInspectedDiningOrder(updated);
                     refreshData();
@@ -3181,7 +3181,7 @@ export default function ReceptionPortal({ onNavigate }) {
                     const updated = portalStore.updateDiningOrderStatus(
                       inspectedDiningOrder.id,
                       'Picked Up',
-                      activeAccount?.name || 'Main Receptionist'
+                      currentUser?.name || 'Main Receptionist'
                     );
                     setInspectedDiningOrder(updated);
                     refreshData();
@@ -3197,7 +3197,7 @@ export default function ReceptionPortal({ onNavigate }) {
                     const updated = portalStore.updateDiningOrderStatus(
                       inspectedDiningOrder.id,
                       'Delivered',
-                      activeAccount?.name || 'Main Receptionist'
+                      currentUser?.name || 'Main Receptionist'
                     );
                     setInspectedDiningOrder(updated);
                     refreshData();
