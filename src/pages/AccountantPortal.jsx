@@ -1,11 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { portalStore } from '../data/portalStore';
 import {
-  Calculator, Building2, Utensils, Wine, TrendingUp, TrendingDown, Receipt,
+  Calculator, Building2, Utensils, Wine, TrendingUp, Receipt,
   CheckCircle2, AlertCircle, Search, Printer, Download, Plus, Trash2,
-  LogOut, ArrowLeft, RefreshCw, ShieldCheck, CreditCard, Wallet, FileText, Sparkles, Image as ImageIcon
+  LogOut, ArrowLeft, RefreshCw, ShieldCheck, CreditCard, FileText, Sparkles, Image as ImageIcon
 } from 'lucide-react';
 import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
+
+const SHEET_CUSTOM_ROWS_KEY = 'ash_accountant_sheet_custom_rows_v1';
+const SHEET_OVERRIDES_KEY = 'ash_accountant_sheet_overrides_v1';
+
+// Safe math expression evaluator for the Accountant Formula Bar
+function evaluateMathFormula(expr) {
+  if (!expr || typeof expr !== 'string') return null;
+  const cleaned = expr.replace(/^=/, '').replace(/,/g, '').trim();
+  if (!cleaned) return null;
+  // Replace percentage patterns like "10%" with "*0.10" or "/100"
+  const normalized = cleaned.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
+  // Allow only numbers, decimal points, parentheses, whitespace, and basic operators + - * /
+  if (!/^[0-9+\-*/().\s]+$/.test(normalized)) return null;
+  try {
+    // eslint-disable-next-line no-new-func
+    const result = Function(`"use strict"; return (${normalized});`)();
+    if (typeof result === 'number' && Number.isFinite(result)) {
+      return Math.round(result * 100) / 100;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export default function AccountantPortal({ onNavigate }) {
   const goldGradient = 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black';
@@ -13,8 +37,7 @@ export default function AccountantPortal({ onNavigate }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [diningOrders, setDiningOrders] = useState([]);
-  const [expenses, setExpenses] = useState([]);
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'folios' | 'suites' | 'dining' | 'expenses' | 'report'
+  const [activeTab, setActiveTab] = useState('spreadsheet'); // 'spreadsheet' | 'overview' | 'folios' | 'suites' | 'dining' | 'report'
   const [searchQuery, setSearchQuery] = useState('');
   const [diningTypeFilter, setDiningTypeFilter] = useState('all'); // 'all' | 'food' | 'drinks' | 'unpaid'
   const [feedbackMsg, setFeedbackMsg] = useState('');
@@ -23,12 +46,51 @@ export default function AccountantPortal({ onNavigate }) {
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   );
 
-  // New Expense Form State
-  const [expCategory, setExpCategory] = useState('Diesel & Power Generation');
-  const [expVendor, setExpVendor] = useState('');
-  const [expDesc, setExpDesc] = useState('');
-  const [expAmount, setExpAmount] = useState('');
-  const [expMethod, setExpMethod] = useState('Corporate Bank Transfer');
+  // ==============================================================
+  // ADVANCED SPREADSHEET STATE
+  // ==============================================================
+  const [customRows, setCustomRows] = useState(() => {
+    try {
+      const saved = localStorage.getItem(SHEET_CUSTOM_ROWS_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [rowOverrides, setRowOverrides] = useState(() => {
+    try {
+      const saved = localStorage.getItem(SHEET_OVERRIDES_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const [sheetSourceFilter, setSheetSourceFilter] = useState('all'); // 'all' | 'suites_main' | 'suites_ext' | 'food' | 'drinks' | 'custom'
+  const [sheetChannelFilter, setSheetChannelFilter] = useState('all'); // 'all' | 'paystack' | 'pos' | 'transfer' | 'unpaid'
+  const [sheetPaymentFilter, setSheetPaymentFilter] = useState('all'); // 'all' | 'paid' | 'pending'
+  const [sheetDateFrom, setSheetDateFrom] = useState('');
+  const [sheetDateTo, setSheetDateTo] = useState('');
+  const [selectedRowIds, setSelectedRowIds] = useState([]);
+
+  // Formula Bar & Percentage Calculator State
+  const [formulaInput, setFormulaInput] = useState('');
+  const [formulaLabel, setFormulaLabel] = useState('');
+  const [taxRatePercent, setTaxRatePercent] = useState(7.5);
+  const [discountRatePercent, setDiscountRatePercent] = useState(0);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SHEET_CUSTOM_ROWS_KEY, JSON.stringify(customRows));
+    } catch {}
+  }, [customRows]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SHEET_OVERRIDES_KEY, JSON.stringify(rowOverrides));
+    } catch {}
+  }, [rowOverrides]);
 
   const showToast = (msg) => {
     setFeedbackMsg(msg);
@@ -38,7 +100,6 @@ export default function AccountantPortal({ onNavigate }) {
   const refreshAll = () => {
     setBookings(portalStore.getBookings());
     setDiningOrders(portalStore.getDiningOrders());
-    setExpenses(portalStore.getExpenses());
   };
 
   useEffect(() => {
@@ -57,13 +118,11 @@ export default function AccountantPortal({ onNavigate }) {
     const handleSync = () => refreshAll();
     window.addEventListener('ash_bookings_updated', handleSync);
     const unsubDining = portalStore.subscribeDiningOrders(handleSync);
-    const unsubExpenses = portalStore.subscribeExpenses(handleSync);
 
     return () => {
       clearInterval(clock);
       window.removeEventListener('ash_bookings_updated', handleSync);
       unsubDining();
-      unsubExpenses();
     };
   }, []);
 
@@ -108,8 +167,6 @@ export default function AccountantPortal({ onNavigate }) {
   const grossBookedRevenue = paidSuitesRevenue + pendingSuitesRevenue + totalFoodRevenue + totalDrinkRevenue;
   const totalCollectedCashflow = paidSuitesRevenue + settledDiningRevenue;
   const totalReceivables = pendingSuitesRevenue + unsettledRoomBills;
-  const totalExpenses = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-  const netOperatingProfit = totalCollectedCashflow - totalExpenses;
 
   // Channel Breakdown (Collected)
   const allPaidTransactions = [
@@ -138,8 +195,6 @@ export default function AccountantPortal({ onNavigate }) {
 
   const outsideRoomOrders = validDining.filter(isOutsideRoomOrder);
   const inRoomDiningOrders = validDining.filter((o) => !isOutsideRoomOrder(o));
-  const outsideRoomCollected = outsideRoomOrders.filter((o) => o.paymentStatus === 'Paid').reduce((s, o) => s + (Number(o.amount) || 0), 0);
-  const inRoomCollected = inRoomDiningOrders.filter((o) => o.paymentStatus === 'Paid').reduce((s, o) => s + (Number(o.amount) || 0), 0);
 
   const auditedSuitesCount = validBookings.filter((b) => b.accountantAudited).length;
   const auditedDiningCount = validDining.filter((o) => o.accountantAudited).length;
@@ -152,87 +207,338 @@ export default function AccountantPortal({ onNavigate }) {
       folio: portalStore.getBookingFolioSummary(b)
     }));
 
-  const handleAddExpenseSubmit = (e) => {
-    e.preventDefault();
-    const numericAmt = Number(expAmount);
-    if (!expDesc.trim() || !numericAmt || numericAmt <= 0) {
-      alert('Please enter a valid expense description and amount.');
-      return;
-    }
-    portalStore.addExpense({
-      category: expCategory,
-      vendor: expVendor.trim() || 'Verified Hotel Vendor',
-      description: expDesc.trim(),
-      amount: numericAmt,
-      paymentMethod: expMethod,
-      recordedBy: currentUser?.name || 'Chief Hotel Accountant'
+  // ==============================================================
+  // UNIFIED SPREADSHEET DATA BUILDER & LIVE CALCULATIONS
+  // ==============================================================
+  const unifiedSheetRows = useMemo(() => {
+    const rows = [];
+
+    // 1. Suite Bookings
+    validBookings.forEach((b) => {
+      const isMain = String(b.id).startsWith('ARS-BGD') || String(b.roomNumber).startsWith('6');
+      const nights = Math.max(1, Number(b.nights) || 1);
+      const gross = Number(b.amount) || 0;
+      const defaultUnit = Math.round(gross / nights);
+      const ov = rowOverrides[b.id] || {};
+      const qty = ov.qty !== undefined ? Number(ov.qty) : nights;
+      const unitRate = ov.unitRate !== undefined ? Number(ov.unitRate) : defaultUnit;
+      const computedGross = ov.qty !== undefined || ov.unitRate !== undefined ? qty * unitRate : gross;
+      const adjustment = Number(ov.adjustment) || 0;
+      const net = computedGross + adjustment;
+
+      rows.push({
+        rowId: b.id,
+        isCustom: false,
+        recordType: 'room',
+        date: (b.checkIn || b.reservationDate || b.createdAt || '').split(' ')[0],
+        code: b.id,
+        party: b.guestName || 'Hotel Guest',
+        description: `${b.roomName || 'Suite'} (Room #${b.roomNumber || 'N/A'})`,
+        streamKey: isMain ? 'suites_main' : 'suites_ext',
+        streamLabel: isMain ? 'Main Wing Suites (600)' : 'Extension Suites (100)',
+        channel: b.paymentMethod || 'Front Desk',
+        paymentStatus: b.paymentStatus || 'Pending',
+        qty,
+        unitRate,
+        gross: computedGross,
+        adjustment,
+        net,
+        audited: Boolean(b.accountantAudited),
+        note: ov.note !== undefined ? ov.note : ''
+      });
     });
-    setExpVendor('');
-    setExpDesc('');
-    setExpAmount('');
-    refreshAll();
-    showToast(`Recorded operational expense of ₦${numericAmt.toLocaleString()}`);
+
+    // 2. Food & Drink Orders
+    validDining.forEach((o) => {
+      const isDrinks = o.orderType === 'drinks';
+      const totalQty = Array.isArray(o.items) ? o.items.reduce((s, i) => s + (Number(i.qty) || 1), 0) : 1;
+      const gross = Number(o.amount) || 0;
+      const defaultUnit = totalQty > 0 ? Math.round(gross / totalQty) : gross;
+      const ov = rowOverrides[o.id] || {};
+      const qty = ov.qty !== undefined ? Number(ov.qty) : totalQty;
+      const unitRate = ov.unitRate !== undefined ? Number(ov.unitRate) : defaultUnit;
+      const computedGross = ov.qty !== undefined || ov.unitRate !== undefined ? qty * unitRate : gross;
+      const adjustment = Number(ov.adjustment) || 0;
+      const net = computedGross + adjustment;
+
+      rows.push({
+        rowId: o.id,
+        isCustom: false,
+        recordType: 'dining',
+        date: (o.createdAt || '').split(' ')[0],
+        code: o.id,
+        party: o.guestName || 'Walk-In Guest',
+        description: Array.isArray(o.items) ? o.items.map((i) => `${i.qty}x ${i.name}`).join(', ') : 'Dining Order',
+        streamKey: isDrinks ? 'drinks' : 'food',
+        streamLabel: isDrinks ? 'VIP Bar (ARB-DRK)' : 'Kitchen Food (ARB-FDD)',
+        channel: o.paymentMethod || 'Room Bill',
+        paymentStatus: o.paymentStatus || 'Pending',
+        qty,
+        unitRate,
+        gross: computedGross,
+        adjustment,
+        net,
+        audited: Boolean(o.accountantAudited),
+        note: ov.note !== undefined ? ov.note : ''
+      });
+    });
+
+    // 3. Accountant Custom Calculation Rows
+    customRows.forEach((cr) => {
+      const qty = Number(cr.qty) || 1;
+      const unitRate = Number(cr.unitRate) || 0;
+      const gross = qty * unitRate;
+      const adjustment = Number(cr.adjustment) || 0;
+      const sign = cr.streamKey === 'custom_deduction' ? -1 : 1;
+      const net = sign * gross + adjustment;
+
+      rows.push({
+        rowId: cr.rowId,
+        isCustom: true,
+        recordType: 'custom',
+        date: cr.date || new Date().toISOString().split('T')[0],
+        code: cr.code || 'CALC-ROW',
+        party: cr.party || 'Accountant Entry',
+        description: cr.description || 'Custom Calculation Line',
+        streamKey: cr.streamKey || 'custom',
+        streamLabel: cr.streamKey === 'custom_deduction' ? 'Custom Deduction (-)' : 'Custom Addition (+)',
+        channel: cr.channel || 'Spreadsheet Calc',
+        paymentStatus: cr.paymentStatus || 'Paid',
+        qty,
+        unitRate,
+        gross: sign * gross,
+        adjustment,
+        net,
+        audited: true,
+        note: cr.note || ''
+      });
+    });
+
+    return rows;
+  }, [validBookings, validDining, rowOverrides, customRows]);
+
+  // Filtered Spreadsheet Rows + Running Balance Calculation
+  const filteredSheetRows = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    let list = unifiedSheetRows.filter((r) => {
+      if (q) {
+        const match =
+          String(r.code).toLowerCase().includes(q) ||
+          String(r.party).toLowerCase().includes(q) ||
+          String(r.description).toLowerCase().includes(q) ||
+          String(r.note).toLowerCase().includes(q);
+        if (!match) return false;
+      }
+
+      if (sheetSourceFilter !== 'all') {
+        if (sheetSourceFilter === 'custom') {
+          if (!r.isCustom) return false;
+        } else if (r.streamKey !== sheetSourceFilter) {
+          return false;
+        }
+      }
+
+      if (sheetChannelFilter !== 'all') {
+        const ch = String(r.channel).toLowerCase();
+        if (sheetChannelFilter === 'paystack' && !ch.includes('paystack')) return false;
+        if (sheetChannelFilter === 'pos' && !ch.includes('pos')) return false;
+        if (sheetChannelFilter === 'transfer' && (!ch.includes('transfer') && !ch.includes('cash'))) return false;
+        if (sheetChannelFilter === 'room_bill' && !ch.includes('room')) return false;
+      }
+
+      if (sheetPaymentFilter === 'paid' && r.paymentStatus !== 'Paid') return false;
+      if (sheetPaymentFilter === 'pending' && r.paymentStatus === 'Paid') return false;
+
+      if (sheetDateFrom && r.date && r.date < sheetDateFrom) return false;
+      if (sheetDateTo && r.date && r.date > sheetDateTo) return false;
+
+      return true;
+    });
+
+    let running = 0;
+    return list.map((r, idx) => {
+      running += r.net;
+      return {
+        ...r,
+        indexNumber: idx + 1,
+        runningBalance: running
+      };
+    });
+  }, [unifiedSheetRows, searchQuery, sheetSourceFilter, sheetChannelFilter, sheetPaymentFilter, sheetDateFrom, sheetDateTo]);
+
+  // Spreadsheet Summary Aggregations (All Visible vs Selected Rows)
+  const sheetTotals = useMemo(() => {
+    const targetRows = selectedRowIds.length > 0
+      ? filteredSheetRows.filter((r) => selectedRowIds.includes(r.rowId))
+      : filteredSheetRows;
+
+    const count = targetRows.length;
+    const totalQty = targetRows.reduce((s, r) => s + (Number(r.qty) || 0), 0);
+    const grossSum = targetRows.reduce((s, r) => s + (Number(r.gross) || 0), 0);
+    const adjSum = targetRows.reduce((s, r) => s + (Number(r.adjustment) || 0), 0);
+    const netSum = targetRows.reduce((s, r) => s + (Number(r.net) || 0), 0);
+    const paidSum = targetRows.filter((r) => r.paymentStatus === 'Paid').reduce((s, r) => s + (Number(r.net) || 0), 0);
+    const pendingSum = targetRows.filter((r) => r.paymentStatus !== 'Paid').reduce((s, r) => s + (Number(r.net) || 0), 0);
+    const avgNet = count > 0 ? Math.round(netSum / count) : 0;
+    const maxNet = count > 0 ? Math.max(...targetRows.map((r) => r.net)) : 0;
+    const minNet = count > 0 ? Math.min(...targetRows.map((r) => r.net)) : 0;
+
+    const discountAmount = Math.round((netSum * (Number(discountRatePercent) || 0)) / 100);
+    const afterDiscount = netSum - discountAmount;
+    const taxAmount = Math.round((afterDiscount * (Number(taxRatePercent) || 0)) / 100);
+    const grandTotalAfterTax = afterDiscount + taxAmount;
+
+    return {
+      isSelectionActive: selectedRowIds.length > 0,
+      count,
+      totalQty,
+      grossSum,
+      adjSum,
+      netSum,
+      paidSum,
+      pendingSum,
+      avgNet,
+      maxNet,
+      minNet,
+      discountAmount,
+      afterDiscount,
+      taxAmount,
+      grandTotalAfterTax
+    };
+  }, [filteredSheetRows, selectedRowIds, taxRatePercent, discountRatePercent]);
+
+  const evaluatedFormulaValue = useMemo(() => evaluateMathFormula(formulaInput), [formulaInput]);
+
+  // Handlers for Spreadsheet Edits
+  const handleCellEdit = (row, field, rawValue) => {
+    if (row.isCustom) {
+      setCustomRows((prev) =>
+        prev.map((cr) => {
+          if (cr.rowId !== row.rowId) return cr;
+          return {
+            ...cr,
+            [field]: ['qty', 'unitRate', 'adjustment'].includes(field) ? Number(rawValue) || 0 : rawValue
+          };
+        })
+      );
+    } else {
+      setRowOverrides((prev) => ({
+        ...prev,
+        [row.rowId]: {
+          ...(prev[row.rowId] || {}),
+          [field]: ['qty', 'unitRate', 'adjustment'].includes(field) ? Number(rawValue) || 0 : rawValue
+        }
+      }));
+    }
+  };
+
+  const handleAddCustomRow = (prefillAmount = 0, prefillDesc = '') => {
+    const newRow = {
+      rowId: `CALC-${Date.now().toString().slice(-5)}`,
+      date: new Date().toISOString().split('T')[0],
+      code: `CALC-${Math.floor(1000 + Math.random() * 9000)}`,
+      party: 'Accountant Entry',
+      description: prefillDesc || 'Custom Calculation Item',
+      streamKey: prefillAmount < 0 ? 'custom_deduction' : 'custom',
+      channel: 'Spreadsheet Calc',
+      paymentStatus: 'Paid',
+      qty: 1,
+      unitRate: Math.abs(Number(prefillAmount) || 0),
+      adjustment: 0,
+      note: ''
+    };
+    setCustomRows((prev) => [...prev, newRow]);
+    showToast('Added new calculation row to spreadsheet.');
+  };
+
+  const handleDeleteCustomRow = (rowId) => {
+    setCustomRows((prev) => prev.filter((r) => r.rowId !== rowId));
+    setSelectedRowIds((prev) => prev.filter((id) => id !== rowId));
+  };
+
+  const handleResetOverrides = () => {
+    setRowOverrides({});
+    setSelectedRowIds([]);
+    showToast('Reset all cell overrides back to original system values.');
+  };
+
+  const handleToggleSelectRow = (rowId) => {
+    setSelectedRowIds((prev) =>
+      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedRowIds.length === filteredSheetRows.length && filteredSheetRows.length > 0) {
+      setSelectedRowIds([]);
+    } else {
+      setSelectedRowIds(filteredSheetRows.map((r) => r.rowId));
+    }
   };
 
   const handleExportCSV = () => {
     const rows = [
-      ['Record Type', 'Booking / Order Code', 'Guest / Vendor', 'Linked Suite', 'Category / Details', 'Payment Status', 'Payment Method', 'Amount (NGN)', 'Audited', 'Date']
+      [
+        'Row #',
+        'Date',
+        'Ref / Code',
+        'Guest / Party',
+        'Item / Suite Description',
+        'Department Stream',
+        'Payment Channel',
+        'Settlement Status',
+        'Qty / Nights',
+        'Unit Rate (NGN)',
+        'Gross Amount (NGN)',
+        'Adjustment / Disc (NGN)',
+        'Net Total (NGN)',
+        'Running Balance (NGN)',
+        'Audited',
+        'Accountant Note'
+      ]
     ];
 
-    validBookings.forEach((b) => {
+    filteredSheetRows.forEach((r) => {
       rows.push([
-        'SUITE BOOKING',
-        b.id,
-        `"${(b.guestName || '').replace(/"/g, '""')}"`,
-        `Room #${b.roomNumber || 'N/A'}`,
-        `"${b.roomName || ''}"`,
-        b.paymentStatus,
-        `"${b.paymentMethod || ''}"`,
-        b.amount,
-        b.accountantAudited ? 'YES' : 'NO',
-        `"${b.checkIn || ''}"`
+        r.indexNumber,
+        `"${r.date || ''}"`,
+        `"${r.code || ''}"`,
+        `"${String(r.party || '').replace(/"/g, '""')}"`,
+        `"${String(r.description || '').replace(/"/g, '""')}"`,
+        `"${r.streamLabel}"`,
+        `"${String(r.channel || '').replace(/"/g, '""')}"`,
+        r.paymentStatus,
+        r.qty,
+        r.unitRate,
+        r.gross,
+        r.adjustment,
+        r.net,
+        r.runningBalance,
+        r.audited ? 'YES' : 'NO',
+        `"${String(r.note || '').replace(/"/g, '""')}"`
       ]);
     });
 
-    validDining.forEach((o) => {
-      rows.push([
-        o.orderType === 'drinks' ? 'DRINK ORDER (ARB-DRK)' : 'FOOD ORDER (ARB-FDD)',
-        o.id,
-        `"${(o.guestName || '').replace(/"/g, '""')}"`,
-        o.bookingId ? `${o.bookingId} (Room #${o.roomNumber})` : 'Walk-In / Lounge',
-        `"${o.items.map((i) => `${i.qty}x ${i.name}`).join('; ').replace(/"/g, '""')}"`,
-        o.paymentStatus,
-        `"${o.paymentMethod || ''}"`,
-        o.amount,
-        o.accountantAudited ? 'YES' : 'NO',
-        `"${o.createdAt || ''}"`
-      ]);
-    });
-
-    expenses.forEach((ex) => {
-      rows.push([
-        'EXPENSE OUTFLOW',
-        ex.id,
-        `"${(ex.vendor || '').replace(/"/g, '""')}"`,
-        '-',
-        `"${ex.category}: ${(ex.description || '').replace(/"/g, '""')}"`,
-        'Paid Outflow',
-        `"${ex.paymentMethod || ''}"`,
-        -Math.abs(Number(ex.amount) || 0),
-        'YES',
-        `"${ex.createdAt || ''}"`
-      ]);
-    });
+    // Append Summary Footer Rows
+    rows.push([]);
+    rows.push(['SUMMARY TOTALS', '', '', '', `${sheetTotals.count} Rows`, '', '', '', sheetTotals.totalQty, '', sheetTotals.grossSum, sheetTotals.adjSum, sheetTotals.netSum, '', '', '']);
+    if (Number(discountRatePercent) > 0) {
+      rows.push([`LESS DISCOUNT (${discountRatePercent}%)`, '', '', '', '', '', '', '', '', '', '', '', -sheetTotals.discountAmount, '', '', '']);
+    }
+    if (Number(taxRatePercent) > 0) {
+      rows.push([`ADD TAX / VAT (${taxRatePercent}%)`, '', '', '', '', '', '', '', '', '', '', '', sheetTotals.taxAmount, '', '', '']);
+    }
+    rows.push(['GRAND TOTAL', '', '', '', '', '', '', '', '', '', '', '', sheetTotals.grandTotalAfterTax, '', '', '']);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((r) => r.join(',')).join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Arab_Signature_Financial_Audit_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `Arab_Signature_Accountant_Spreadsheet_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast('Exported complete Hotel Financial Ledger CSV!');
+    showToast('Exported Accountant Calculation Spreadsheet (.CSV)!');
   };
 
   return (
@@ -254,7 +560,7 @@ export default function AccountantPortal({ onNavigate }) {
               </span>
             </div>
             <p className="text-[11px] text-gray-400">
-              Arab Signature Hotel & Suites • Suites (ARS) • Food (ARB-FDD) • Drinks (ARB-DRK)
+              Arab Signature Hotel & Suites • Suites (ARS) • Food (ARB-FDD) • Drinks (ARB-DRK) • Live Calculation Sheet
             </p>
           </div>
         </div>
@@ -273,7 +579,7 @@ export default function AccountantPortal({ onNavigate }) {
               className={`px-3.5 py-2 rounded-xl ${goldGradient} font-bold text-xs flex items-center gap-1.5 shadow-lg`}
             >
               <Download size={14} />
-              <span className="hidden sm:inline">Export CSV</span>
+              <span className="hidden sm:inline">Export Excel CSV</span>
             </button>
 
             {currentUser?.role === 'admin' && (
@@ -321,7 +627,7 @@ export default function AccountantPortal({ onNavigate }) {
               ₦{grossBookedRevenue.toLocaleString()}
             </div>
             <span className="text-[10px] text-emerald-400 font-mono">
-              ₦{totalCollectedCashflow.toLocaleString()} Collected
+              {validBookings.length + validDining.length} Total Entries
             </span>
           </div>
 
@@ -371,14 +677,14 @@ export default function AccountantPortal({ onNavigate }) {
 
           <div className="p-4 rounded-2xl bg-gradient-to-br from-[#190510] to-[#081b10] border border-emerald-500/40">
             <span className="text-[10px] font-mono uppercase text-emerald-300 flex items-center justify-between">
-              <span>Net Operating Profit</span>
+              <span>Verified Collected</span>
               <TrendingUp size={13} className="text-emerald-400" />
             </span>
-            <div className={`font-mono text-lg sm:text-xl font-extrabold mt-1 ${netOperatingProfit >= 0 ? 'text-emerald-300' : 'text-rose-400'}`}>
-              ₦{netOperatingProfit.toLocaleString()}
+            <div className="font-mono text-lg sm:text-xl font-extrabold mt-1 text-emerald-300">
+              ₦{totalCollectedCashflow.toLocaleString()}
             </div>
             <span className="text-[10px] text-gray-400 font-mono">
-              After ₦{totalExpenses.toLocaleString()} Expenses
+              {auditedSuitesCount + auditedDiningCount} Records Audited
             </span>
           </div>
         </div>
@@ -387,11 +693,11 @@ export default function AccountantPortal({ onNavigate }) {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/10 pb-4 print:hidden">
           <div className="flex flex-wrap items-center gap-1.5 bg-[#16030c] p-1.5 rounded-2xl border border-white/10">
             {[
+              { id: 'spreadsheet', label: 'Advanced Spreadsheet', icon: Calculator },
               { id: 'overview', label: 'Channels & Overview', icon: TrendingUp },
               { id: 'folios', label: `In-Lodge Folios (${activeStaysWithFolios.length})`, icon: Receipt },
               { id: 'suites', label: `Suites ARS (${validBookings.length})`, icon: Building2 },
               { id: 'dining', label: `Food & Drinks ARB (${validDining.length})`, icon: Utensils },
-              { id: 'expenses', label: `Expenses (${expenses.length})`, icon: Wallet },
               { id: 'report', label: 'Printable Audit Report', icon: FileText }
             ].map((t) => {
               const Icon = t.icon;
@@ -417,7 +723,7 @@ export default function AccountantPortal({ onNavigate }) {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search ARS / ARB code, guest, room..."
+                placeholder="Search ARS / ARB code, guest, item..."
                 className="w-full pl-9 pr-3 py-2 rounded-xl bg-black/60 border border-white/15 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
               />
             </div>
@@ -432,7 +738,497 @@ export default function AccountantPortal({ onNavigate }) {
         </div>
 
         {/* ============================================================
-            TAB 1: CHANNELS & FINANCIAL OVERVIEW
+            TAB 1: ADVANCED FINANCIAL CALCULATION SPREADSHEET
+            ============================================================ */}
+        {activeTab === 'spreadsheet' && (
+          <div className="space-y-5">
+            {/* A. EXCEL FORMULA BAR & TAX / DISCOUNT CALCULATOR */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 rounded-3xl bg-[#16030c] border border-[#d4af37]/40 shadow-xl">
+              {/* Live Formula Scratchpad */}
+              <div className="lg:col-span-7 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-cinzel font-bold text-[#f3e5ab] flex items-center gap-1.5">
+                    <Calculator size={14} className="text-[#d4af37]" />
+                    <span>Instant Formula & Expression Calculator</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-gray-400">
+                    Supports +, -, *, /, (), and % (e.g. <code className="text-[#f3e5ab]">=60000*4 + 25000 - 10%</code>)
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono font-bold text-[#d4af37] text-sm">
+                      fx
+                    </span>
+                    <input
+                      type="text"
+                      value={formulaInput}
+                      onChange={(e) => setFormulaInput(e.target.value)}
+                      placeholder="Type calculation e.g. 50000 * 3 + 140000"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-black/70 border border-[#d4af37]/40 font-mono text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
+
+                  <input
+                    type="text"
+                    value={formulaLabel}
+                    onChange={(e) => setFormulaLabel(e.target.value)}
+                    placeholder="Row label (optional)"
+                    className="sm:w-44 px-3 py-2.5 rounded-xl bg-black/60 border border-white/15 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
+                  />
+
+                  <div className="px-4 py-2 rounded-xl bg-emerald-950/60 border border-emerald-500/40 font-mono text-right min-w-[140px] flex flex-col justify-center">
+                    <span className="text-[9px] text-emerald-300 uppercase">Formula Result</span>
+                    <span className="text-sm font-extrabold text-white">
+                      {evaluatedFormulaValue !== null ? `₦${evaluatedFormulaValue.toLocaleString()}` : '₦0'}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={evaluatedFormulaValue === null}
+                    onClick={() => {
+                      if (evaluatedFormulaValue !== null) {
+                        handleAddCustomRow(evaluatedFormulaValue, formulaLabel.trim() || `Formula: ${formulaInput}`);
+                        setFormulaInput('');
+                        setFormulaLabel('');
+                      }
+                    }}
+                    className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 whitespace-nowrap ${
+                      evaluatedFormulaValue !== null
+                        ? `${goldGradient} shadow-md cursor-pointer`
+                        : 'bg-white/5 text-gray-500 border border-white/10 cursor-not-allowed'
+                    }`}
+                  >
+                    <Plus size={14} />
+                    <span>Insert to Sheet</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Tax, VAT & Discount Rate Modeling */}
+              <div className="lg:col-span-5 grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-2 lg:pt-0 lg:border-l lg:border-white/10 lg:pl-4 items-center">
+                <div className="p-2.5 rounded-xl bg-black/50 border border-white/10">
+                  <label className="text-[10px] font-mono uppercase text-gray-400 block">Discount / Rebate %</label>
+                  <div className="flex items-center gap-1 mt-1">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      value={discountRatePercent}
+                      onChange={(e) => setDiscountRatePercent(e.target.value)}
+                      className="w-full px-2 py-1 rounded bg-black border border-white/15 font-mono text-xs text-amber-300 font-bold focus:outline-none focus:border-[#d4af37]"
+                    />
+                    <span className="text-xs font-mono text-gray-400">%</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-amber-300/90 block mt-1">
+                    -₦{sheetTotals.discountAmount.toLocaleString()}
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-black/50 border border-white/10">
+                  <label className="text-[10px] font-mono uppercase text-gray-400 block">VAT / Tax Rate %</label>
+                  <div className="flex items-center gap-1 mt-1">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      value={taxRatePercent}
+                      onChange={(e) => setTaxRatePercent(e.target.value)}
+                      className="w-full px-2 py-1 rounded bg-black border border-white/15 font-mono text-xs text-sky-300 font-bold focus:outline-none focus:border-[#d4af37]"
+                    />
+                    <span className="text-xs font-mono text-gray-400">%</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-sky-300/90 block mt-1">
+                    +₦{sheetTotals.taxAmount.toLocaleString()}
+                  </span>
+                </div>
+
+                <div className="col-span-2 sm:col-span-1 p-2.5 rounded-xl bg-gradient-to-br from-[#240614] to-[#0a2315] border border-emerald-500/40">
+                  <span className="text-[9px] font-mono uppercase text-emerald-300 block">
+                    {sheetTotals.isSelectionActive ? `Selected (${sheetTotals.count}) Net+Tax` : 'Sheet Net + Tax'}
+                  </span>
+                  <span className="font-mono text-sm font-extrabold text-white block mt-1">
+                    ₦{sheetTotals.grandTotalAfterTax.toLocaleString()}
+                  </span>
+                  <span className="text-[9px] font-mono text-gray-400 block mt-0.5">
+                     Pre-Tax: ₦{sheetTotals.netSum.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* B. SPREADSHEET FILTER & ACTION TOOLBAR */}
+            <div className="p-4 rounded-2xl bg-[#16030c] border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Stream Filter */}
+                <select
+                  value={sheetSourceFilter}
+                  onChange={(e) => setSheetSourceFilter(e.target.value)}
+                  className="px-3 py-2 rounded-xl bg-black/70 border border-white/15 text-white text-xs focus:outline-none focus:border-[#d4af37]"
+                >
+                  <option value="all">All Revenue Streams ({unifiedSheetRows.length})</option>
+                  <option value="suites_main">Main Building Suites (600 Wing)</option>
+                  <option value="suites_ext">Extension Wing Suites (100 Wing)</option>
+                  <option value="food">Kitchen Food (ARB-FDD)</option>
+                  <option value="drinks">VIP Bar Drinks (ARB-DRK)</option>
+                  <option value="custom">Custom Calculation Rows ({customRows.length})</option>
+                </select>
+
+                {/* Channel Filter */}
+                <select
+                  value={sheetChannelFilter}
+                  onChange={(e) => setSheetChannelFilter(e.target.value)}
+                  className="px-3 py-2 rounded-xl bg-black/70 border border-white/15 text-white text-xs focus:outline-none focus:border-[#d4af37]"
+                >
+                  <option value="all">All Payment Channels</option>
+                  <option value="paystack">Paystack Online</option>
+                  <option value="pos">POS Terminal</option>
+                  <option value="transfer">Bank Transfer & Cash</option>
+                  <option value="room_bill">In-Lodge Room Bill</option>
+                </select>
+
+                {/* Settlement Filter */}
+                <select
+                  value={sheetPaymentFilter}
+                  onChange={(e) => setSheetPaymentFilter(e.target.value)}
+                  className="px-3 py-2 rounded-xl bg-black/70 border border-white/15 text-white text-xs focus:outline-none focus:border-[#d4af37]"
+                >
+                  <option value="all">Paid & Pending</option>
+                  <option value="paid">Paid / Settled Only</option>
+                  <option value="pending">Pending / Unsettled Only</option>
+                </select>
+
+                {/* Date Range */}
+                <div className="flex items-center gap-1.5 bg-black/50 px-2.5 py-1.5 rounded-xl border border-white/10">
+                  <span className="text-[10px] text-gray-400 font-mono">From:</span>
+                  <input
+                    type="date"
+                    value={sheetDateFrom}
+                    onChange={(e) => setSheetDateFrom(e.target.value)}
+                    className="bg-transparent text-white font-mono text-[11px] focus:outline-none"
+                  />
+                  <span className="text-[10px] text-gray-400 font-mono">To:</span>
+                  <input
+                    type="date"
+                    value={sheetDateTo}
+                    onChange={(e) => setSheetDateTo(e.target.value)}
+                    className="bg-transparent text-white font-mono text-[11px] focus:outline-none"
+                  />
+                  {(sheetDateFrom || sheetDateTo) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSheetDateFrom('');
+                        setSheetDateTo('');
+                      }}
+                      className="text-[10px] text-rose-400 hover:underline ml-1"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleAddCustomRow(0, 'Custom Calculation Entry')}
+                  className={`px-3.5 py-2 rounded-xl ${goldGradient} font-bold flex items-center gap-1.5 shadow-md`}
+                >
+                  <Plus size={14} />
+                  <span>Add Calculation Row</span>
+                </button>
+
+                {Object.keys(rowOverrides).length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleResetOverrides}
+                    className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-gray-300"
+                  >
+                    Reset Edits
+                  </button>
+                )}
+
+                {customRows.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomRows([]);
+                      showToast('Cleared all custom calculation rows.');
+                    }}
+                    className="px-3 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/50 border border-rose-500/30 text-rose-300"
+                  >
+                    Clear Custom Rows
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* C. LIVE SELECTION / AGGREGATION SUMMARY RIBBON */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 p-3.5 rounded-2xl bg-[#120208] border border-[#d4af37]/30 font-mono text-xs">
+              <div className="px-3 py-2 rounded-xl bg-black/50 border border-white/5">
+                <span className="text-[9px] text-gray-400 block uppercase">
+                  {sheetTotals.isSelectionActive ? 'Selected Rows' : 'Active Rows (COUNT)'}
+                </span>
+                <span className="text-sm font-extrabold text-white">
+                  {sheetTotals.count} <span className="text-[10px] text-[#f3e5ab]">(Qty: {sheetTotals.totalQty})</span>
+                </span>
+              </div>
+
+              <div className="px-3 py-2 rounded-xl bg-black/50 border border-white/5">
+                <span className="text-[9px] text-gray-400 block uppercase">Gross Sum (₦)</span>
+                <span className="text-sm font-extrabold text-white">₦{sheetTotals.grossSum.toLocaleString()}</span>
+              </div>
+
+              <div className="px-3 py-2 rounded-xl bg-black/50 border border-white/5">
+                <span className="text-[9px] text-gray-400 block uppercase">Adjustments Sum (₦)</span>
+                <span className={`text-sm font-extrabold ${sheetTotals.adjSum >= 0 ? 'text-sky-300' : 'text-rose-400'}`}>
+                  {sheetTotals.adjSum >= 0 ? '+' : ''}₦{sheetTotals.adjSum.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="px-3 py-2 rounded-xl bg-emerald-950/40 border border-emerald-500/30">
+                <span className="text-[9px] text-emerald-300 block uppercase">Net Total (SUM)</span>
+                <span className="text-sm font-extrabold text-emerald-300">₦{sheetTotals.netSum.toLocaleString()}</span>
+              </div>
+
+              <div className="px-3 py-2 rounded-xl bg-black/50 border border-white/5">
+                <span className="text-[9px] text-gray-400 block uppercase">Average / Row (AVG)</span>
+                <span className="text-sm font-extrabold text-[#f3e5ab]">₦{sheetTotals.avgNet.toLocaleString()}</span>
+              </div>
+
+              <div className="px-3 py-2 rounded-xl bg-black/50 border border-white/5">
+                <span className="text-[9px] text-gray-400 block uppercase">Min / Max Range</span>
+                <span className="text-[11px] font-bold text-gray-200 block mt-0.5">
+                  ₦{sheetTotals.minNet.toLocaleString()} → ₦{sheetTotals.maxNet.toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {/* D. INTERACTIVE EXCEL-LIKE SPREADSHEET GRID */}
+            <div className="overflow-x-auto rounded-2xl border border-[#d4af37]/35 bg-[#16030c] shadow-2xl">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-[#120208] text-gray-300 uppercase tracking-wider border-b border-[#d4af37]/30 text-[10px] font-mono">
+                  <tr>
+                    <th className="py-3 px-2.5 text-center border-r border-white/10 w-10">
+                      <input
+                        type="checkbox"
+                        checked={filteredSheetRows.length > 0 && selectedRowIds.length === filteredSheetRows.length}
+                        onChange={handleToggleSelectAll}
+                        className="accent-[#d4af37] cursor-pointer"
+                        title="Select all visible rows for calculation"
+                      />
+                    </th>
+                    <th className="py-3 px-2.5 text-center border-r border-white/10 w-10">#</th>
+                    <th className="py-3 px-3 border-r border-white/10">Date</th>
+                    <th className="py-3 px-3 border-r border-white/10">Code / Ref</th>
+                    <th className="py-3 px-3 border-r border-white/10">Guest / Description (Editable)</th>
+                    <th className="py-3 px-3 border-r border-white/10">Stream</th>
+                    <th className="py-3 px-2.5 text-center border-r border-white/10 w-20">Qty / Nights</th>
+                    <th className="py-3 px-3 text-right border-r border-white/10 w-28">Unit Rate (₦)</th>
+                    <th className="py-3 px-3 text-right border-r border-white/10 w-28">Gross (₦)</th>
+                    <th className="py-3 px-3 text-right border-r border-white/10 w-28">Adj / Disc (₦)</th>
+                    <th className="py-3 px-3 text-right border-r border-white/10 w-32 bg-[#1c0410]">Net Total (₦)</th>
+                    <th className="py-3 px-3 text-right border-r border-white/10 w-32">Running Bal (₦)</th>
+                    <th className="py-3 px-3">Audit Note / Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/10 font-mono text-[11px]">
+                  {filteredSheetRows.map((row) => {
+                    const isSelected = selectedRowIds.includes(row.rowId);
+                    return (
+                      <tr
+                        key={row.rowId}
+                        className={`transition-colors ${
+                          isSelected
+                            ? 'bg-[#5c0725]/40'
+                            : row.isCustom
+                              ? 'bg-emerald-950/15 hover:bg-emerald-950/25'
+                              : 'hover:bg-white/[0.03]'
+                        }`}
+                      >
+                        <td className="py-2 px-2.5 text-center border-r border-white/5">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelectRow(row.rowId)}
+                            className="accent-[#d4af37] cursor-pointer"
+                          />
+                        </td>
+                        <td className="py-2 px-2.5 text-center text-gray-500 border-r border-white/5">
+                          {row.indexNumber}
+                        </td>
+                        <td className="py-2 px-2.5 border-r border-white/5 whitespace-nowrap">
+                          {row.isCustom ? (
+                            <input
+                              type="date"
+                              value={row.date}
+                              onChange={(e) => handleCellEdit(row, 'date', e.target.value)}
+                              className="bg-black/50 border border-white/15 rounded px-1.5 py-0.5 text-[11px] text-white"
+                            />
+                          ) : (
+                            <span className="text-gray-300">{row.date || '-'}</span>
+                          )}
+                        </td>
+                        <td className="py-2 px-3 border-r border-white/5 whitespace-nowrap">
+                          <span className="font-bold text-[#f3e5ab]">{row.code}</span>
+                          <span
+                            className={`block text-[9px] ${
+                              row.paymentStatus === 'Paid' ? 'text-emerald-400' : 'text-amber-300'
+                            }`}
+                          >
+                            {row.paymentStatus} • {row.channel}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 border-r border-white/5 font-sans min-w-[200px]">
+                          {row.isCustom ? (
+                            <div className="space-y-1">
+                              <input
+                                type="text"
+                                value={row.description}
+                                onChange={(e) => handleCellEdit(row, 'description', e.target.value)}
+                                className="w-full bg-black/60 border border-white/15 rounded px-2 py-1 text-xs text-white focus:border-[#d4af37] focus:outline-none"
+                                placeholder="Calculation description..."
+                              />
+                            </div>
+                          ) : (
+                            <div>
+                              <div className="font-semibold text-white text-xs">{row.party}</div>
+                              <div className="text-[10px] text-gray-400 truncate max-w-[240px]" title={row.description}>
+                                {row.description}
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2 px-3 border-r border-white/5 whitespace-nowrap font-sans">
+                          {row.isCustom ? (
+                            <select
+                              value={row.streamKey}
+                              onChange={(e) => handleCellEdit(row, 'streamKey', e.target.value)}
+                              className="bg-black/70 border border-white/15 rounded px-2 py-1 text-[11px] text-[#f3e5ab]"
+                            >
+                              <option value="custom">Addition (+)</option>
+                              <option value="custom_deduction">Deduction (-)</option>
+                            </select>
+                          ) : (
+                            <span className="text-[10px] text-gray-300">{row.streamLabel}</span>
+                          )}
+                        </td>
+
+                        {/* Editable Qty / Nights */}
+                        <td className="py-2 px-2 text-center border-r border-white/5">
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={row.qty}
+                            onChange={(e) => handleCellEdit(row, 'qty', e.target.value)}
+                            className="w-16 text-center bg-black/60 border border-white/15 rounded px-1.5 py-1 text-white font-bold focus:border-[#d4af37] focus:outline-none"
+                          />
+                        </td>
+
+                        {/* Editable Unit Rate */}
+                        <td className="py-2 px-2 text-right border-r border-white/5">
+                          <input
+                            type="number"
+                            step="500"
+                            value={row.unitRate}
+                            onChange={(e) => handleCellEdit(row, 'unitRate', e.target.value)}
+                            className="w-24 text-right bg-black/60 border border-white/15 rounded px-2 py-1 text-white focus:border-[#d4af37] focus:outline-none"
+                          />
+                        </td>
+
+                        {/* Auto-Computed Gross */}
+                        <td className="py-2 px-3 text-right border-r border-white/5 text-gray-200 font-semibold">
+                          ₦{row.gross.toLocaleString()}
+                        </td>
+
+                        {/* Editable Adjustment / Discount Cell */}
+                        <td className="py-2 px-2 text-right border-r border-white/5">
+                          <input
+                            type="number"
+                            step="500"
+                            value={row.adjustment}
+                            onChange={(e) => handleCellEdit(row, 'adjustment', e.target.value)}
+                            placeholder="0"
+                            className={`w-24 text-right bg-black/60 border border-white/15 rounded px-2 py-1 font-bold focus:border-[#d4af37] focus:outline-none ${
+                              row.adjustment < 0 ? 'text-rose-400' : row.adjustment > 0 ? 'text-sky-300' : 'text-gray-400'
+                            }`}
+                          />
+                        </td>
+
+                        {/* Auto-Computed Net Total */}
+                        <td className="py-2 px-3 text-right border-r border-white/5 bg-[#1c0410]/60 font-extrabold text-[#f3e5ab]">
+                          ₦{row.net.toLocaleString()}
+                        </td>
+
+                        {/* Running Balance */}
+                        <td className="py-2 px-3 text-right border-r border-white/5 text-emerald-300 font-bold">
+                          ₦{row.runningBalance.toLocaleString()}
+                        </td>
+
+                        {/* Audit Note & Row Actions */}
+                        <td className="py-2 px-3 min-w-[170px]">
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={row.note}
+                              onChange={(e) => handleCellEdit(row, 'note', e.target.value)}
+                              placeholder="Add calc note..."
+                              className="w-full bg-black/45 border border-white/10 rounded px-2 py-1 text-[11px] font-sans text-gray-200 placeholder-gray-600 focus:border-[#d4af37] focus:outline-none"
+                            />
+                            {row.isCustom && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCustomRow(row.rowId)}
+                                className="p-1 rounded text-gray-400 hover:text-rose-400 hover:bg-rose-500/10"
+                                title="Delete custom row"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+
+                {/* SPREADSHEET FOOTER TOTALS */}
+                <tfoot className="bg-[#120208] border-t-2 border-[#d4af37]/50 font-mono text-xs">
+                  <tr>
+                    <td colSpan={6} className="py-3.5 px-4 font-cinzel font-bold text-[#f3e5ab] text-right uppercase">
+                      {sheetTotals.isSelectionActive
+                        ? `Selected Rows Subtotal (${sheetTotals.count} Rows):`
+                        : `Active Sheet Subtotal (${sheetTotals.count} Rows):`}
+                    </td>
+                    <td className="py-3.5 px-2 text-center font-extrabold text-white">{sheetTotals.totalQty}</td>
+                    <td className="py-3.5 px-3 text-right text-gray-400">-</td>
+                    <td className="py-3.5 px-3 text-right font-extrabold text-white">
+                      ₦{sheetTotals.grossSum.toLocaleString()}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-extrabold text-sky-300">
+                      {sheetTotals.adjSum >= 0 ? '+' : ''}₦{sheetTotals.adjSum.toLocaleString()}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-extrabold text-sm text-[#f3e5ab] bg-[#260515]">
+                      ₦{sheetTotals.netSum.toLocaleString()}
+                    </td>
+                    <td colSpan={2} className="py-3.5 px-3 text-right text-emerald-300 font-bold">
+                      After Tax/Disc: ₦{sheetTotals.grandTotalAfterTax.toLocaleString()}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================
+            TAB 2: CHANNELS & FINANCIAL OVERVIEW
             ============================================================ */}
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -524,14 +1320,14 @@ export default function AccountantPortal({ onNavigate }) {
 
               <div className="p-4 rounded-2xl bg-[#220410] border border-[#d4af37]/30 text-xs text-gray-300 leading-relaxed">
                 <strong className="text-[#f3e5ab] block mb-1">Real-Time Three-Portal Sync Active:</strong>
-                Every room code generated at Reception (<code className="text-white">ARS-BGD</code> / <code className="text-white">ARS-EXT</code>) and every food (<code className="text-white">ARB-FDD</code>) or drink (<code className="text-white">ARB-DRK</code>) booking added to a guest's room bill updates this ledger automatically.
+                Every room code generated at Reception (<code className="text-white">ARS-BGD</code> / <code className="text-white">ARS-EXT</code>) and every food (<code className="text-white">ARB-FDD</code>) or drink (<code className="text-white">ARB-DRK</code>) booking added to a guest's room bill updates this ledger and your calculation spreadsheet automatically.
               </div>
             </div>
           </div>
         )}
 
         {/* ============================================================
-            TAB 2: IN-LODGE GUEST FOLIOS & ROOM BILL RECEIVABLES
+            TAB 3: IN-LODGE GUEST FOLIOS & ROOM BILL RECEIVABLES
             ============================================================ */}
         {activeTab === 'folios' && (
           <div className="space-y-4">
@@ -625,7 +1421,7 @@ export default function AccountantPortal({ onNavigate }) {
         )}
 
         {/* ============================================================
-            TAB 3: SUITES ACCOMMODATION LEDGER (ARS-BGD & ARS-EXT)
+            TAB 4: SUITES ACCOMMODATION LEDGER (ARS-BGD & ARS-EXT)
             ============================================================ */}
         {activeTab === 'suites' && (
           <div className="overflow-x-auto rounded-2xl border border-white/10 bg-[#16030c] shadow-xl">
@@ -748,7 +1544,7 @@ export default function AccountantPortal({ onNavigate }) {
         )}
 
         {/* ============================================================
-            TAB 4: FOOD (ARB-FDD) & DRINKS (ARB-DRK) LEDGER
+            TAB 5: FOOD (ARB-FDD) & DRINKS (ARB-DRK) LEDGER
             ============================================================ */}
         {activeTab === 'dining' && (
           <div className="space-y-4">
@@ -889,139 +1685,6 @@ export default function AccountantPortal({ onNavigate }) {
         )}
 
         {/* ============================================================
-            TAB 5: OPERATIONAL EXPENSES CASHBOOK
-            ============================================================ */}
-        {activeTab === 'expenses' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <form
-              onSubmit={handleAddExpenseSubmit}
-              className="lg:col-span-4 p-6 rounded-3xl bg-[#16030c] border border-[#d4af37]/35 space-y-4 h-fit shadow-xl text-xs"
-            >
-              <h3 className="font-cinzel text-base font-bold text-white flex items-center gap-2">
-                <Plus size={16} className="text-[#d4af37]" />
-                <span>Log Operational Expense</span>
-              </h3>
-
-              <div>
-                <label className="text-gray-300 block mb-1">Expense Category</label>
-                <select
-                  value={expCategory}
-                  onChange={(e) => setExpCategory(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-black/80 border border-white/15 text-white"
-                >
-                  <option value="Diesel & Power Generation">Diesel & Power Generation</option>
-                  <option value="Kitchen Stock & Provisions">Kitchen Stock & Provisions</option>
-                  <option value="VIP Bar & Cellar Restock">VIP Bar & Cellar Restock</option>
-                  <option value="Housekeeping & Laundry">Housekeeping & Laundry</option>
-                  <option value="Facility Maintenance">Facility Maintenance</option>
-                  <option value="Staff Payroll & Welfare">Staff Payroll & Welfare</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-gray-300 block mb-1">Supplier / Payee</label>
-                <input
-                  type="text"
-                  value={expVendor}
-                  onChange={(e) => setExpVendor(e.target.value)}
-                  placeholder="e.g. Onitsha Energy Supply Ltd"
-                  className="w-full px-3 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white"
-                />
-              </div>
-
-              <div>
-                <label className="text-gray-300 block mb-1">Description *</label>
-                <input
-                  type="text"
-                  required
-                  value={expDesc}
-                  onChange={(e) => setExpDesc(e.target.value)}
-                  placeholder="e.g. 400L Automotive Gas Oil for Generator #1"
-                  className="w-full px-3 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="text-gray-300 block mb-1">Amount (₦) *</label>
-                  <input
-                    type="number"
-                    required
-                    min="100"
-                    value={expAmount}
-                    onChange={(e) => setExpAmount(e.target.value)}
-                    placeholder="50000"
-                    className="w-full px-3 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="text-gray-300 block mb-1">Disbursed Via</label>
-                  <select
-                    value={expMethod}
-                    onChange={(e) => setExpMethod(e.target.value)}
-                    className="w-full px-2.5 py-2.5 rounded-xl bg-black/80 border border-white/15 text-white"
-                  >
-                    <option value="Corporate Bank Transfer">Bank Transfer</option>
-                    <option value="Imprest Petty Cash">Petty Cash</option>
-                    <option value="Corporate Debit Card">Debit Card</option>
-                  </select>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className={`w-full py-3 rounded-xl ${goldGradient} font-extrabold uppercase tracking-wider shadow-lg`}
-              >
-                Record Expense Voucher
-              </button>
-            </form>
-
-            <div className="lg:col-span-8 overflow-x-auto rounded-3xl border border-white/10 bg-[#16030c] shadow-xl">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#120208] text-gray-400 uppercase tracking-wider border-b border-white/10 text-[10px]">
-                  <tr>
-                    <th className="py-3 px-4">Voucher ID</th>
-                    <th className="py-3 px-4">Category & Description</th>
-                    <th className="py-3 px-4">Vendor</th>
-                    <th className="py-3 px-4">Amount</th>
-                    <th className="py-3 px-4 text-right">Remove</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {expenses.map((ex) => (
-                    <tr key={ex.id} className="hover:bg-white/[0.02]">
-                      <td className="py-3.5 px-4 font-mono font-bold text-rose-300">
-                        {ex.id}
-                        <span className="block text-[10px] text-gray-500 font-normal">{ex.createdAt}</span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="text-[#f3e5ab] font-semibold block">{ex.category}</span>
-                        <span className="text-gray-300">{ex.description}</span>
-                      </td>
-                      <td className="py-3.5 px-4 text-gray-300">{ex.vendor}</td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-rose-400">
-                        -₦{Number(ex.amount).toLocaleString()}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <button
-                          onClick={() => {
-                            portalStore.deleteExpense(ex.id);
-                            refreshAll();
-                          }}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-rose-400 hover:bg-rose-500/10"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ============================================================
             TAB 6: PRINTABLE OFFICIAL FINANCIAL AUDIT STATEMENT
             ============================================================ */}
         {activeTab === 'report' && (
@@ -1061,8 +1724,8 @@ export default function AccountantPortal({ onNavigate }) {
                 <strong className="font-mono text-base text-gray-900">₦{totalDrinkRevenue.toLocaleString()}</strong>
               </div>
               <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
-                <span className="text-emerald-800 block font-semibold">Net Operating Profit</span>
-                <strong className="font-mono text-base text-emerald-900">₦{netOperatingProfit.toLocaleString()}</strong>
+                <span className="text-emerald-800 block font-semibold">Total Collected Revenue</span>
+                <strong className="font-mono text-base text-emerald-900">₦{totalCollectedCashflow.toLocaleString()}</strong>
               </div>
             </div>
 
@@ -1095,15 +1758,10 @@ export default function AccountantPortal({ onNavigate }) {
                   <td className="py-2.5 text-center text-amber-900">{validDining.filter((o) => o.paymentStatus !== 'Paid').length}</td>
                   <td className="py-2.5 text-right font-bold text-amber-900">₦{totalReceivables.toLocaleString()}</td>
                 </tr>
-                <tr className="bg-rose-50">
-                  <td className="py-2.5 font-sans font-semibold text-rose-900">Less: Operational Expenses Cashbook</td>
-                  <td className="py-2.5 text-center text-rose-900">{expenses.length}</td>
-                  <td className="py-2.5 text-right font-bold text-rose-900">-₦{totalExpenses.toLocaleString()}</td>
-                </tr>
                 <tr className="border-t-2 border-[#5c0725] text-sm font-bold text-[#5c0725]">
-                  <td className="py-3 font-sans">NET REALIZED CASHFLOW SURPLUS</td>
+                  <td className="py-3 font-sans">TOTAL VERIFIED COLLECTED REVENUE</td>
                   <td className="py-3 text-center">AUDITED</td>
-                  <td className="py-3 text-right">₦{netOperatingProfit.toLocaleString()}</td>
+                  <td className="py-3 text-right">₦{totalCollectedCashflow.toLocaleString()}</td>
                 </tr>
               </tbody>
             </table>
