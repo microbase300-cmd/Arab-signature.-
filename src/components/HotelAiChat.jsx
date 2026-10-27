@@ -8,6 +8,10 @@ import {
   Mic, MicOff, Volume2, VolumeX, Square, Radio
 } from 'lucide-react';
 
+// Feature Flag: Set to false to disable voice features for a lean first launch.
+// When ready, simply switch to true to re-enable 100% client-side voice recognition & narration.
+const ENABLE_VOICE_ASSISTANT = false;
+
 export default function HotelAiChat({ onOpenBooking, onNavigate }) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(true);
@@ -19,7 +23,7 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
   });
   const prevAvailCountRef = useRef(liveAvailableCount);
 
-  // 100% Client-Side Voice Assistant States (0 Server Cost)
+  // 100% Client-Side Voice Assistant States (Dormant when ENABLE_VOICE_ASSISTANT = false)
   const [isVoiceMuted, setIsVoiceMuted] = useState(() => {
     if (typeof localStorage !== 'undefined') {
       return localStorage.getItem('ash_amira_voice_muted') === 'true';
@@ -37,7 +41,7 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
     {
       id: "welcome-1",
       sender: "ai",
-      text: "Warm greetings and welcome to **Arab Signature Hotel & Suites**, Nsugbe, Onitsha! 👑\n\nI am **Amira**, your Royal AI Concierge. I am voice-enabled! Tap the **microphone** to speak to me, or type anytime.\n\nHow may I assist your stay today?",
+      text: "Warm greetings and welcome to **Arab Signature Hotel & Suites**, Nsugbe, Onitsha! 👑\n\nI am **Amira**, your Royal AI Concierge. I can assist you with:\n• Checking **live room availability** right now\n• Securely tracking your **booking reference** (e.g. `ARS-BGD-7812AB` or `ARS-EXT-9421XK`)\n• Suite pricing, directions to Nsugbe, or dining menus.\n\nHow may I assist your stay today?",
       suggestions: [
         "Check Available Suites",
         "Track My Booking Code",
@@ -167,7 +171,7 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }
         ]);
-        if (!isVoiceMuted && clientVoiceAssistant.isSynthesisSupported()) {
+        if (ENABLE_VOICE_ASSISTANT && !isVoiceMuted && clientVoiceAssistant.isSynthesisSupported()) {
           handleSpeakSingleMessage(aiId, replyText);
         }
       }, 400);
@@ -191,7 +195,7 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }
         ]);
-        if (!isVoiceMuted && clientVoiceAssistant.isSynthesisSupported()) {
+        if (ENABLE_VOICE_ASSISTANT && !isVoiceMuted && clientVoiceAssistant.isSynthesisSupported()) {
           handleSpeakSingleMessage(aiId, replyText);
         }
       }, 500);
@@ -224,8 +228,8 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
           }
         ]);
 
-        // 100% Client-Side Voice Speech (Amira Speaks Response)
-        if (!isVoiceMuted && clientVoiceAssistant.isSynthesisSupported()) {
+        // 100% Client-Side Voice Speech (Amira Speaks Response when ENABLE_VOICE_ASSISTANT = true)
+        if (ENABLE_VOICE_ASSISTANT && !isVoiceMuted && clientVoiceAssistant.isSynthesisSupported()) {
           setCurrentlySpeakingMsgId(aiId);
           setIsSpeaking(true);
           clientVoiceAssistant.speakText(response.text, {
@@ -254,7 +258,7 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }
         ]);
-        if (!isVoiceMuted && clientVoiceAssistant.isSynthesisSupported()) {
+        if (ENABLE_VOICE_ASSISTANT && !isVoiceMuted && clientVoiceAssistant.isSynthesisSupported()) {
           handleSpeakSingleMessage(aiId, fallbackText);
         }
       } finally {
@@ -401,7 +405,7 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
           <button
             onClick={() => setIsOpen(true)}
             className="p-3 sm:px-4 sm:py-3 rounded-full bg-gradient-to-r from-[#5c0725] via-[#7d0a33] to-[#420317] border-2 border-[#d4af37] text-white shadow-2xl shadow-black/80 flex items-center gap-2.5 hover:scale-105 active:scale-95 transition-all group backdrop-blur-md"
-            title="Chat or Speak with Amira — Royal Voice AI Concierge"
+            title="Chat with Amira — Royal AI Concierge"
           >
             <div className="relative w-8 h-8 rounded-full overflow-hidden border border-[#d4af37]/60 bg-[#120208] flex-shrink-0">
               <img src="/logo.jpg" alt="Amira AI Logo" className="w-full h-full object-cover scale-110" />
@@ -410,13 +414,13 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
               )}
             </div>
             <div className="hidden sm:flex flex-col text-left">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#f3e5ab] tracking-wider uppercase">
+              <div className="flex items-center gap-1 text-[11px] font-bold text-[#f3e5ab] tracking-wider uppercase">
                 <Sparkles size={11} className="text-[#d4af37]" />
-                <span>Amira • Voice AI</span>
+                <span>{ENABLE_VOICE_ASSISTANT ? "Amira • Voice AI" : "Amira • AI Concierge"}</span>
               </div>
               <span className="text-[10px] text-gray-300 flex items-center gap-1">
-                <Mic size={10} className="text-[#d4af37]" />
-                <span>Voice Enabled • {liveAvailableCount} Suites</span>
+                {ENABLE_VOICE_ASSISTANT && <Mic size={10} className="text-[#d4af37]" />}
+                <span>{ENABLE_VOICE_ASSISTANT ? `Voice Enabled • ${liveAvailableCount} Suites` : `${liveAvailableCount} Suites Ready`}</span>
               </span>
             </div>
           </button>
@@ -451,22 +455,22 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
                 <div>
                   <div className="flex items-center gap-1.5">
                     <h3 className="font-cinzel font-bold text-sm text-[#f3e5ab] tracking-wide">
-                      Amira — Voice AI
+                      {ENABLE_VOICE_ASSISTANT ? "Amira — Voice AI" : "Amira — Royal AI"}
                     </h3>
                     <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] font-semibold border border-emerald-500/30">
                       Live
                     </span>
                   </div>
                   <p className="text-[10px] text-gray-300">
-                    Royal AI Concierge • Voice & Text
+                    {ENABLE_VOICE_ASSISTANT ? "Royal AI Concierge • Voice & Text" : "Royal AI Concierge • Nsugbe, Onitsha"}
                   </p>
                 </div>
               </div>
 
-              {/* Action Buttons: Voice Status, Mute/Unmute, Cloud Refresh, Close */}
+              {/* Action Buttons */}
               <div className="flex items-center gap-1">
-                {/* Speaking Waveform Indicator & Stop Button */}
-                {isSpeaking && (
+                {/* Speaking Waveform Indicator & Stop Button (When Voice Enabled) */}
+                {ENABLE_VOICE_ASSISTANT && isSpeaking && (
                   <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#120208] border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] animate-pulse">
                     <span className="flex items-center gap-0.5 h-2.5">
                       <span className="w-0.5 h-full bg-[#d4af37] animate-pulse" />
@@ -484,19 +488,21 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
                   </div>
                 )}
 
-                {/* Voice Narration Mute/Unmute Toggle */}
-                <button
-                  type="button"
-                  onClick={handleToggleVoiceMute}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    !isVoiceMuted 
-                      ? 'text-[#f3e5ab] hover:bg-white/10 hover:text-white' 
-                      : 'text-gray-500 hover:text-gray-300 hover:bg-white/10'
-                  }`}
-                  title={!isVoiceMuted ? "Voice Narration: ON (Click to Mute)" : "Voice Narration: MUTED (Click to Enable Speech)"}
-                >
-                  {!isVoiceMuted ? <Volume2 size={16} /> : <VolumeX size={16} />}
-                </button>
+                {/* Voice Narration Mute/Unmute Toggle (When Voice Enabled) */}
+                {ENABLE_VOICE_ASSISTANT && (
+                  <button
+                    type="button"
+                    onClick={handleToggleVoiceMute}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      !isVoiceMuted 
+                        ? 'text-[#f3e5ab] hover:bg-white/10 hover:text-white' 
+                        : 'text-gray-500 hover:text-gray-300 hover:bg-white/10'
+                    }`}
+                    title={!isVoiceMuted ? "Voice Narration: ON (Click to Mute)" : "Voice Narration: MUTED (Click to Enable Speech)"}
+                  >
+                    {!isVoiceMuted ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                  </button>
+                )}
 
                 {/* Force Refresh */}
                 <button
@@ -570,8 +576,8 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
                     <div className="flex items-center gap-1.5 px-1 font-mono text-[9px] text-gray-500">
                       <span>{isAi ? `Amira • ${msg.timestamp}` : msg.timestamp}</span>
 
-                      {/* Listen / Replay Speaker Button on AI Messages */}
-                      {isAi && (
+                      {/* Listen / Replay Speaker Button on AI Messages (When Voice Enabled) */}
+                      {ENABLE_VOICE_ASSISTANT && isAi && (
                         <button
                           type="button"
                           onClick={() => handleSpeakSingleMessage(msg.id, msg.text)}
@@ -630,11 +636,11 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Box Footer with Client-Side Voice Engine */}
+            {/* Input Box Footer */}
             <div className="p-3 bg-[#090105] border-t border-white/10">
               
-              {/* Listening Banner & Real-Time Interim Transcript */}
-              {isListening && (
+              {/* Listening Banner & Real-Time Interim Transcript (When Voice Enabled) */}
+              {ENABLE_VOICE_ASSISTANT && isListening && (
                 <div className="mb-2 p-2.5 rounded-xl bg-gradient-to-r from-[#5c0725] via-[#420317] to-[#14020a] border border-[#d4af37]/50 shadow-lg animate-in fade-in space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
@@ -662,8 +668,8 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
                 </div>
               )}
 
-              {/* Voice Notice / Permissions Error */}
-              {voiceNotice && (
+              {/* Voice Notice / Permissions Error (When Voice Enabled) */}
+              {ENABLE_VOICE_ASSISTANT && voiceNotice && (
                 <div className="mb-2 px-3 py-1.5 rounded-xl bg-red-950/80 border border-red-500/40 text-red-200 text-[11px] flex items-center justify-between animate-in fade-in">
                   <span>{voiceNotice}</span>
                   <button onClick={() => setVoiceNotice('')} className="text-gray-400 hover:text-white ml-2">✕</button>
@@ -675,20 +681,16 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
                 <div className="relative flex-1 flex items-center">
                   <input
                     type="text"
-                    placeholder={isListening ? "Listening to your voice..." : "Ask or speak to Amira about rooms, rates..."}
+                    placeholder="Ask Amira about rooms, rates, code (ARS-BGD-7812AB)..."
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    disabled={isListening}
-                    className={`w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-black/60 border text-white placeholder-gray-500 text-xs focus:outline-none transition-all ${
-                      isListening 
-                        ? 'border-emerald-500/50 bg-emerald-950/20 text-emerald-200' 
-                        : 'border-white/15 focus:border-[#d4af37]'
-                    }`}
+                    disabled={ENABLE_VOICE_ASSISTANT && isListening}
+                    className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-[#d4af37]"
                   />
                   <button
                     onClick={() => handleSendMessage()}
-                    disabled={!inputValue.trim() || isListening}
+                    disabled={!inputValue.trim() || (ENABLE_VOICE_ASSISTANT && isListening)}
                     className="absolute right-1.5 p-2 rounded-lg bg-gradient-to-r from-[#d4af37] to-[#aa820a] text-black disabled:opacity-30 transition-all hover:scale-105 active:scale-95"
                     title="Send Message to Amira"
                   >
@@ -696,31 +698,30 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
                   </button>
                 </div>
 
-                {/* 100% Client-Side Voice Input Microphone Button */}
-                <button
-                  type="button"
-                  onClick={handleToggleListening}
-                  className={`p-2.5 rounded-xl border transition-all flex items-center justify-center flex-shrink-0 ${
-                    isListening
-                      ? 'bg-gradient-to-r from-red-600 via-rose-600 to-pink-600 border-white text-white shadow-lg shadow-red-500/50 scale-105 animate-pulse'
-                      : 'bg-gradient-to-r from-[#5c0725] to-[#420317] border-[#d4af37]/60 text-[#f3e5ab] hover:border-[#d4af37] hover:scale-105 active:scale-95'
-                  }`}
-                  title={isListening ? "Stop Listening" : "Tap to Speak to Amira (Voice Input)"}
-                >
-                  {isListening ? (
-                    <MicOff size={15} />
-                  ) : (
-                    <Mic size={15} />
-                  )}
-                </button>
+                {/* 100% Client-Side Voice Input Microphone Button (When Voice Enabled) */}
+                {ENABLE_VOICE_ASSISTANT && (
+                  <button
+                    type="button"
+                    onClick={handleToggleListening}
+                    className={`p-2.5 rounded-xl border transition-all flex items-center justify-center flex-shrink-0 ${
+                      isListening
+                        ? 'bg-gradient-to-r from-red-600 via-rose-600 to-pink-600 border-white text-white shadow-lg shadow-red-500/50 scale-105 animate-pulse'
+                        : 'bg-gradient-to-r from-[#5c0725] to-[#420317] border-[#d4af37]/60 text-[#f3e5ab] hover:border-[#d4af37] hover:scale-105 active:scale-95'
+                    }`}
+                    title={isListening ? "Stop Listening" : "Tap to Speak to Amira (Voice Input)"}
+                  >
+                    {isListening ? (
+                      <MicOff size={15} />
+                    ) : (
+                      <Mic size={15} />
+                    )}
+                  </button>
+                )}
               </div>
 
               {/* Subfooter */}
               <div className="flex items-center justify-between text-[9px] text-gray-500 mt-1.5 px-1">
-                <span className="flex items-center gap-1 text-emerald-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  <span>100% Client-Side Voice • 0 Server Cost</span>
-                </span>
+                <span>Hotline: 0812 578 6875</span>
                 <span>Amira AI • Built by <a href="https://kinggold-one.vercel.app" target="_blank" rel="noopener noreferrer" className="text-[#d4af37] hover:underline">Microbase</a></span>
               </div>
             </div>
