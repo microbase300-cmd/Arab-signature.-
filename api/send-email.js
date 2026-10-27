@@ -1,8 +1,9 @@
 // Arab Signature Hotel & Suites — Resend Email Dispatch Serverless Function
 // Vercel Serverless Function (/api/send-email)
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Arab Signature Hotel <onboarding@resend.dev>';
+const RESEND_API_KEY = process.env.RESEND_API_KEY || process.env.VITE_RESEND_API_KEY;
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Arab Signature Hotel <concierge@arabsignature.com>';
+const SECURITY_FROM_EMAIL = process.env.RESEND_SECURITY_EMAIL || 'Arab Signature Security <security@arabsignature.com>';
 
 /**
  * Luxury HTML Email Templates
@@ -364,6 +365,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, error: 'Invalid email type. Supported: reservation, dining, otp.' });
     }
 
+    const senderHeader = type === 'otp' ? SECURITY_FROM_EMAIL : FROM_EMAIL;
+
     // Call Resend API via native fetch
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -372,7 +375,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: FROM_EMAIL,
+        from: senderHeader,
         to: [recipientEmail],
         subject,
         html

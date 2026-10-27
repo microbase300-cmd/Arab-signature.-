@@ -60,7 +60,8 @@ export default function AdminPortal({ onNavigate }) {
     username: '',
     password: '',
     name: '',
-    securityPin: ''
+    securityPin: '',
+    otpEmail: ''
   });
   const [showReceptionPass, setShowReceptionPass] = useState(false);
   const [showPinField, setShowPinField] = useState(false);
@@ -93,7 +94,8 @@ export default function AdminPortal({ onNavigate }) {
         username: staff.username,
         password: staff.password,
         name: staff.name,
-        securityPin: staff.securityPin || '742918'
+        securityPin: staff.securityPin || '742918',
+        otpEmail: staff.otpEmail || ''
       });
     }
   };
@@ -368,10 +370,11 @@ export default function AdminPortal({ onNavigate }) {
         receptionForm.username,
         receptionForm.password,
         receptionForm.name,
-        receptionForm.securityPin
+        receptionForm.securityPin,
+        receptionForm.otpEmail
       );
       refreshData();
-      showToast(`Chief Accountant credentials & 6-Digit PIN saved successfully.`);
+      showToast(`Chief Accountant credentials, Phone OTP Email & 6-Digit PIN saved successfully.`);
       return;
     }
 
@@ -379,10 +382,11 @@ export default function AdminPortal({ onNavigate }) {
       portalStore.updateAdminCredentials(
         receptionForm.username,
         receptionForm.password,
-        receptionForm.name
+        receptionForm.name,
+        receptionForm.otpEmail || receptionForm.username
       );
       refreshData();
-      showToast(`General Manager Executive Core credentials updated successfully.`);
+      showToast(`General Manager Executive Core personal email & credentials updated successfully.`);
       return;
     }
 
@@ -1325,9 +1329,21 @@ export default function AdminPortal({ onNavigate }) {
                       <span className="font-mono text-[#f3e5ab] font-semibold">{receptionUser?.password}</span>
                     </div>
                     {selectedStaffDesk === 'Accountant Office' && (
+                      <>
+                        <div>
+                          <span className="text-gray-500">Phone OTP Email: </span>
+                          <span className="font-mono text-amber-300 font-semibold">{receptionUser?.otpEmail || receptionUser?.username}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Emergency Backup PIN: </span>
+                          <span className="font-mono text-emerald-400 font-bold tracking-widest">{receptionUser?.securityPin || '742918'}</span>
+                        </div>
+                      </>
+                    )}
+                    {selectedStaffDesk === 'Admin Core' && (
                       <div>
-                        <span className="text-gray-500">6-Digit Security PIN: </span>
-                        <span className="font-mono text-emerald-400 font-bold tracking-widest">{receptionUser?.securityPin || '742918'}</span>
+                        <span className="text-gray-500">CEO OTP Delivery: </span>
+                        <span className="font-mono text-emerald-400 font-semibold">{receptionUser?.otpEmail || receptionUser?.username}</span>
                       </div>
                     )}
                   </div>
@@ -1382,17 +1398,38 @@ export default function AdminPortal({ onNavigate }) {
 
                   <div className="space-y-1.5">
                     <label className="text-gray-300 font-medium">
-                      Login Username / Email *
+                      {selectedStaffDesk === 'Admin Core'
+                        ? 'CEO / Admin Personal Email (Login & OTP Destination) *'
+                        : 'Login Username / Staff Email *'}
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. staff@arabsignature.com"
+                      placeholder={selectedStaffDesk === 'Admin Core' ? 'e.g. yourname@gmail.com' : 'e.g. accountant@arabsignature.com'}
                       value={receptionForm.username}
                       onChange={(e) => setReceptionForm({ ...receptionForm, username: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
                     />
                   </div>
+
+                  {/* Phone Email Inbox for Accountant OTP */}
+                  {selectedStaffDesk === 'Accountant Office' && (
+                    <div className="space-y-1.5 p-3 rounded-xl bg-amber-950/25 border border-[#d4af37]/30">
+                      <label className="text-[#f3e5ab] font-medium block">
+                        Accountant Phone Email Inbox (Receives 6-Digit OTP via Resend)
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="Enter Accountant's Gmail / Yahoo on his phone"
+                        value={receptionForm.otpEmail || ''}
+                        onChange={(e) => setReceptionForm({ ...receptionForm, otpEmail: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-black/60 border border-[#d4af37]/40 text-white placeholder-gray-500 font-mono focus:outline-none focus:border-[#d4af37]"
+                      />
+                      <p className="text-[10px] text-gray-400">
+                        Because Resend sends emails from <strong className="text-gray-200">security@arabsignature.com</strong>, enter the email address logged into the Accountant's phone (e.g. his Gmail) so he receives his 6-digit login OTP immediately.
+                      </p>
+                    </div>
+                  )}
 
                   <div className="space-y-1.5">
                     <label className="text-gray-300 font-medium">

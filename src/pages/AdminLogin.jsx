@@ -190,21 +190,27 @@ export default function AdminLogin({ onNavigate }) {
         {step === 1 && (
           <form onSubmit={handleRequestOtp} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-gray-300 block">
-                Executive Admin Username / Email
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-[#f3e5ab] block">
+                  CEO / Admin Personal Email Address *
+                </label>
+                <span className="text-[10px] text-emerald-400 font-mono">Receives 6-Digit OTP</span>
+              </div>
               <div className="relative">
                 <input
-                  type="text"
+                  type="email"
                   required
-                  autoComplete="off"
-                  placeholder="admin@arabsignature.com"
+                  autoComplete="email"
+                  placeholder="Enter your personal email (e.g. yourname@gmail.com)"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#d4af37]"
                 />
-                <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#d4af37]" />
               </div>
+              <p className="text-[10px] text-gray-400 leading-relaxed">
+                Sign in with your personal email address. <strong className="text-gray-200">security@arabsignature.com</strong> will dispatch your 6-digit verification code directly to your phone.
+              </p>
             </div>
 
             <div className="space-y-1.5">

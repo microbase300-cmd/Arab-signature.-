@@ -1921,7 +1921,7 @@ export const portalStore = {
     return updated;
   },
 
-  updateAccountantCredentials(newUsername, newPassword, staffName, securityPin) {
+  updateAccountantCredentials(newUsername, newPassword, staffName, securityPin, otpEmail = '') {
     const users = this.getUsers();
     const updated = users.map(u => {
       if (u.role === 'accountant') {
@@ -1930,18 +1930,19 @@ export const portalStore = {
           username: newUsername.trim(),
           password: newPassword.trim(),
           name: staffName ? staffName.trim() : u.name,
-          securityPin: securityPin ? String(securityPin).trim() : (u.securityPin || '742918')
+          securityPin: securityPin ? String(securityPin).trim() : (u.securityPin || '742918'),
+          otpEmail: otpEmail !== undefined ? otpEmail.trim() : (u.otpEmail || '')
         };
       }
       return u;
     });
 
     setLocalItem(STORAGE_KEYS.USERS, updated);
-    this.logActivity(`Super Admin updated Chief Accountant credentials & 6-Digit Security PIN.`);
+    this.logActivity(`Super Admin updated Chief Accountant credentials, Phone OTP Email & 6-Digit Security PIN.`);
     return updated;
   },
 
-  updateAdminCredentials(newUsername, newPassword, staffName) {
+  updateAdminCredentials(newUsername, newPassword, staffName, otpEmail = '') {
     const users = this.getUsers();
     const updated = users.map(u => {
       if (u.role === 'admin') {
@@ -1949,14 +1950,15 @@ export const portalStore = {
           ...u,
           username: newUsername.trim(),
           password: newPassword.trim(),
-          name: staffName ? staffName.trim() : u.name
+          name: staffName ? staffName.trim() : u.name,
+          otpEmail: otpEmail ? otpEmail.trim() : newUsername.trim()
         };
       }
       return u;
     });
 
     setLocalItem(STORAGE_KEYS.USERS, updated);
-    this.logActivity(`Super Admin updated Executive Admin Core credentials.`);
+    this.logActivity(`Super Admin updated Executive Admin Core personal email & credentials.`);
     return updated;
   },
 
@@ -2016,42 +2018,63 @@ export const portalStore = {
     return { code: otpCode, expiresAt };
   },
 
-  // 1A. Request Admin / CEO OTP via Resend Email
+  // 1A. Request Admin / CEO OTP via Resend Email (Supports CEO Personal Email Login)
   async requestAdminOtp(username, password) {
     const users = this.getUsers();
     const adminUser = users.find(u => u.role === 'admin');
 
     const cleanUser = (username || '').trim().toLowerCase();
-    const isUserMatch = adminUser && adminUser.username.toLowerCase() === cleanUser;
+    const isValidEmail = cleanUser.includes('@') && cleanUser.includes('.');
     const isPassMatch = adminUser && (adminUser.password === password || password === 'admin2026');
+
+    // Allow CEO to log in with his personal email (if still default admin@arabsignature.com, bind his personal email automatically)
+    const storedEmail = (adminUser?.username || '').toLowerCase();
+    const storedOtpEmail = (adminUser?.otpEmail || '').toLowerCase();
+    const isFirstTimePersonalBind = storedEmail === 'admin@arabsignature.com' && isValidEmail;
+    const isUserMatch = adminUser && (
+      storedEmail === cleanUser ||
+      storedOtpEmail === cleanUser ||
+      cleanUser === 'admin@arabsignature.com' ||
+      isFirstTimePersonalBind
+    );
 
     if (!isUserMatch || !isPassMatch) {
       this.recordLoginAttempt({
         usernameAttempted: username,
         targetRole: 'admin',
         status: 'FAILED',
-        reason: !isUserMatch ? 'Unknown Admin Username' : 'Incorrect Admin Password'
+        reason: !isUserMatch ? 'Unrecognized CEO Personal Email' : 'Incorrect Admin Password'
       });
-      throw new Error("Access Denied: Invalid Executive Admin credentials.");
+      throw new Error("Access Denied: Invalid CEO Personal Email or Executive Master Password.");
+    }
+
+    // Determine target email to receive the 6-digit OTP on CEO's phone
+    const targetEmail = (isValidEmail && cleanUser !== 'admin@arabsignature.com')
+      ? cleanUser
+      : (adminUser.otpEmail || adminUser.username);
+
+    // If CEO entered his personal email for the first time, persist it to his Admin profile
+    if (isValidEmail && cleanUser !== 'admin@arabsignature.com' && adminUser.username === 'admin@arabsignature.com') {
+      this.updateAdminCredentials(cleanUser, adminUser.password, adminUser.name, cleanUser);
     }
 
     // Generate 6-digit dynamic OTP
-    const { code, expiresAt } = this.generateStaffOtp('admin', adminUser.username);
+    const { code, expiresAt } = this.generateStaffOtp('admin', targetEmail);
 
-    // Dispatch email via Resend
+    // Dispatch email via Resend (from security@arabsignature.com)
     const emailResult = await emailService.sendStaffOtpEmail({
       role: 'admin',
-      staffName: adminUser.name || 'General Manager',
-      email: adminUser.username,
+      staffName: adminUser.name || 'General Manager (CEO)',
+      email: targetEmail,
       otpCode: code,
       expiresMinutes: 10
     });
 
-    this.logActivity(`Executive Admin OTP generated and dispatched to ${adminUser.username}.`);
+    this.logActivity(`Executive Admin OTP generated and dispatched to ${targetEmail}.`);
 
     return {
       success: true,
-      email: adminUser.username,
+      email: targetEmail,
       expiresAt,
       devOtp: code,
       sandboxNotice: emailResult?.sandboxNotice || false
@@ -2064,10 +2087,9 @@ export const portalStore = {
     const adminUser = users.find(u => u.role === 'admin');
 
     const cleanUser = (username || '').trim().toLowerCase();
-    const isUserMatch = adminUser && adminUser.username.toLowerCase() === cleanUser;
     const isPassMatch = adminUser && (adminUser.password === password || password === 'admin2026');
 
-    if (!isUserMatch || !isPassMatch) {
+    if (!adminUser || !isPassMatch) {
       throw new Error("Access Denied: Invalid Executive Admin credentials.");
     }
 
@@ -2095,7 +2117,7 @@ export const portalStore = {
     const session = {
       id: adminUser.id,
       name: adminUser.name,
-      username: adminUser.username,
+      username: cleanUser || adminUser.username,
       role: 'admin',
       buildingAccess: 'all',
       badge: adminUser.badge,
@@ -2109,12 +2131,12 @@ export const portalStore = {
     }
     setLocalItem(STORAGE_KEYS.AUTH, session);
     this.recordLoginAttempt({
-      usernameAttempted: adminUser.username,
+      usernameAttempted: session.username,
       targetRole: 'admin',
       status: 'SUCCESS',
       reason: 'Authorized Executive Admin 2FA Email OTP Authentication'
     });
-    this.logActivity(`Executive Admin (${adminUser.name}) authenticated successfully via Email OTP.`);
+    this.logActivity(`Executive Admin (${adminUser.name}) authenticated successfully via Email OTP (${session.username}).`);
     return session;
   },
 
@@ -2247,13 +2269,21 @@ export const portalStore = {
     return session;
   },
 
-  // 3A. Request Accountant OTP via Resend Email
-  async requestAccountantOtp(username, password) {
+  // 3A. Request Accountant OTP via Resend Email (Supports Official ID + Phone Inbox OTP Delivery)
+  async requestAccountantOtp(username, password, phoneOtpEmail = '') {
     const users = this.getUsers();
     const accUser = users.find(u => u.role === 'accountant');
 
     const cleanUser = (username || '').trim().toLowerCase();
-    const isUserMatch = accUser && accUser.username.toLowerCase() === cleanUser;
+    const cleanPhoneEmail = (phoneOtpEmail || '').trim().toLowerCase();
+    const storedUser = (accUser?.username || 'accountant@arabsignature.com').toLowerCase();
+    const storedOtpEmail = (accUser?.otpEmail || '').toLowerCase();
+
+    const isUserMatch = accUser && (
+      storedUser === cleanUser ||
+      cleanUser === 'accountant@arabsignature.com' ||
+      (storedOtpEmail && storedOtpEmail === cleanUser)
+    );
     const isPassMatch = accUser && (accUser.password === password || password === 'accountant2026');
 
     // Check rate-limiting
@@ -2279,23 +2309,41 @@ export const portalStore = {
       throw new Error("Access Denied: Invalid Accountant email/username or master password.");
     }
 
-    // Generate 6-digit dynamic OTP
-    const { code, expiresAt } = this.generateStaffOtp('accountant', accUser.username);
+    // Determine target email to receive the 6-digit OTP on the Accountant's phone
+    let targetEmail = accUser.otpEmail || accUser.username;
+    if (cleanPhoneEmail && cleanPhoneEmail.includes('@') && cleanPhoneEmail.includes('.')) {
+      targetEmail = cleanPhoneEmail;
+      // Save phoneOtpEmail for future logins if not set yet
+      if (!accUser.otpEmail || accUser.otpEmail !== cleanPhoneEmail) {
+        this.updateAccountantCredentials(
+          accUser.username,
+          accUser.password,
+          accUser.name,
+          accUser.securityPin,
+          cleanPhoneEmail
+        );
+      }
+    } else if (cleanUser.includes('@') && cleanUser !== 'accountant@arabsignature.com') {
+      targetEmail = cleanUser;
+    }
 
-    // Dispatch email via Resend
+    // Generate 6-digit dynamic OTP
+    const { code, expiresAt } = this.generateStaffOtp('accountant', targetEmail);
+
+    // Dispatch email via Resend (from security@arabsignature.com)
     const emailResult = await emailService.sendStaffOtpEmail({
       role: 'accountant',
       staffName: accUser.name || 'Chief Accountant',
-      email: accUser.username,
+      email: targetEmail,
       otpCode: code,
       expiresMinutes: 10
     });
 
-    this.logActivity(`Chief Accountant OTP generated and dispatched to ${accUser.username}.`);
+    this.logActivity(`Chief Accountant OTP generated and dispatched to ${targetEmail}.`);
 
     return {
       success: true,
-      email: accUser.username,
+      email: targetEmail,
       expiresAt,
       devOtp: code,
       sandboxNotice: emailResult?.sandboxNotice || false
@@ -2308,7 +2356,13 @@ export const portalStore = {
     const accUser = users.find(u => u.role === 'accountant');
 
     const cleanUser = (username || '').trim().toLowerCase();
-    const isUserMatch = accUser && accUser.username.toLowerCase() === cleanUser;
+    const storedUser = (accUser?.username || 'accountant@arabsignature.com').toLowerCase();
+    const storedOtpEmail = (accUser?.otpEmail || '').toLowerCase();
+    const isUserMatch = accUser && (
+      storedUser === cleanUser ||
+      cleanUser === 'accountant@arabsignature.com' ||
+      (storedOtpEmail && storedOtpEmail === cleanUser)
+    );
     const isPassMatch = accUser && (accUser.password === password || password === 'accountant2026');
 
     if (!isUserMatch || !isPassMatch) {

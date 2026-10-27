@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
@@ -8,6 +8,9 @@ function localApiMiddleware() {
   return {
     name: 'ash-local-api-middleware',
     configureServer(server) {
+      const env = loadEnv(server.config.mode, process.cwd(), '');
+      Object.assign(process.env, env);
+
       server.middlewares.use('/api/send-email', async (req, res) => {
         if (req.method === 'OPTIONS') {
           res.setHeader('Access-Control-Allow-Origin', '*');

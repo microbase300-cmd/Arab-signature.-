@@ -5,9 +5,12 @@ import {
 } from 'lucide-react';
 
 export default function AccountantLogin({ onNavigate }) {
+  const existingAcc = portalStore.getAccountantUser();
   const [step, setStep] = useState(1); // 1 = Credentials, 2 = 6-digit Email OTP
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(existingAcc?.username || 'accountant@arabsignature.com');
   const [password, setPassword] = useState('');
+  const [phoneOtpEmail, setPhoneOtpEmail] = useState(existingAcc?.otpEmail || '');
+  const [dispatchedToEmail, setDispatchedToEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -63,8 +66,9 @@ export default function AccountantLogin({ onNavigate }) {
     setIsLoading(true);
 
     try {
-      const res = await portalStore.requestAccountantOtp(username, password);
+      const res = await portalStore.requestAccountantOtp(username, password, phoneOtpEmail);
       setIsLoading(false);
+      setDispatchedToEmail(res.email);
       setStep(2);
       setCountdown(600);
       setResendCooldown(60);
@@ -110,8 +114,9 @@ export default function AccountantLogin({ onNavigate }) {
     setIsLoading(true);
 
     try {
-      const res = await portalStore.requestAccountantOtp(username, password);
+      const res = await portalStore.requestAccountantOtp(username, password, phoneOtpEmail);
       setIsLoading(false);
+      setDispatchedToEmail(res.email);
       setCountdown(600);
       setResendCooldown(60);
       setSuccessNotice(`New 6-digit security OTP sent to ${res.email}`);
@@ -235,6 +240,30 @@ export default function AccountantLogin({ onNavigate }) {
               </div>
             </div>
 
+            {/* 3. Phone Email Inbox to Receive 6-Digit OTP */}
+            <div className="space-y-1.5 p-3 rounded-2xl bg-white/[0.03] border border-[#d4af37]/25">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-[#f3e5ab] block">
+                  3. Phone Email Inbox (Receives 6-Digit OTP)
+                </label>
+                <span className="text-[10px] text-emerald-400 font-mono">Via Resend</span>
+              </div>
+              <div className="relative">
+                <input
+                  type="email"
+                  autoComplete="email"
+                  placeholder="Enter Gmail / phone email to receive OTP"
+                  value={phoneOtpEmail}
+                  onChange={(e) => setPhoneOtpEmail(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-[#d4af37]"
+                />
+                <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#d4af37]" />
+              </div>
+              <p className="text-[10px] text-gray-400 leading-relaxed">
+                Enter the personal email logged into your phone (e.g. Gmail/iCloud) so <strong className="text-gray-200">security@arabsignature.com</strong> delivers your 6-digit OTP straight to your mobile inbox.
+              </p>
+            </div>
+
             <button
               type="submit"
               disabled={isLoading}
@@ -261,7 +290,7 @@ export default function AccountantLogin({ onNavigate }) {
                 A 6-digit one-time passcode was dispatched to:
               </div>
               <div className="text-sm font-semibold text-[#f3e5ab] font-mono">
-                {username || 'accountant@arabsignature.com'}
+                {dispatchedToEmail || phoneOtpEmail || username || 'accountant@arabsignature.com'}
               </div>
             </div>
 
