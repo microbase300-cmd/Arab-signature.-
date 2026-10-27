@@ -12,15 +12,18 @@ import {
   AlertTriangle, Lock, Users, Phone, MapPin, Printer, RefreshCw, 
   Sparkles, KeyRound, Clock, Edit3, ChevronRight, UserCheck, 
   AlertCircle, ShieldAlert, Key, Check, Eye, EyeOff, Utensils,
-  Wine, Plus, Trash2, Search, X, Flame, GlassWater, Beer, CreditCard, ExternalLink, Calculator, Image as ImageIcon, Copy
+  Wine, Plus, Trash2, Search, X, Flame, GlassWater, Beer, CreditCard, ExternalLink, Calculator, Image as ImageIcon, Copy,
+  Building2, Package, BellRing, Layers, BarChart3
 } from 'lucide-react';
 import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
 
 export default function AdminPortal({ onNavigate }) {
   const [currentUser, setCurrentUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('rates'); // 'rates' | 'dining' | 'ledger' | 'receptionist' | 'logins' | 'settings' | 'logs'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'rates' | 'dining' | 'ledger' | 'receptionist' | 'logins' | 'settings' | 'logs'
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [diningOrders, setDiningOrders] = useState([]);
+  const [overviewOrderFilter, setOverviewOrderFilter] = useState('all'); // 'all' | 'pending' | 'drinks' | 'food'
   const [selectedProofBooking, setSelectedProofBooking] = useState(null);
   const [rates, setRates] = useState([]);
   const [hotelConfig, setHotelConfig] = useState({});
@@ -144,9 +147,11 @@ export default function AdminPortal({ onNavigate }) {
       currentReception = portalStore.getReceptionistUser(selectedStaffDesk);
     }
     const currentDining = portalStore.getDiningMenu();
+    const currentDiningOrders = portalStore.getDiningOrders();
 
     setRooms(currentRooms);
     setBookings(currentBookings);
+    setDiningOrders(currentDiningOrders);
     setRates(currentRates);
     setHotelConfig(currentConfig);
     setActivityLogs(currentLogs);
@@ -205,8 +210,10 @@ export default function AdminPortal({ onNavigate }) {
     window.addEventListener('ash_rates_updated', handleLiveSync);
     window.addEventListener('ash_rooms_updated', handleLiveSync);
     window.addEventListener('ash_menu_updated', handleLiveSync);
+    window.addEventListener('ash_dining_orders_updated', handleLiveSync);
     const unsubscribeRooms = portalStore.subscribeRooms(() => refreshData());
     const unsubscribeDining = portalStore.subscribeDiningMenu(() => refreshData());
+    const unsubscribeDiningOrders = portalStore.subscribeDiningOrders(() => refreshData());
     const unsubscribeChat = portalStore.subscribeChat(() => {
       setChatMessages(portalStore.getChatMessages('admin'));
     });
@@ -225,8 +232,10 @@ export default function AdminPortal({ onNavigate }) {
       window.removeEventListener('ash_rates_updated', handleLiveSync);
       window.removeEventListener('ash_rooms_updated', handleLiveSync);
       window.removeEventListener('ash_menu_updated', handleLiveSync);
+      window.removeEventListener('ash_dining_orders_updated', handleLiveSync);
       unsubscribeRooms();
       unsubscribeDining();
+      unsubscribeDiningOrders();
       clearInterval(chatHeartbeat);
       unsubscribeChat();
     };
@@ -415,26 +424,136 @@ export default function AdminPortal({ onNavigate }) {
     showToast("Hotel operations contact info saved successfully.");
   };
 
-  // Financial Calculations
-  const totalGrossRevenue = bookings.reduce((sum, b) => {
+  // 5. CEO Quick Order Status & Settlement Controls
+  const handleAdminUpdateOrderStatus = (orderId, newStatus) => {
+    portalStore.updateDiningOrderStatus(orderId, newStatus, currentUser?.name || 'General Manager (CEO)');
+    refreshData();
+    showToast(`Order ${orderId} updated to '${newStatus}'.`);
+  };
+
+  const handleAdminSettleOrder = (orderId) => {
+    portalStore.settleSingleDiningOrder(orderId, 'CEO Executive Verification', `CEO-VER-${Date.now().toString(36).toUpperCase()}`);
+    refreshData();
+    showToast(`Order ${orderId} marked as Paid.`);
+  };
+
+  // --- COMPREHENSIVE HOTEL OPERATIONS & PRODUCT METRICS ---
+  // A. Suite Bookings & Room Inventory Metrics
+  const roomPaidRevenue = bookings.reduce((sum, b) => {
     return sum + (b.paymentStatus === 'Paid' ? Number(b.amount || 0) : 0);
   }, 0);
 
-  const pendingRevenue = bookings.reduce((sum, b) => {
+  const roomPendingRevenue = bookings.reduce((sum, b) => {
     return sum + (b.paymentStatus !== 'Paid' ? Number(b.amount || 0) : 0);
   }, 0);
 
   const totalOccupied = rooms.filter(r => r.status === 'occupied').length;
-  const occupancyPercent = rooms.length > 0 ? Math.round((totalOccupied / rooms.length) * 100) : 0;
+  const totalReserved = rooms.filter(r => r.status === 'reserved').length;
+  const totalCleaning = rooms.filter(r => r.status === 'cleaning' || r.status === 'maintenance').length;
+  const totalAvailable = rooms.filter(r => r.status === 'available').length;
+  const totalRoomsBooked = totalOccupied + totalReserved;
+  const occupancyPercent = rooms.length > 0 ? Math.round((totalRoomsBooked / rooms.length) * 100) : 0;
   const totalNightsBooked = bookings.reduce((sum, b) => sum + (Number(b.nights) || 1), 0);
-  const averageDailyRate = totalNightsBooked > 0 ? Math.round(totalGrossRevenue / totalNightsBooked) : 45000;
 
-  // Paystack vs Front Desk split
-  const paystackRevenue = bookings
+  const mainWingRooms = rooms.filter(r => r.building === 'Main Building' || String(r.roomNumber).startsWith('6'));
+  const extWingRooms = rooms.filter(r => r.building === 'Extension Building' || String(r.roomNumber).startsWith('1'));
+  const mainWingBooked = mainWingRooms.filter(r => r.status === 'occupied' || r.status === 'reserved').length;
+  const extWingBooked = extWingRooms.filter(r => r.status === 'occupied' || r.status === 'reserved').length;
+
+  const mainWingRevenue = bookings
+    .filter(b => b.paymentStatus === 'Paid' && (b.building === 'Main Building' || String(b.id || '').includes('BGD') || String(b.roomNumber || '').startsWith('6')))
+    .reduce((s, b) => s + Number(b.amount || 0), 0);
+  const extWingRevenue = bookings
+    .filter(b => b.paymentStatus === 'Paid' && (b.building === 'Extension Building' || String(b.id || '').includes('EXT') || String(b.roomNumber || '').startsWith('1')))
+    .reduce((s, b) => s + Number(b.amount || 0), 0);
+
+  // B. Food (ARB-FDD) & Drinks (ARB-DRK) Operations Metrics
+  const activeDiningOrders = diningOrders.filter(o => o.orderStatus !== 'Cancelled');
+  const drinkOrders = activeDiningOrders.filter(o => o.orderType === 'drinks' || String(o.id || '').startsWith('ARB-DRK'));
+  const foodOrders = activeDiningOrders.filter(o => o.orderType !== 'drinks' && !String(o.id || '').startsWith('ARB-DRK'));
+
+  const totalDrinkUnitsSold = drinkOrders.reduce((sum, o) => {
+    const items = Array.isArray(o.items) ? o.items : [];
+    const itemCount = items.reduce((s, i) => s + (Number(i.qty) || 1), 0);
+    return sum + (itemCount || 1);
+  }, 0);
+
+  const totalFoodUnitsSold = foodOrders.reduce((sum, o) => {
+    const items = Array.isArray(o.items) ? o.items : [];
+    const itemCount = items.reduce((s, i) => s + (Number(i.qty) || 1), 0);
+    return sum + (itemCount || 1);
+  }, 0);
+
+  const totalDrinkRevenue = drinkOrders.reduce((sum, o) => sum + Number(o.amount || 0), 0);
+  const totalFoodRevenue = foodOrders.reduce((sum, o) => sum + Number(o.amount || 0), 0);
+  const paidDiningRevenue = activeDiningOrders
+    .filter(o => o.paymentStatus === 'Paid')
+    .reduce((sum, o) => sum + Number(o.amount || 0), 0);
+  const pendingDiningRevenue = activeDiningOrders
+    .filter(o => o.paymentStatus !== 'Paid')
+    .reduce((sum, o) => sum + Number(o.amount || 0), 0);
+
+  // Pending / Active Order Queue
+  const isOrderCompleted = (status) => {
+    const s = String(status || '').toLowerCase();
+    return s.includes('delivered') || s.includes('picked up') || s.includes('completed') || s.includes('served') || s.includes('cancelled');
+  };
+  const pendingDiningOrders = activeDiningOrders.filter(o => !isOrderCompleted(o.orderStatus));
+  const pendingDrinkOrdersCount = drinkOrders.filter(o => !isOrderCompleted(o.orderStatus)).length;
+  const pendingFoodOrdersCount = foodOrders.filter(o => !isOrderCompleted(o.orderStatus)).length;
+  const readyForPickupCount = activeDiningOrders.filter(o => String(o.orderStatus || '').toLowerCase().includes('ready')).length;
+
+  // Combined Hotel Gross Revenue (Rooms + Food + Drinks)
+  const totalGrossRevenue = roomPaidRevenue + paidDiningRevenue;
+  const pendingRevenue = roomPendingRevenue + pendingDiningRevenue;
+
+  // Paystack vs Front Desk split (across Rooms + Dining)
+  const paystackRoomRev = bookings
     .filter(b => b.paymentStatus === 'Paid' && b.paymentMethod && b.paymentMethod.toLowerCase().includes('paystack'))
     .reduce((sum, b) => sum + Number(b.amount || 0), 0);
+  const paystackDiningRev = activeDiningOrders
+    .filter(o => o.paymentStatus === 'Paid' && o.paymentMethod && o.paymentMethod.toLowerCase().includes('paystack'))
+    .reduce((sum, o) => sum + Number(o.amount || 0), 0);
+  const paystackRevenue = paystackRoomRev + paystackDiningRev;
+  const frontDeskRevenue = Math.max(0, totalGrossRevenue - paystackRevenue);
 
-  const frontDeskRevenue = totalGrossRevenue - paystackRevenue;
+  // Product Catalog Breakdown
+  const foodCatalogItems = diningMenu.filter(i => i.type === 'food');
+  const drinkCatalogItems = diningMenu.filter(i => i.type === 'drinks');
+
+  // Item-level sales aggregation for Top Products
+  const itemSalesMap = {};
+  activeDiningOrders.forEach(order => {
+    (order.items || []).forEach(item => {
+      const key = item.name || item.id || 'Item';
+      if (!itemSalesMap[key]) {
+        itemSalesMap[key] = {
+          name: key,
+          type: item.type || order.orderType || 'food',
+          qtySold: 0,
+          revenue: 0
+        };
+      }
+      const q = Number(item.qty) || 1;
+      const rev = Number(item.totalPrice) || (Number(item.unitPrice || item.price || 0) * q);
+      itemSalesMap[key].qtySold += q;
+      itemSalesMap[key].revenue += rev;
+    });
+  });
+  const topDrinksSoldList = Object.values(itemSalesMap)
+    .filter(i => i.type === 'drinks')
+    .sort((a, b) => b.qtySold - a.qtySold);
+  const topFoodSoldList = Object.values(itemSalesMap)
+    .filter(i => i.type !== 'drinks')
+    .sort((a, b) => b.qtySold - a.qtySold);
+
+  // Filtered Orders for CEO Overview Queue
+  const filteredOverviewOrders = activeDiningOrders.filter(o => {
+    if (overviewOrderFilter === 'pending') return !isOrderCompleted(o.orderStatus);
+    if (overviewOrderFilter === 'drinks') return o.orderType === 'drinks' || String(o.id || '').startsWith('ARB-DRK');
+    if (overviewOrderFilter === 'food') return o.orderType !== 'drinks' && !String(o.id || '').startsWith('ARB-DRK');
+    return true;
+  });
 
   // Login Monitor Stats
   const successfulLogins = loginAttempts.filter(l => l.status === 'SUCCESS').length;
@@ -454,14 +573,14 @@ export default function AdminPortal({ onNavigate }) {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-cinzel font-bold text-base sm:text-lg text-white tracking-wide">
-                Executive General Manager Portal
+                CEO &amp; General Manager Command Portal
               </h1>
               <span className="px-2 py-0.5 rounded-full bg-[#d4af37]/20 border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] font-mono uppercase tracking-wider">
-                Full Security Privilege
+                Full Executive Authority
               </span>
             </div>
             <p className="text-[11px] text-gray-400">
-              Arab Signature Hotel & Suites • Nsugbe, Onitsha
+              Arab Signature Hotel &amp; Suites &bull; Live Operations, Products &amp; Financial Command
             </p>
           </div>
         </div>
@@ -470,17 +589,17 @@ export default function AdminPortal({ onNavigate }) {
         <div className="flex items-center gap-2.5">
           {/* Accountant Portal Shortcut */}
           <button
-            onClick={() => onNavigate('accountant')}
+            onClick={() => onNavigate(SECURE_PORTAL_ROUTES.ACCOUNTANT_PORTAL)}
             className="px-3 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 text-emerald-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all"
             title="Open Accountant & Financial Audit Portal"
           >
             <Calculator size={14} className="text-emerald-400" />
-            <span className="hidden sm:inline">Accountant Portal</span>
+            <span className="hidden sm:inline">Accountant Vault</span>
           </button>
 
           {/* Reception Portal Shortcut */}
           <button
-            onClick={() => onNavigate('reception')}
+            onClick={() => onNavigate(SECURE_PORTAL_ROUTES.MAIN_RECEPTION_PORTAL)}
             className="px-3 py-2 rounded-xl bg-[#d4af37]/15 hover:bg-[#d4af37]/25 border border-[#d4af37]/35 text-[#f3e5ab] hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all"
             title="Open Front Desk Reception Portal"
           >
@@ -522,92 +641,111 @@ export default function AdminPortal({ onNavigate }) {
       {/* 2. Main Executive Dashboard Content */}
       <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         
-        {/* Executive KPI Overview Cards */}
+        {/* Executive KPI Overview Cards (Rooms Booked, Drinks/Food Sold, Pending Orders, Total Revenue) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
-          {/* Gross Confirmed Revenue */}
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-[#16030c] to-[#2e0513] border border-[#d4af37]/40 shadow-xl">
-            <div className="flex items-center justify-between text-xs text-gray-400">
-              <span className="uppercase tracking-wider font-semibold">Confirmed Gross Revenue</span>
+          {/* 1. Rooms Booked & Live Suite Status */}
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-[#16030c] to-[#2e0513] border border-[#d4af37]/45 shadow-xl">
+            <div className="flex items-center justify-between text-xs text-gray-300">
+              <span className="uppercase tracking-wider font-semibold">Rooms Booked &amp; Active</span>
+              <BedDouble size={16} className="text-[#d4af37]" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-2.5">
+              <span className="text-2xl sm:text-3xl font-cinzel font-bold text-white">
+                {totalRoomsBooked} <span className="text-sm font-sans font-normal text-gray-400">/ {rooms.length || 34} Rooms</span>
+              </span>
+              <span className="text-xs font-mono font-bold text-[#f3e5ab] px-2 py-0.5 rounded-full bg-[#d4af37]/15 border border-[#d4af37]/30">
+                {occupancyPercent}%
+              </span>
+            </div>
+            <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-gray-300">
+              <span><strong className="text-emerald-400">{totalOccupied}</strong> Checked-In</span>
+              <span><strong className="text-amber-400">{totalReserved}</strong> Reserved</span>
+              <span><strong className="text-gray-400">{totalAvailable}</strong> Free</span>
+            </div>
+          </div>
+
+          {/* 2. Drinks & Food Sold (VIP Bar & Al-Sultan Kitchen) */}
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-[#16030c] to-[#120208] border border-white/15 shadow-xl">
+            <div className="flex items-center justify-between text-xs text-gray-300">
+              <span className="uppercase tracking-wider font-semibold">Drinks &amp; Food Sold</span>
+              <Wine size={16} className="text-[#d4af37]" />
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="p-2 rounded-xl bg-black/40 border border-purple-500/25">
+                <div className="text-[10px] text-purple-300 uppercase font-semibold">Drinks Sold</div>
+                <div className="text-lg font-mono font-bold text-white">{totalDrinkUnitsSold} <span className="text-[10px] font-sans text-gray-400">units</span></div>
+                <div className="text-[10px] font-mono text-[#f3e5ab]">₦{totalDrinkRevenue.toLocaleString()}</div>
+              </div>
+              <div className="p-2 rounded-xl bg-black/40 border border-amber-500/25">
+                <div className="text-[10px] text-amber-300 uppercase font-semibold">Food Sold</div>
+                <div className="text-lg font-mono font-bold text-white">{totalFoodUnitsSold} <span className="text-[10px] font-sans text-gray-400">plates</span></div>
+                <div className="text-[10px] font-mono text-emerald-400">₦{totalFoodRevenue.toLocaleString()}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Pending Orders & Action Queue */}
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-[#16030c] to-[#120208] border border-white/15 shadow-xl">
+            <div className="flex items-center justify-between text-xs text-gray-300">
+              <span className="uppercase tracking-wider font-semibold">Pending Orders Queue</span>
+              <BellRing size={16} className={pendingDiningOrders.length > 0 ? "text-amber-400 animate-bounce" : "text-[#d4af37]"} />
+            </div>
+            <div className="mt-2 flex items-baseline gap-2.5">
+              <span className="text-2xl sm:text-3xl font-mono font-bold text-amber-400">
+                {pendingDiningOrders.length}
+              </span>
+              <span className="text-xs text-gray-400">active orders in preparation</span>
+            </div>
+            <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-gray-300">
+              <span><strong className="text-purple-300">{pendingDrinkOrdersCount}</strong> Bar Drinks</span>
+              <span><strong className="text-amber-300">{pendingFoodOrdersCount}</strong> Kitchen Food</span>
+              <span><strong className="text-emerald-400">{readyForPickupCount}</strong> Ready</span>
+            </div>
+          </div>
+
+          {/* 4. Total Hotel Revenue (Rooms + Food + Drinks) */}
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-[#16030c] to-[#120208] border border-[#d4af37]/35 shadow-xl">
+            <div className="flex items-center justify-between text-xs text-gray-300">
+              <span className="uppercase tracking-wider font-semibold">Total Hotel Revenue</span>
               <DollarSign size={16} className="text-[#d4af37]" />
             </div>
             <div className="text-2xl sm:text-3xl font-mono font-bold text-[#f3e5ab] mt-2">
               ₦{totalGrossRevenue.toLocaleString()}
             </div>
-            <div className="text-[11px] text-emerald-400 mt-2 flex items-center justify-between">
-              <span>Verified Settlements</span>
+            <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[10px] font-mono">
+              <span className="text-gray-300">Suites: <strong className="text-white">₦{roomPaidRevenue.toLocaleString()}</strong></span>
+              <span className="text-gray-300">F&amp;B: <strong className="text-emerald-400">₦{paidDiningRevenue.toLocaleString()}</strong></span>
               {pendingRevenue > 0 && (
-                <span className="text-amber-400 font-mono text-[10px]">
-                  +₦{pendingRevenue.toLocaleString()} Pending
-                </span>
+                <span className="text-amber-400">+₦{pendingRevenue.toLocaleString()} Unsettled</span>
               )}
-            </div>
-          </div>
-
-          {/* Occupancy Rate */}
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-[#16030c] to-[#120208] border border-white/10 shadow-xl">
-            <div className="flex items-center justify-between text-xs text-gray-400">
-              <span className="uppercase tracking-wider font-semibold">Live Occupancy</span>
-              <BedDouble size={16} className="text-[#d4af37]" />
-            </div>
-            <div className="text-2xl sm:text-3xl font-cinzel font-bold text-white mt-2">
-              {occupancyPercent}%
-            </div>
-            <div className="text-[11px] text-gray-400 mt-2">
-              {totalOccupied} of {rooms.length || 34} luxury suites occupied
-            </div>
-          </div>
-
-          {/* Security & Login Health */}
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-[#16030c] to-[#120208] border border-white/10 shadow-xl">
-            <div className="flex items-center justify-between text-xs text-gray-400">
-              <span className="uppercase tracking-wider font-semibold">Login Security Monitor</span>
-              <ShieldCheck size={16} className="text-[#d4af37]" />
-            </div>
-            <div className="mt-2 flex items-baseline gap-3">
-              <span className="text-2xl font-bold font-mono text-emerald-400">
-                {successfulLogins}
-              </span>
-              <span className="text-xs text-gray-400">authorized</span>
-              {failedLogins > 0 ? (
-                <span className="text-xs font-mono font-bold text-rose-400 px-2 py-0.5 rounded bg-rose-950/60 border border-rose-500/40">
-                  {failedLogins} Failed Attempts
-                </span>
-              ) : (
-                <span className="text-xs text-emerald-400">0 Breaches</span>
-              )}
-            </div>
-            <div className="text-[10px] text-gray-500 mt-2">
-              Active Monitoring on Nsugbe Terminals
-            </div>
-          </div>
-
-          {/* Payment Channels Split */}
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-[#16030c] to-[#120208] border border-white/10 shadow-xl">
-            <div className="flex items-center justify-between text-xs text-gray-400">
-              <span className="uppercase tracking-wider font-semibold">Payment Channels</span>
-              <Activity size={16} className="text-[#d4af37]" />
-            </div>
-            <div className="mt-2 space-y-1 text-xs">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Online Paystack:</span>
-                <span className="font-mono font-semibold text-emerald-400">₦{paystackRevenue.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Front Desk / POS:</span>
-                <span className="font-mono font-semibold text-[#f3e5ab]">₦{frontDeskRevenue.toLocaleString()}</span>
-              </div>
-            </div>
-            <div className="text-[10px] text-gray-500 mt-2">
-              {bookings.length} total transactions audited
             </div>
           </div>
 
         </div>
 
-        {/* 3. Executive Tab Navigation */}
+        {/* 3. Executive Tab Navigation (Default: Hotel Operations & Products Overview) */}
         <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-3">
           
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+              activeTab === 'overview'
+                ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black shadow-lg shadow-[#d4af37]/20'
+                : 'bg-[#16030c] text-gray-400 hover:text-white border border-white/10'
+            }`}
+          >
+            <BarChart3 size={14} />
+            <span>Hotel Operations &amp; Products Summary</span>
+            {pendingDiningOrders.length > 0 && (
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                activeTab === 'overview' ? 'bg-black text-[#f3e5ab]' : 'bg-amber-500 text-black'
+              }`}>
+                {pendingDiningOrders.length} Pending
+              </span>
+            )}
+          </button>
+
           <button
             onClick={() => setActiveTab('rates')}
             className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
@@ -705,6 +843,711 @@ export default function AdminPortal({ onNavigate }) {
           </button>
 
         </div>
+
+        {/* ======================================================== */}
+        {/* 3.5 TAB CONTENT: HOTEL OPERATIONS & PRODUCTS SUMMARY (DEFAULT CEO VIEW) */}
+        {/* ======================================================== */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+
+            {/* Executive Welcome & Live Operations Banner */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-[#1d0511] via-[#16030c] to-[#120208] border border-[#d4af37]/40 shadow-lg">
+              <div>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-mono uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Live Hotel Pulse
+                  </span>
+                  <h2 className="font-cinzel font-bold text-lg sm:text-xl text-white">
+                    Full Hotel Operations, Products &amp; Sales Command
+                  </h2>
+                </div>
+                <p className="text-xs text-gray-300 mt-1">
+                  Real-time executive view of all <strong className="text-white">34 Luxury Suites</strong> (Main 600 Wing &amp; Extension 100 Wing), <strong className="text-[#f3e5ab]">VIP Bar &amp; Drinks Sales</strong>, <strong className="text-orange-300">Al-Sultan Kitchen Orders</strong>, and live pending requests.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setActiveTab('rates')}
+                  className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-[#d4af37]/30 text-[#f3e5ab] text-xs font-semibold flex items-center gap-1.5 transition-all"
+                >
+                  <DollarSign size={14} className="text-[#d4af37]" />
+                  <span>Suite Rates</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('drinks-menu')}
+                  className="px-3.5 py-2 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-200 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                >
+                  <Wine size={14} className="text-purple-400" />
+                  <span>Drinks Catalog ({drinkCatalogItems.length})</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('food-menu')}
+                  className="px-3.5 py-2 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-200 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                >
+                  <Utensils size={14} className="text-orange-400" />
+                  <span>Food Menu ({foodCatalogItems.length})</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('settings')}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-200 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                >
+                  <Settings size={14} className="text-emerald-400" />
+                  <span>Operations Controls</span>
+                </button>
+              </div>
+            </div>
+
+            {/* SECTION 1: 4 PILLARS OF HOTEL OPERATIONS (HOW THINGS ARE GOING) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+
+              {/* Pillar 1: Main Building (600 Wing — 20 Suites) */}
+              <div className="p-5 rounded-2xl bg-[#16030c] border border-[#d4af37]/30 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="px-2.5 py-1 rounded-lg bg-[#d4af37]/15 border border-[#d4af37]/30 text-[#f3e5ab] text-[10px] font-mono uppercase font-bold">
+                      Main Building &bull; 600 Wing
+                    </span>
+                    <Building2 size={18} className="text-[#d4af37]" />
+                  </div>
+                  <h3 className="font-cinzel font-bold text-base text-white">
+                    Suites 601 &ndash; 620 (20 Rooms)
+                  </h3>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    Standard, Deluxe, Executive &amp; Royal Diplomatic Suites
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2 mt-4">
+                    <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-center">
+                      <p className="text-lg font-bold text-emerald-400 font-mono">{mainWingOccupied}</p>
+                      <p className="text-[10px] text-gray-400 uppercase">Checked In</p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-center">
+                      <p className="text-lg font-bold text-amber-300 font-mono">{mainWingReserved}</p>
+                      <p className="text-[10px] text-gray-400 uppercase">Reserved</p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/25 text-center">
+                      <p className="text-lg font-bold text-blue-300 font-mono">{mainWingAvailable}</p>
+                      <p className="text-[10px] text-gray-400 uppercase">Available</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs">
+                  <span className="text-gray-400">Main Wing Revenue:</span>
+                  <span className="font-mono font-bold text-[#f3e5ab]">₦{mainWingRoomRev.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Pillar 2: Extension Building (100 Wing — 14 Suites) */}
+              <div className="p-5 rounded-2xl bg-[#16030c] border border-cyan-500/30 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="px-2.5 py-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-[10px] font-mono uppercase font-bold">
+                      Extension Wing &bull; 100 Wing
+                    </span>
+                    <BedDouble size={18} className="text-cyan-400" />
+                  </div>
+                  <h3 className="font-cinzel font-bold text-base text-white">
+                    Suites 101 &ndash; 114 (14 Rooms)
+                  </h3>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    2-Bedroom Apartments &amp; Diplomatic Double Suites
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2 mt-4">
+                    <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-center">
+                      <p className="text-lg font-bold text-emerald-400 font-mono">{extWingOccupied}</p>
+                      <p className="text-[10px] text-gray-400 uppercase">Checked In</p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-center">
+                      <p className="text-lg font-bold text-amber-300 font-mono">{extWingReserved}</p>
+                      <p className="text-[10px] text-gray-400 uppercase">Reserved</p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/25 text-center">
+                      <p className="text-lg font-bold text-blue-300 font-mono">{extWingAvailable}</p>
+                      <p className="text-[10px] text-gray-400 uppercase">Available</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs">
+                  <span className="text-gray-400">Extension Revenue:</span>
+                  <span className="font-mono font-bold text-cyan-300">₦{extWingRoomRev.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Pillar 3: VIP Bar & Wine Cellar (ARB-DRK) */}
+              <div className="p-5 rounded-2xl bg-[#16030c] border border-purple-500/30 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="px-2.5 py-1 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[10px] font-mono uppercase font-bold">
+                      VIP Bar &bull; ARB-DRK
+                    </span>
+                    <Wine size={18} className="text-purple-400" />
+                  </div>
+                  <h3 className="font-cinzel font-bold text-base text-white">
+                    Drinks &amp; Wine Cellar Sales
+                  </h3>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {drinkCatalogItems.filter(i => i.available !== false).length} Active Drinks in Bar Catalog
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2 mt-4">
+                    <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/25 text-center">
+                      <p className="text-lg font-bold text-purple-300 font-mono">{totalDrinkUnitsSold}</p>
+                      <p className="text-[10px] text-gray-400 uppercase">Sold Units</p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-center">
+                      <p className="text-lg font-bold text-white font-mono">{drinkOrders.length}</p>
+                      <p className="text-[10px] text-gray-400 uppercase">Orders</p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-center">
+                      <p className="text-lg font-bold text-amber-300 font-mono">{pendingDrinkOrdersCount}</p>
+                      <p className="text-[10px] text-gray-400 uppercase">Pending</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs">
+                  <span className="text-gray-400">Bar Sales Value:</span>
+                  <span className="font-mono font-bold text-purple-300">₦{totalDrinkRevenue.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Pillar 4: Al-Sultan Culinary Kitchen (ARB-FDD) */}
+              <div className="p-5 rounded-2xl bg-[#16030c] border border-orange-500/30 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="px-2.5 py-1 rounded-lg bg-orange-500/15 border border-orange-500/30 text-orange-300 text-[10px] font-mono uppercase font-bold">
+                      Restaurant &bull; ARB-FDD
+                    </span>
+                    <Utensils size={18} className="text-orange-400" />
+                  </div>
+                  <h3 className="font-cinzel font-bold text-base text-white">
+                    Kitchen &amp; Room Dining Sales
+                  </h3>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {foodCatalogItems.filter(i => i.available !== false).length} Active Dishes in Kitchen Menu
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2 mt-4">
+                    <div className="p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/25 text-center">
+                      <p className="text-lg font-bold text-orange-300 font-mono">{totalFoodUnitsSold}</p>
+                      <p className="text-[10px] text-gray-400 uppercase">Plates Sold</p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-center">
+                      <p className="text-lg font-bold text-white font-mono">{foodOrders.length}</p>
+                      <p className="text-[10px] text-gray-400 uppercase">Orders</p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-center">
+                      <p className="text-lg font-bold text-amber-300 font-mono">{pendingFoodOrdersCount}</p>
+                      <p className="text-[10px] text-gray-400 uppercase">Pending</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs">
+                  <span className="text-gray-400">Kitchen Sales Value:</span>
+                  <span className="font-mono font-bold text-orange-300">₦{totalFoodRevenue.toLocaleString()}</span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* SECTION 2: LIVE PENDING ORDERS QUEUE & ACTIVE ROOM BOOKINGS */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+              {/* Left 7 Cols: Live Food & Drinks Order Queue (Pending & Completed) */}
+              <div className="lg:col-span-7 p-5 rounded-2xl bg-[#16030c] border border-[#d4af37]/30 flex flex-col">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <BellRing size={16} className={pendingDiningOrders.length > 0 ? 'text-amber-400 animate-bounce' : 'text-[#d4af37]'} />
+                      <h3 className="font-cinzel font-bold text-base text-white">
+                        Live Bar &amp; Kitchen Order Queue
+                      </h3>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-mono font-bold">
+                        {pendingDiningOrders.length} Pending
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Monitor or fulfill guest drink orders (<code className="text-purple-300">ARB-DRK</code>) and food orders (<code className="text-orange-300">ARB-FDD</code>) in real time.
+                    </p>
+                  </div>
+
+                  {/* Filter Pills */}
+                  <div className="flex items-center gap-1.5 bg-[#0e0107] p-1 rounded-xl border border-white/10 self-start">
+                    {[
+                      { id: 'all', label: `All (${activeDiningOrders.length})` },
+                      { id: 'pending', label: `Pending (${pendingDiningOrders.length})` },
+                      { id: 'drinks', label: `Drinks (${drinkOrders.length})` },
+                      { id: 'food', label: `Food (${foodOrders.length})` },
+                    ].map(tab => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setOverviewOrderFilter(tab.id)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                          overviewOrderFilter === tab.id
+                            ? 'bg-[#d4af37] text-black'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Orders List */}
+                <div className="mt-4 space-y-3 max-h-[430px] overflow-y-auto pr-1">
+                  {filteredOverviewOrders.length === 0 ? (
+                    <div className="p-8 rounded-xl bg-[#0e0107] border border-white/5 text-center">
+                      <CheckCircle2 size={28} className="text-emerald-400 mx-auto mb-2 opacity-80" />
+                      <p className="text-sm font-semibold text-white">No Orders Matching Filter</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        All guest food and drink orders in this category have been cleared.
+                      </p>
+                    </div>
+                  ) : (
+                    filteredOverviewOrders.slice(0, 20).map((order) => {
+                      const isDrink = order.orderType === 'drinks' || String(order.id || '').startsWith('ARB-DRK');
+                      const completed = isOrderCompleted(order.orderStatus);
+                      const isPaid = order.paymentStatus === 'Paid';
+
+                      return (
+                        <div
+                          key={order.id}
+                          className={`p-4 rounded-xl border transition-all ${
+                            !completed
+                              ? 'bg-[#1c0410] border-amber-500/40 shadow-md'
+                              : 'bg-[#0e0107]/90 border-white/10'
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                                isDrink
+                                  ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300'
+                                  : 'bg-orange-500/20 border border-orange-500/40 text-orange-300'
+                              }`}>
+                                {order.id}
+                              </span>
+                              <span className="text-xs font-bold text-white">
+                                {order.guestName || 'Walk-In VIP Guest'}
+                              </span>
+                              <span className="text-[11px] text-gray-400">
+                                &bull; {order.roomNumber && order.roomNumber !== 'Walk-In / Lounge' ? `Suite ${order.roomNumber}` : (order.fulfillmentLabel || 'Bar / Restaurant Pickup')}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                completed
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              }`}>
+                                {order.orderStatus || 'Order Received'}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                isPaid
+                                  ? 'bg-emerald-500/20 text-emerald-300'
+                                  : 'bg-red-500/20 text-red-300'
+                              }`}>
+                                {isPaid ? 'PAID' : 'UNPAID'}
+                              </span>
+                              <span className="font-mono font-bold text-sm text-[#f3e5ab]">
+                                ₦{Number(order.amount || 0).toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Ordered Items Breakdown */}
+                          <div className="mt-2.5 flex flex-wrap gap-1.5">
+                            {(order.items || []).map((item, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] text-gray-200"
+                              >
+                                <strong className="text-[#f3e5ab]">{item.qty || 1}x</strong> {item.name}
+                              </span>
+                            ))}
+                            {(!order.items || order.items.length === 0) && order.summary && (
+                              <span className="text-xs text-gray-300">{order.summary}</span>
+                            )}
+                          </div>
+
+                          {/* Footer: Timestamp & Quick CEO Fulfillment Actions */}
+                          <div className="mt-3 pt-2.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                            <span className="text-gray-400">
+                              Ordered: <strong className="text-gray-300">{order.createdAt || 'Just now'}</strong> &bull; Method: <strong className="text-gray-300">{order.paymentMethod || 'Pay at Front Desk'}</strong>
+                            </span>
+
+                            <div className="flex items-center gap-1.5">
+                              {!completed && (
+                                <>
+                                  <button
+                                    onClick={() => handleAdminUpdateOrderStatus(order.id, 'Ready for Pickup')}
+                                    className="px-2.5 py-1 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 text-blue-200 text-[10px] font-semibold transition-all"
+                                  >
+                                    Mark Ready
+                                  </button>
+                                  <button
+                                    onClick={() => handleAdminUpdateOrderStatus(order.id, order.fulfillmentType === 'pickup' ? 'Picked Up' : 'Delivered to Room')}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 text-[10px] font-semibold transition-all"
+                                  >
+                                    Mark Delivered
+                                  </button>
+                                </>
+                              )}
+                              {!isPaid && (
+                                <button
+                                  onClick={() => handleAdminSettleOrder(order.id)}
+                                  className="px-2.5 py-1 rounded-lg bg-[#d4af37]/20 hover:bg-[#d4af37]/30 border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] font-semibold transition-all"
+                                >
+                                  Confirm Paid
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Right 5 Cols: Active Room Bookings & Live 34-Room Status Map */}
+              <div className="lg:col-span-5 space-y-6">
+
+                {/* Live 34-Suite Status Grid */}
+                <div className="p-5 rounded-2xl bg-[#16030c] border border-[#d4af37]/30">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h3 className="font-cinzel font-bold text-sm sm:text-base text-white">
+                        Live 34-Suite Status Map
+                      </h3>
+                      <p className="text-[11px] text-gray-400">
+                        Instant room-by-room occupancy across both buildings
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-lg bg-[#d4af37]/15 border border-[#d4af37]/30 text-[#f3e5ab] text-xs font-mono font-bold">
+                      {totalRoomsBooked} / {rooms.length || 34} Booked
+                    </span>
+                  </div>
+
+                  {/* Main Building 600 Wing Grid */}
+                  <div className="mb-3">
+                    <p className="text-[10px] font-mono uppercase tracking-wider text-[#d4af37] mb-1.5">
+                      Main Building &bull; 600 Wing (Suites 601–620)
+                    </p>
+                    <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
+                      {mainWingRooms.map(r => {
+                        const color =
+                          r.status === 'Occupied'
+                            ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200'
+                            : r.status === 'Reserved'
+                            ? 'bg-amber-500/25 border-amber-400 text-amber-200'
+                            : r.status === 'Cleaning'
+                            ? 'bg-purple-500/25 border-purple-400 text-purple-200'
+                            : 'bg-white/5 border-white/10 text-gray-400';
+                        return (
+                          <div
+                            key={r.roomNumber}
+                            title={`Suite ${r.roomNumber} (${r.type}): ${r.status}${r.guest ? ` — ${r.guest}` : ''}`}
+                            className={`py-1.5 rounded-lg border text-center font-mono text-[11px] font-bold ${color}`}
+                          >
+                            {r.roomNumber}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Extension Building 100 Wing Grid */}
+                  <div>
+                    <p className="text-[10px] font-mono uppercase tracking-wider text-cyan-300 mb-1.5">
+                      Extension Building &bull; 100 Wing (Suites 101–114)
+                    </p>
+                    <div className="grid grid-cols-7 gap-1.5">
+                      {extWingRooms.map(r => {
+                        const color =
+                          r.status === 'Occupied'
+                            ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200'
+                            : r.status === 'Reserved'
+                            ? 'bg-amber-500/25 border-amber-400 text-amber-200'
+                            : r.status === 'Cleaning'
+                            ? 'bg-purple-500/25 border-purple-400 text-purple-200'
+                            : 'bg-white/5 border-white/10 text-gray-400';
+                        return (
+                          <div
+                            key={r.roomNumber}
+                            title={`Suite ${r.roomNumber} (${r.type}): ${r.status}${r.guest ? ` — ${r.guest}` : ''}`}
+                            className={`py-1.5 rounded-lg border text-center font-mono text-[11px] font-bold ${color}`}
+                          >
+                            {r.roomNumber}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Legend */}
+                  <div className="mt-3 pt-3 border-t border-white/10 flex flex-wrap items-center gap-3 text-[10px] text-gray-400">
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block"></span> Occupied ({totalOccupied})</span>
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400 inline-block"></span> Reserved Hold ({totalReserved})</span>
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-gray-500 inline-block"></span> Available ({totalAvailable})</span>
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-purple-400 inline-block"></span> Cleaning ({totalCleaning})</span>
+                  </div>
+                </div>
+
+                {/* Recent & Active Suite Bookings */}
+                <div className="p-5 rounded-2xl bg-[#16030c] border border-[#d4af37]/30">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h3 className="font-cinzel font-bold text-sm sm:text-base text-white">
+                        Recent Suite Reservations
+                      </h3>
+                      <p className="text-[11px] text-gray-400">
+                        Latest guest bookings &amp; front desk check-ins
+                      </p>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-gray-300 text-[10px] font-mono">
+                      {bookings.length} Total
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5 max-h-[210px] overflow-y-auto pr-1">
+                    {bookings.slice(0, 8).map((b) => (
+                      <div
+                        key={b.id}
+                        className="p-3 rounded-xl bg-[#0e0107] border border-white/10 flex items-center justify-between gap-2"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono font-bold text-[#d4af37]">{b.id}</span>
+                            <span className="text-xs font-bold text-white">{b.guestName}</span>
+                          </div>
+                          <p className="text-[11px] text-gray-400 mt-0.5">
+                            Suite <strong className="text-gray-200">{b.roomNumber}</strong> ({b.roomType}) &bull; {b.nights || 1} Night(s)
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-mono font-bold text-xs text-[#f3e5ab]">
+                            ₦{Number(b.amount || 0).toLocaleString()}
+                          </p>
+                          <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-[9px] font-semibold ${
+                            b.bookingStatus === 'Checked In'
+                              ? 'bg-emerald-500/20 text-emerald-300'
+                              : b.bookingStatus === 'Reserved'
+                              ? 'bg-amber-500/20 text-amber-300'
+                              : 'bg-gray-500/20 text-gray-300'
+                          }`}>
+                            {b.bookingStatus}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* SECTION 3: FULL HOTEL PRODUCTS & CATALOG PERFORMANCE ("HOW EVERYTHING IS GOING") */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+              {/* Product Line 1: All 6 Suite Categories Performance */}
+              <div className="p-5 rounded-2xl bg-[#16030c] border border-[#d4af37]/30 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-[#d4af37]">
+                        Hospitality Product Line 1
+                      </span>
+                      <h3 className="font-cinzel font-bold text-base text-white">
+                        6 Luxury Suite Categories
+                      </h3>
+                    </div>
+                    <BedDouble size={18} className="text-[#d4af37]" />
+                  </div>
+
+                  <div className="space-y-2.5 mt-3">
+                    {Object.entries(rates).map(([key, suite]) => {
+                      const suiteRooms = rooms.filter(r => r.suiteKey === key);
+                      const bookedCount = suiteRooms.filter(r => r.status === 'Occupied' || r.status === 'Reserved').length;
+                      const suiteRev = bookings
+                        .filter(b => b.suiteKey === key || b.roomType === suite.name)
+                        .reduce((s, b) => s + Number(b.amount || 0), 0);
+
+                      return (
+                        <div key={key} className="p-3 rounded-xl bg-[#0e0107] border border-white/10 flex items-center justify-between gap-2">
+                          <div>
+                            <p className="text-xs font-bold text-white">{suite.name}</p>
+                            <p className="text-[10px] text-gray-400">
+                              Rate: <strong className="text-[#f3e5ab]">₦{Number(suite.baseRate || 0).toLocaleString()}/night</strong> &bull; {bookedCount}/{suiteRooms.length || suite.totalRooms || '-'} Booked
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-mono font-bold text-xs text-emerald-400">
+                              ₦{suiteRev.toLocaleString()}
+                            </p>
+                            <p className="text-[9px] text-gray-500 uppercase">Earned</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setActiveTab('rates')}
+                  className="mt-4 w-full py-2.5 rounded-xl bg-[#d4af37]/15 hover:bg-[#d4af37]/25 border border-[#d4af37]/40 text-[#f3e5ab] text-xs font-semibold transition-all"
+                >
+                  Open Suite Rate Manager &rarr;
+                </button>
+              </div>
+
+              {/* Product Line 2: VIP Bar & Wine Cellar Products Performance */}
+              <div className="p-5 rounded-2xl bg-[#16030c] border border-purple-500/30 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-purple-300">
+                        Hospitality Product Line 2
+                      </span>
+                      <h3 className="font-cinzel font-bold text-base text-white">
+                        VIP Bar &amp; Beverage Products
+                      </h3>
+                    </div>
+                    <Wine size={18} className="text-purple-400" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="p-2.5 rounded-xl bg-[#0e0107] border border-white/10">
+                      <p className="text-[10px] text-gray-400 uppercase">Catalog Drinks</p>
+                      <p className="text-base font-bold text-white font-mono">
+                        {drinkCatalogItems.filter(i => i.available !== false).length} <span className="text-[11px] text-gray-400 font-normal">/ {drinkCatalogItems.length}</span>
+                      </p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-[#0e0107] border border-white/10">
+                      <p className="text-[10px] text-gray-400 uppercase">Drinks Sold</p>
+                      <p className="text-base font-bold text-purple-300 font-mono">
+                        {totalDrinkUnitsSold} <span className="text-[11px] text-gray-400 font-normal">units</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-gray-400 mb-2">
+                    Top Selling Drinks &amp; Bottles
+                  </p>
+
+                  <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                    {topDrinksSoldList.length === 0 ? (
+                      drinkCatalogItems.slice(0, 6).map(item => (
+                        <div key={item.id} className="p-2.5 rounded-xl bg-[#0e0107] border border-white/5 flex items-center justify-between text-xs">
+                          <div>
+                            <p className="font-semibold text-gray-200">{item.name}</p>
+                            <p className="text-[10px] text-gray-500">{item.category}</p>
+                          </div>
+                          <span className="font-mono text-purple-300 font-bold">₦{Number(item.price || 0).toLocaleString()}</span>
+                        </div>
+                      ))
+                    ) : (
+                      topDrinksSoldList.slice(0, 6).map((item, idx) => (
+                        <div key={idx} className="p-2.5 rounded-xl bg-[#0e0107] border border-purple-500/20 flex items-center justify-between text-xs">
+                          <div>
+                            <p className="font-bold text-white">{item.name}</p>
+                            <p className="text-[10px] text-purple-300 font-mono">{item.qtySold} unit(s) sold</p>
+                          </div>
+                          <span className="font-mono text-[#f3e5ab] font-bold">₦{Number(item.revenue || 0).toLocaleString()}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setActiveTab('drinks-menu')}
+                  className="mt-4 w-full py-2.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/40 text-purple-200 text-xs font-semibold transition-all"
+                >
+                  Manage Drinks &amp; Wine Prices &rarr;
+                </button>
+              </div>
+
+              {/* Product Line 3: Al-Sultan Culinary Kitchen Products Performance */}
+              <div className="p-5 rounded-2xl bg-[#16030c] border border-orange-500/30 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-orange-300">
+                        Hospitality Product Line 3
+                      </span>
+                      <h3 className="font-cinzel font-bold text-base text-white">
+                        Al-Sultan Kitchen Products
+                      </h3>
+                    </div>
+                    <Utensils size={18} className="text-orange-400" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="p-2.5 rounded-xl bg-[#0e0107] border border-white/10">
+                      <p className="text-[10px] text-gray-400 uppercase">Active Dishes</p>
+                      <p className="text-base font-bold text-white font-mono">
+                        {foodCatalogItems.filter(i => i.available !== false).length} <span className="text-[11px] text-gray-400 font-normal">/ {foodCatalogItems.length}</span>
+                      </p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-[#0e0107] border border-white/10">
+                      <p className="text-[10px] text-gray-400 uppercase">Plates Sold</p>
+                      <p className="text-base font-bold text-orange-300 font-mono">
+                        {totalFoodUnitsSold} <span className="text-[11px] text-gray-400 font-normal">plates</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-gray-400 mb-2">
+                    Top Selling Kitchen Dishes
+                  </p>
+
+                  <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                    {topFoodSoldList.length === 0 ? (
+                      foodCatalogItems.slice(0, 6).map(item => (
+                        <div key={item.id} className="p-2.5 rounded-xl bg-[#0e0107] border border-white/5 flex items-center justify-between text-xs">
+                          <div>
+                            <p className="font-semibold text-gray-200">{item.name}</p>
+                            <p className="text-[10px] text-gray-500">{item.category}</p>
+                          </div>
+                          <span className="font-mono text-orange-300 font-bold">₦{Number(item.price || 0).toLocaleString()}</span>
+                        </div>
+                      ))
+                    ) : (
+                      topFoodSoldList.slice(0, 6).map((item, idx) => (
+                        <div key={idx} className="p-2.5 rounded-xl bg-[#0e0107] border border-orange-500/20 flex items-center justify-between text-xs">
+                          <div>
+                            <p className="font-bold text-white">{item.name}</p>
+                            <p className="text-[10px] text-orange-300 font-mono">{item.qtySold} plate(s) sold</p>
+                          </div>
+                          <span className="font-mono text-[#f3e5ab] font-bold">₦{Number(item.revenue || 0).toLocaleString()}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setActiveTab('food-menu')}
+                  className="mt-4 w-full py-2.5 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/40 text-orange-200 text-xs font-semibold transition-all"
+                >
+                  Manage Food Menu &amp; Prices &rarr;
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        )}
 
         {/* ======================================================== */}
         {/* 4. TAB CONTENT: LIVE SUITE RATE MANAGER */}
