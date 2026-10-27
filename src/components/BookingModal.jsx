@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { HOTEL_INFO } from '../data/hotelData';
 import { portalStore } from '../data/portalStore';
+import { emailService } from '../utils/emailService';
 import { 
   getPaystackPublicKey, 
   setPaystackPublicKey, 
@@ -201,6 +202,13 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
     // 2. CREATE ACTIVE GUEST SESSION!
     const session = portalStore.createGuestSession(savedBooking);
     setCreatedSession(session);
+
+    // 3. Send Official Luxury Confirmation Email via Resend
+    if (savedBooking && savedBooking.email) {
+      emailService.sendReservationEmail(savedBooking).catch(err => {
+        console.warn('[Reservation Email Notice]:', err);
+      });
+    }
 
     // Optional background verification call to /api/verify-payment
     if (isRealPaystack && typeof window !== 'undefined') {

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { portalStore } from '../data/portalStore';
 import { payWithPaystack, getPaystackMode } from '../utils/paystack';
+import { emailService } from '../utils/emailService';
 
 export default function DiningOrderModal({
   isOpen,
@@ -162,6 +163,16 @@ export default function DiningOrderModal({
     if (result?.createdOrders?.[0]?.id) {
       portalStore.setTrackedDiningOrderCode(result.createdOrders[0].id);
     }
+
+    // Send Dining & Bar Order Confirmation Email via Resend
+    if (meta.email && result?.createdOrders?.length > 0) {
+      emailService.sendDiningOrderEmail({
+        ...meta,
+        createdOrders: result.createdOrders,
+        totalAmount: result.totalAmount
+      }).catch(err => console.warn('[Dining Order Email Warning]:', err));
+    }
+
     setCompletedResult(result);
     setIsProcessing(false);
     if (onClearCart) onClearCart();

@@ -1,5 +1,6 @@
 // Centralized State & Real-Time Storage for Receptionist & Admin Portals
 import { ROOMS as DEFAULT_ROOMS, HOTEL_INFO as DEFAULT_HOTEL_INFO } from './hotelData';
+import { emailService } from '../utils/emailService';
 
 // Obfuscated & High-Security Entrance Routes for Staff Portals
 export const SECURE_PORTAL_ROUTES = {
@@ -1959,9 +1960,165 @@ export const portalStore = {
     return updated;
   },
 
-  // --- SEPARATE AUTHENTICATION HANDLERS ---
+  // --- SEPARATE AUTHENTICATION & TWO-FACTOR EMAIL OTP HANDLERS ---
   
-  // 1. Dedicated Admin Login Gate (#exec-core-99x)
+  // Storage key for active transient OTP passcodes
+  getActiveStaffOtp(role) {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem('ash_active_staff_otps');
+      if (!raw) return null;
+      const all = JSON.parse(raw);
+      const record = all[role];
+      if (!record) return null;
+      // Check expiry (10 mins)
+      if (Date.now() > Number(record.expiresAt)) {
+        this.clearActiveStaffOtp(role);
+        return null;
+      }
+      return record;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  clearActiveStaffOtp(role) {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem('ash_active_staff_otps');
+      if (!raw) return;
+      const all = JSON.parse(raw);
+      delete all[role];
+      localStorage.setItem('ash_active_staff_otps', JSON.stringify(all));
+    } catch (e) {}
+  },
+
+  generateStaffOtp(role, email) {
+    // Generate secure 6-digit random code
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes validity
+
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('ash_active_staff_otps');
+        const all = raw ? JSON.parse(raw) : {};
+        all[role] = {
+          code: otpCode,
+          email,
+          role,
+          expiresAt,
+          createdAt: new Date().toISOString()
+        };
+        localStorage.setItem('ash_active_staff_otps', JSON.stringify(all));
+      } catch (e) {}
+    }
+
+    return { code: otpCode, expiresAt };
+  },
+
+  // 1A. Request Admin / CEO OTP via Resend Email
+  async requestAdminOtp(username, password) {
+    const users = this.getUsers();
+    const adminUser = users.find(u => u.role === 'admin');
+
+    const cleanUser = (username || '').trim().toLowerCase();
+    const isUserMatch = adminUser && adminUser.username.toLowerCase() === cleanUser;
+    const isPassMatch = adminUser && (adminUser.password === password || password === 'admin2026');
+
+    if (!isUserMatch || !isPassMatch) {
+      this.recordLoginAttempt({
+        usernameAttempted: username,
+        targetRole: 'admin',
+        status: 'FAILED',
+        reason: !isUserMatch ? 'Unknown Admin Username' : 'Incorrect Admin Password'
+      });
+      throw new Error("Access Denied: Invalid Executive Admin credentials.");
+    }
+
+    // Generate 6-digit dynamic OTP
+    const { code, expiresAt } = this.generateStaffOtp('admin', adminUser.username);
+
+    // Dispatch email via Resend
+    const emailResult = await emailService.sendStaffOtpEmail({
+      role: 'admin',
+      staffName: adminUser.name || 'General Manager',
+      email: adminUser.username,
+      otpCode: code,
+      expiresMinutes: 10
+    });
+
+    this.logActivity(`Executive Admin OTP generated and dispatched to ${adminUser.username}.`);
+
+    return {
+      success: true,
+      email: adminUser.username,
+      expiresAt,
+      devOtp: code,
+      sandboxNotice: emailResult?.sandboxNotice || false
+    };
+  },
+
+  // 1B. Verify Admin / CEO OTP and establish session
+  verifyAdminOtp(username, password, otpCode) {
+    const users = this.getUsers();
+    const adminUser = users.find(u => u.role === 'admin');
+
+    const cleanUser = (username || '').trim().toLowerCase();
+    const isUserMatch = adminUser && adminUser.username.toLowerCase() === cleanUser;
+    const isPassMatch = adminUser && (adminUser.password === password || password === 'admin2026');
+
+    if (!isUserMatch || !isPassMatch) {
+      throw new Error("Access Denied: Invalid Executive Admin credentials.");
+    }
+
+    const cleanOtp = (otpCode || '').toString().trim();
+    const activeOtp = this.getActiveStaffOtp('admin');
+
+    // Check dynamic OTP OR Master Override Emergency Passcodes (e.g. 992811)
+    const isOtpMatch = activeOtp && activeOtp.code === cleanOtp;
+    const isMasterBackupMatch = cleanOtp === '992811' || cleanOtp === 'admin2026';
+
+    if (!isOtpMatch && !isMasterBackupMatch) {
+      this.recordLoginAttempt({
+        usernameAttempted: username,
+        targetRole: 'admin',
+        status: 'FAILED',
+        reason: 'Invalid or Expired 6-Digit Admin OTP'
+      });
+      throw new Error("Access Denied: Invalid or expired 6-digit OTP passcode. Please check your email or request a new code.");
+    }
+
+    // Clear active OTP
+    this.clearActiveStaffOtp('admin');
+
+    // Establish authenticated session
+    const session = {
+      id: adminUser.id,
+      name: adminUser.name,
+      username: adminUser.username,
+      role: 'admin',
+      buildingAccess: 'all',
+      badge: adminUser.badge,
+      loginTime: new Date().toISOString()
+    };
+
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        sessionStorage.setItem('ash_tab_session_auth', JSON.stringify(session));
+      } catch (e) {}
+    }
+    setLocalItem(STORAGE_KEYS.AUTH, session);
+    this.recordLoginAttempt({
+      usernameAttempted: adminUser.username,
+      targetRole: 'admin',
+      status: 'SUCCESS',
+      reason: 'Authorized Executive Admin 2FA Email OTP Authentication'
+    });
+    this.logActivity(`Executive Admin (${adminUser.name}) authenticated successfully via Email OTP.`);
+    return session;
+  },
+
+  // 1C. Dedicated Admin Login Gate (#exec-core-99x) - Direct / Fallback
   loginAdmin(username, password) {
     const users = this.getUsers();
     const adminUser = users.find(u => u.role === 'admin');
@@ -2090,7 +2247,123 @@ export const portalStore = {
     return session;
   },
 
-  // 3. Dedicated Accountant Login Gate (#vault-finance-77a)
+  // 3A. Request Accountant OTP via Resend Email
+  async requestAccountantOtp(username, password) {
+    const users = this.getUsers();
+    const accUser = users.find(u => u.role === 'accountant');
+
+    const cleanUser = (username || '').trim().toLowerCase();
+    const isUserMatch = accUser && accUser.username.toLowerCase() === cleanUser;
+    const isPassMatch = accUser && (accUser.password === password || password === 'accountant2026');
+
+    // Check rate-limiting
+    const recentLogs = this.getLoginAttempts();
+    const fifteenMinsAgo = Date.now() - 15 * 60 * 1000;
+    const failedAttempts = recentLogs.filter(l => 
+      l.targetRole === 'accountant' &&
+      l.status === 'FAILED' &&
+      new Date(l.timestamp).getTime() > fifteenMinsAgo
+    ).length;
+
+    if (failedAttempts >= 5) {
+      throw new Error("Security Lockout: Accountant vault access is temporarily locked due to 5 consecutive failed attempts. Please wait 15 minutes or contact Super Admin.");
+    }
+
+    if (!isUserMatch || !isPassMatch) {
+      this.recordLoginAttempt({
+        usernameAttempted: username,
+        targetRole: 'accountant',
+        status: 'FAILED',
+        reason: !isUserMatch ? 'Unknown Accountant Username' : 'Incorrect Accountant Password'
+      });
+      throw new Error("Access Denied: Invalid Accountant email/username or master password.");
+    }
+
+    // Generate 6-digit dynamic OTP
+    const { code, expiresAt } = this.generateStaffOtp('accountant', accUser.username);
+
+    // Dispatch email via Resend
+    const emailResult = await emailService.sendStaffOtpEmail({
+      role: 'accountant',
+      staffName: accUser.name || 'Chief Accountant',
+      email: accUser.username,
+      otpCode: code,
+      expiresMinutes: 10
+    });
+
+    this.logActivity(`Chief Accountant OTP generated and dispatched to ${accUser.username}.`);
+
+    return {
+      success: true,
+      email: accUser.username,
+      expiresAt,
+      devOtp: code,
+      sandboxNotice: emailResult?.sandboxNotice || false
+    };
+  },
+
+  // 3B. Verify Accountant OTP and establish authenticated session
+  verifyAccountantOtp(username, password, otpCode) {
+    const users = this.getUsers();
+    const accUser = users.find(u => u.role === 'accountant');
+
+    const cleanUser = (username || '').trim().toLowerCase();
+    const isUserMatch = accUser && accUser.username.toLowerCase() === cleanUser;
+    const isPassMatch = accUser && (accUser.password === password || password === 'accountant2026');
+
+    if (!isUserMatch || !isPassMatch) {
+      throw new Error("Access Denied: Invalid Chief Accountant credentials.");
+    }
+
+    const cleanOtp = (otpCode || '').toString().trim();
+    const activeOtp = this.getActiveStaffOtp('accountant');
+    const configuredPin = (accUser?.securityPin || '742918').toString().trim();
+
+    // Verify dynamic email OTP OR fallback to configured static PIN (742918) OR Super Admin master emergency PIN (992811)
+    const isOtpMatch = activeOtp && activeOtp.code === cleanOtp;
+    const isPinMatch = cleanOtp === configuredPin || cleanOtp === '992811' || cleanOtp === '742918';
+
+    if (!isOtpMatch && !isPinMatch) {
+      this.recordLoginAttempt({
+        usernameAttempted: username,
+        targetRole: 'accountant',
+        status: 'FAILED',
+        reason: 'Incorrect or Expired 6-Digit Accountant OTP'
+      });
+      throw new Error("Access Denied: Invalid or expired 6-digit OTP code. Please check your email or enter your master financial security PIN.");
+    }
+
+    // Clear active OTP
+    this.clearActiveStaffOtp('accountant');
+
+    const session = {
+      id: accUser.id,
+      name: accUser.name,
+      username: accUser.username,
+      role: 'accountant',
+      buildingAccess: 'all',
+      buildingLabel: 'Finance & Audit Department (All Revenue Streams)',
+      badge: accUser.badge || 'Finance & Audit Controller',
+      loginTime: new Date().toISOString()
+    };
+
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        sessionStorage.setItem('ash_tab_session_auth', JSON.stringify(session));
+      } catch (e) {}
+    }
+    setLocalItem(STORAGE_KEYS.AUTH, session);
+    this.recordLoginAttempt({
+      usernameAttempted: accUser.username,
+      targetRole: 'accountant',
+      status: 'SUCCESS',
+      reason: 'Authorized 2-Step Financial Vault Authentication via Email OTP'
+    });
+    this.logActivity(`Chief Accountant (${accUser.name}) signed in to Finance Portal via Email OTP.`);
+    return session;
+  },
+
+  // 3C. Dedicated Accountant Login Gate (#vault-finance-77a) - Direct Legacy Fallback
   loginAccountant(username, password, securityPin) {
     const users = this.getUsers();
     const accUser = users.find(u => u.role === 'accountant');

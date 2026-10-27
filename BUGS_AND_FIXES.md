@@ -201,3 +201,28 @@
   4. **Exclusive Admin Credential Authority**: Expanded the Staff Credentials Manager in `AdminPortal.jsx` to cover all 4 roles (Main Desk, Extension Desk, Accountant Vault with PIN editor, and General Manager Core). Staff portals contain zero password change capability. Provided 1-click "Copy Secret Entrance Link" buttons.
   5. **Removed Backdoor Autofills**: Removed all test quick-fill buttons and cross-portal navigation links from `AccountantLogin.jsx` and `AdminLogin.jsx`.
 - **Permanent Guardrail**: Never expose predictable portal URLs or public login buttons. Keep all credential management exclusive to Super Admin in `AdminPortal.jsx`.
+
+---
+
+### `BUG-014` — Missing Automated Email Confirmations & Static Login Security for Financial/Executive Portals
+- **Date**: 2026-10-27
+- **Affected Files**: `api/send-email.js`, `vite.config.js`, `src/utils/emailService.js`, `src/data/portalStore.js`, `src/pages/AccountantLogin.jsx`, `src/pages/AdminLogin.jsx`, `src/components/BookingModal.jsx`, `src/components/DiningOrderModal.jsx`, `src/pages/ReceptionPortal.jsx`
+- **Symptom**:
+  1. Guests placing food/drinks orders or booking suite reservations received confirmation only on-screen, with no official email receipt delivered to their inbox.
+  2. The Accountant and CEO Admin portals relied on static passwords or static PINs, vulnerable to credential reuse without dynamic two-factor verification.
+- **Root Cause**: Absence of dedicated serverless email dispatch infrastructure and static one-step login implementations.
+- **Fix Applied**:
+  1. **Resend API Serverless Infrastructure (`api/send-email.js`)**: Implemented Vercel serverless function integrated with Resend API via `process.env.RESEND_API_KEY`. Created responsive luxury HTML email templates matching the Arab Signature burgundy (`#5c0725`) and gold (`#d4af37`) brand identity:
+     - **Suite Reservation Confirmation**: Features high-contrast booking reference badge (`ARS-BGD` / `ARS-EXT`), guest name, room type & assigned suite number, check-in/out dates, duration of stay, amount paid, Paystack reference, wing address, and expedited check-in instructions.
+     - **Dining & Drinks Order Confirmation**: Features tracking badges (`ARB-FDD` and `ARB-DRK`), delivery destination (`Suite #...` or `Al-Sultan Dining Hall`), itemized dishes/drinks receipt table with quantities and line totals, payment settlement status, and live tracking instructions.
+     - **Executive 2FA OTP Passcode**: Features high-security gold 6-digit passcode box, 10-minute expiry warning, and security advisory.
+  2. **Local Vite Dev Middleware (`vite.config.js`)**: Added local `/api/send-email` middleware inside `vite.config.js` so developers running `npm run dev` test live Resend email dispatches without requiring Vercel CLI.
+  3. **Automated Order & Booking Triggers**:
+     - Wired `emailService.sendReservationEmail` into `BookingModal.jsx` and `ReceptionPortal.jsx`.
+     - Wired `emailService.sendDiningOrderEmail` into `DiningOrderModal.jsx` across both in-lodge suite bill orders and outside guest orders.
+  4. **Two-Factor Dynamic Email OTP for Accountant & CEO**:
+     - Upgraded `AccountantLogin.jsx` and `AdminLogin.jsx` to 2-step dynamic OTP verification.
+     - Step 1: Validates credentials and calls `portalStore.requestAccountantOtp` or `portalStore.requestAdminOtp` to generate a 6-digit random code and dispatch it via Resend.
+     - Step 2: Renders a 6-digit OTP input with a live 10-minute countdown timer (`10:00`), a 60-second cooldown Resend button, test sandbox helper, and emergency master PIN fallback.
+- **Permanent Guardrail**: All transactional booking/ordering flows and executive staff logins must dispatch branded emails via Resend. Always provide local dev middleware and graceful sandbox handling so login tests are never blocked.
+

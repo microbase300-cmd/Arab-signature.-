@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { compressImage, formatFileSize } from '../utils/imageCompressor';
 import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
+import { emailService } from '../utils/emailService';
 
 export default function ReceptionPortal({ onNavigate }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -812,6 +813,13 @@ export default function ReceptionPortal({ onNavigate }) {
     
     // Automatically open folio receipt with Customer Portal Booking Code for printing / sharing
     setSelectedReceiptBooking(newBooking);
+
+    // Send official email confirmation if guest email was captured
+    if (newBooking && newBooking.email && newBooking.email.includes('@')) {
+      emailService.sendReservationEmail(newBooking).catch(err => {
+        console.warn('[Reception Walkin Email Notice]:', err);
+      });
+    }
   };
 
   // Send WhatsApp message to guest with official hotel receipt
