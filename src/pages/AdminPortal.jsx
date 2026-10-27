@@ -447,18 +447,33 @@ export default function AdminPortal({ onNavigate }) {
     return sum + (b.paymentStatus !== 'Paid' ? Number(b.amount || 0) : 0);
   }, 0);
 
-  const totalOccupied = rooms.filter(r => r.status === 'occupied').length;
-  const totalReserved = rooms.filter(r => r.status === 'reserved').length;
-  const totalCleaning = rooms.filter(r => r.status === 'cleaning' || r.status === 'maintenance').length;
-  const totalAvailable = rooms.filter(r => r.status === 'available').length;
+  const isRoomOccupied = (r) => String(r.status || '').toLowerCase() === 'occupied';
+  const isRoomReserved = (r) => String(r.status || '').toLowerCase() === 'reserved';
+  const isRoomCleaning = (r) => {
+    const s = String(r.status || '').toLowerCase();
+    return s === 'cleaning' || s === 'maintenance';
+  };
+  const isRoomAvailable = (r) => !isRoomOccupied(r) && !isRoomReserved(r) && !isRoomCleaning(r);
+
+  const totalOccupied = rooms.filter(isRoomOccupied).length;
+  const totalReserved = rooms.filter(isRoomReserved).length;
+  const totalCleaning = rooms.filter(isRoomCleaning).length;
+  const totalAvailable = rooms.filter(isRoomAvailable).length;
   const totalRoomsBooked = totalOccupied + totalReserved;
   const occupancyPercent = rooms.length > 0 ? Math.round((totalRoomsBooked / rooms.length) * 100) : 0;
   const totalNightsBooked = bookings.reduce((sum, b) => sum + (Number(b.nights) || 1), 0);
 
-  const mainWingRooms = rooms.filter(r => r.building === 'Main Building' || String(r.roomNumber).startsWith('6'));
-  const extWingRooms = rooms.filter(r => r.building === 'Extension Building' || String(r.roomNumber).startsWith('1'));
-  const mainWingBooked = mainWingRooms.filter(r => r.status === 'occupied' || r.status === 'reserved').length;
-  const extWingBooked = extWingRooms.filter(r => r.status === 'occupied' || r.status === 'reserved').length;
+  const mainWingRooms = rooms.filter(r => r.building === 'Main Building' || String(r.roomNumber || '').startsWith('6'));
+  const extWingRooms = rooms.filter(r => r.building === 'Extension Building' || String(r.roomNumber || '').startsWith('1'));
+  const mainWingOccupied = mainWingRooms.filter(isRoomOccupied).length;
+  const mainWingReserved = mainWingRooms.filter(isRoomReserved).length;
+  const mainWingAvailable = mainWingRooms.filter(isRoomAvailable).length;
+  const mainWingBooked = mainWingOccupied + mainWingReserved;
+
+  const extWingOccupied = extWingRooms.filter(isRoomOccupied).length;
+  const extWingReserved = extWingRooms.filter(isRoomReserved).length;
+  const extWingAvailable = extWingRooms.filter(isRoomAvailable).length;
+  const extWingBooked = extWingOccupied + extWingReserved;
 
   const mainWingRevenue = bookings
     .filter(b => b.paymentStatus === 'Paid' && (b.building === 'Main Building' || String(b.id || '').includes('BGD') || String(b.roomNumber || '').startsWith('6')))
@@ -466,6 +481,8 @@ export default function AdminPortal({ onNavigate }) {
   const extWingRevenue = bookings
     .filter(b => b.paymentStatus === 'Paid' && (b.building === 'Extension Building' || String(b.id || '').includes('EXT') || String(b.roomNumber || '').startsWith('1')))
     .reduce((s, b) => s + Number(b.amount || 0), 0);
+  const mainWingRoomRev = mainWingRevenue;
+  const extWingRoomRev = extWingRevenue;
 
   // B. Food (ARB-FDD) & Drinks (ARB-DRK) Operations Metrics
   const activeDiningOrders = diningOrders.filter(o => o.orderStatus !== 'Cancelled');
@@ -1244,18 +1261,19 @@ export default function AdminPortal({ onNavigate }) {
                     </p>
                     <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
                       {mainWingRooms.map(r => {
+                        const statusLower = String(r.status || '').toLowerCase();
                         const color =
-                          r.status === 'Occupied'
+                          statusLower === 'occupied'
                             ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200'
-                            : r.status === 'Reserved'
+                            : statusLower === 'reserved'
                             ? 'bg-amber-500/25 border-amber-400 text-amber-200'
-                            : r.status === 'Cleaning'
+                            : statusLower === 'cleaning' || statusLower === 'maintenance'
                             ? 'bg-purple-500/25 border-purple-400 text-purple-200'
                             : 'bg-white/5 border-white/10 text-gray-400';
                         return (
                           <div
                             key={r.roomNumber}
-                            title={`Suite ${r.roomNumber} (${r.type}): ${r.status}${r.guest ? ` — ${r.guest}` : ''}`}
+                            title={`Suite ${r.roomNumber} (${r.type || r.name}): ${r.status}${r.currentGuest || r.guest ? ` — ${r.currentGuest || r.guest}` : ''}`}
                             className={`py-1.5 rounded-lg border text-center font-mono text-[11px] font-bold ${color}`}
                           >
                             {r.roomNumber}
@@ -1272,18 +1290,19 @@ export default function AdminPortal({ onNavigate }) {
                     </p>
                     <div className="grid grid-cols-7 gap-1.5">
                       {extWingRooms.map(r => {
+                        const statusLower = String(r.status || '').toLowerCase();
                         const color =
-                          r.status === 'Occupied'
+                          statusLower === 'occupied'
                             ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200'
-                            : r.status === 'Reserved'
+                            : statusLower === 'reserved'
                             ? 'bg-amber-500/25 border-amber-400 text-amber-200'
-                            : r.status === 'Cleaning'
+                            : statusLower === 'cleaning' || statusLower === 'maintenance'
                             ? 'bg-purple-500/25 border-purple-400 text-purple-200'
                             : 'bg-white/5 border-white/10 text-gray-400';
                         return (
                           <div
                             key={r.roomNumber}
-                            title={`Suite ${r.roomNumber} (${r.type}): ${r.status}${r.guest ? ` — ${r.guest}` : ''}`}
+                            title={`Suite ${r.roomNumber} (${r.type || r.name}): ${r.status}${r.currentGuest || r.guest ? ` — ${r.currentGuest || r.guest}` : ''}`}
                             className={`py-1.5 rounded-lg border text-center font-mono text-[11px] font-bold ${color}`}
                           >
                             {r.roomNumber}
@@ -1375,19 +1394,39 @@ export default function AdminPortal({ onNavigate }) {
                   </div>
 
                   <div className="space-y-2.5 mt-3">
-                    {Object.entries(rates).map(([key, suite]) => {
-                      const suiteRooms = rooms.filter(r => r.suiteKey === key);
-                      const bookedCount = suiteRooms.filter(r => r.status === 'Occupied' || r.status === 'Reserved').length;
+                    {(Array.isArray(rates) ? rates : Object.values(rates || {})).map((suite, idx) => {
+                      const suiteId = suite.id || `suite-${idx}`;
+                      const suiteName = suite.name || 'Luxury Suite';
+                      const suitePrice = Number(suite.price || suite.baseRate || 0);
+
+                      const suiteRooms = rooms.filter(r => {
+                        const rType = String(r.type || '').toLowerCase();
+                        const rName = String(r.name || '').toLowerCase();
+                        const sId = String(suiteId).toLowerCase();
+                        const sName = String(suiteName).toLowerCase();
+                        return rType === sId || rName.includes(sId) || sName.includes(rType);
+                      });
+
+                      const bookedCount = suiteRooms.filter(r => {
+                        const s = String(r.status || '').toLowerCase();
+                        return s === 'occupied' || s === 'reserved';
+                      }).length;
+
                       const suiteRev = bookings
-                        .filter(b => b.suiteKey === key || b.roomType === suite.name)
-                        .reduce((s, b) => s + Number(b.amount || 0), 0);
+                        .filter(b => {
+                          const bType = String(b.roomType || b.suiteKey || '').toLowerCase();
+                          const sId = String(suiteId).toLowerCase();
+                          const sName = String(suiteName).toLowerCase();
+                          return bType === sId || bType.includes(sId) || sName.includes(bType);
+                        })
+                        .reduce((s, b) => s + (b.paymentStatus === 'Paid' ? Number(b.amount || 0) : 0), 0);
 
                       return (
-                        <div key={key} className="p-3 rounded-xl bg-[#0e0107] border border-white/10 flex items-center justify-between gap-2">
+                        <div key={suiteId} className="p-3 rounded-xl bg-[#0e0107] border border-white/10 flex items-center justify-between gap-2">
                           <div>
-                            <p className="text-xs font-bold text-white">{suite.name}</p>
+                            <p className="text-xs font-bold text-white">{suiteName}</p>
                             <p className="text-[10px] text-gray-400">
-                              Rate: <strong className="text-[#f3e5ab]">₦{Number(suite.baseRate || 0).toLocaleString()}/night</strong> &bull; {bookedCount}/{suiteRooms.length || suite.totalRooms || '-'} Booked
+                              Rate: <strong className="text-[#f3e5ab]">₦{suitePrice.toLocaleString()}/night</strong> &bull; {bookedCount}/{suiteRooms.length || '-'} Booked
                             </p>
                           </div>
                           <div className="text-right">
