@@ -44,7 +44,7 @@ export default function AccountantPortal({ onNavigate }) {
   useEffect(() => {
     const user = portalStore.getCurrentUser();
     if (!user || !['accountant', 'admin'].includes(user.role)) {
-      onNavigate('accountant-login');
+      onNavigate('vault-finance-77a');
       return;
     }
     setCurrentUser(user);
@@ -69,7 +69,7 @@ export default function AccountantPortal({ onNavigate }) {
 
   const handleLogout = () => {
     portalStore.logout();
-    onNavigate('accountant-login');
+    onNavigate('vault-finance-77a');
   };
 
   // ==============================================================
@@ -278,7 +278,7 @@ export default function AccountantPortal({ onNavigate }) {
 
             {currentUser?.role === 'admin' && (
               <button
-                onClick={() => onNavigate('admin')}
+                onClick={() => onNavigate('exec-core')}
                 className="px-3 py-2 rounded-xl bg-[#5c0725] hover:bg-[#750930] border border-[#d4af37]/40 text-xs font-bold text-[#f3e5ab]"
               >
                 GM Portal

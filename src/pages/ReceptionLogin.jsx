@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { portalStore } from '../data/portalStore';
-import { KeyRound, Lock, User, Eye, EyeOff, ArrowRight, ArrowLeft, AlertCircle, Building2 } from 'lucide-react';
+import { portalStore, SECURE_PORTAL_ROUTES } from '../data/portalStore';
+import { KeyRound, Lock, User, Eye, EyeOff, ArrowRight, ArrowLeft, AlertCircle, Building2, ShieldCheck } from 'lucide-react';
 
-export default function ReceptionLogin({ onNavigate }) {
-  const [selectedDesk, setSelectedDesk] = useState('Main Building'); // 'Main Building' | 'Extension Building'
+export default function ReceptionLogin({ onNavigate, initialDesk = 'Main Building' }) {
+  const [selectedDesk, setSelectedDesk] = useState(initialDesk); // 'Main Building' | 'Extension Building'
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -13,7 +13,6 @@ export default function ReceptionLogin({ onNavigate }) {
   const handleSelectDesk = (desk) => {
     setSelectedDesk(desk);
     setError('');
-    // Do NOT auto-fill credentials: users must enter their own login
   };
 
   const handleLogin = (e) => {
@@ -23,17 +22,18 @@ export default function ReceptionLogin({ onNavigate }) {
 
     setTimeout(() => {
       try {
-        const user = portalStore.loginReception(username, password);
+        const user = portalStore.loginReception(username, password, selectedDesk);
         setIsLoading(false);
-        onNavigate('reception');
+        const targetRoute = selectedDesk === 'Main Building' 
+          ? SECURE_PORTAL_ROUTES.MAIN_RECEPTION_PORTAL 
+          : SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_PORTAL;
+        onNavigate(targetRoute);
       } catch (err) {
         setIsLoading(false);
         setError(err.message || 'Access Denied: Invalid Front Desk Reception credentials.');
       }
     }, 500);
   };
-
-  // Quick fill removed per operational security requirements
 
   return (
     <div className="min-h-screen bg-[#090105] text-gray-100 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden font-sans">
@@ -54,7 +54,7 @@ export default function ReceptionLogin({ onNavigate }) {
       {/* Main Login Card */}
       <div className="relative z-10 w-full max-w-md bg-[#16030c]/90 border border-[#d4af37]/40 rounded-3xl p-8 sm:p-10 shadow-2xl shadow-black/80 backdrop-blur-xl space-y-7">
         
-        {/* Header with Official Option 1 Logo */}
+        {/* Header with Official Logo */}
         <div className="text-center space-y-3">
           <div className="w-16 h-16 rounded-2xl mx-auto overflow-hidden border-2 border-[#d4af37]/60 shadow-lg shadow-[#d4af37]/20 bg-[#120208]">
             <img
@@ -70,7 +70,7 @@ export default function ReceptionLogin({ onNavigate }) {
               <span>Front Desk Shift Terminal</span>
             </div>
             <h2 className="font-cinzel text-xl sm:text-2xl font-bold text-white tracking-wide">
-              Receptionist Portal
+              Reception Portal Gate
             </h2>
             <p className="text-xs text-gray-400 mt-1">
               Arab Signature Hotel & Suites • Nsugbe, Onitsha
@@ -81,7 +81,7 @@ export default function ReceptionLogin({ onNavigate }) {
         {/* Dual Building Desk Selector Tabs */}
         <div className="space-y-2">
           <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block text-center">
-            Select Your Assigned Front Desk
+            Assigned Front Desk Terminal
           </label>
           <div className="grid grid-cols-2 gap-2 p-1.5 rounded-2xl bg-black/60 border border-white/10 text-xs">
             <button
@@ -123,9 +123,9 @@ export default function ReceptionLogin({ onNavigate }) {
 
           <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-[11px] text-gray-300 leading-relaxed text-center">
             {selectedDesk === 'Main Building' ? (
-              <span>🏢 <strong>Main Building Desk:</strong> You have check-in & room control for <strong>Rooms 601–620</strong>, plus live view-only visibility of Extension rooms.</span>
+              <span>🏢 <strong>Main Building Desk:</strong> Shift control for <strong>Rooms 601–620</strong> with live view-only visibility of Extension rooms.</span>
             ) : (
-              <span>🏛️ <strong>Extension Desk:</strong> You have check-in & room control for <strong>Rooms 101–114</strong>, plus live view-only visibility of Main Building rooms.</span>
+              <span>🏛️ <strong>Extension Desk:</strong> Shift control for <strong>Rooms 101–114</strong> with live view-only visibility of Main Building rooms.</span>
             )}
           </div>
         </div>
@@ -203,26 +203,9 @@ export default function ReceptionLogin({ onNavigate }) {
         </form>
 
         {/* Operational Security Notice */}
-        <div className="pt-4 border-t border-white/10 text-center space-y-1.5">
+        <div className="pt-3 border-t border-white/10 text-center space-y-1.5">
           <div className="text-[11px] text-gray-400">
-            Authorized Front Desk Staff Only • Passwords managed by General Manager
-          </div>
-          <div className="flex items-center justify-center gap-3 text-[11px] font-mono text-gray-400 py-0.5">
-            <button
-              type="button"
-              onClick={() => onNavigate('accountant-login')}
-              className="hover:text-[#f3e5ab] underline underline-offset-2"
-            >
-              Accountant Portal
-            </button>
-            <span>•</span>
-            <button
-              type="button"
-              onClick={() => onNavigate('admin-login')}
-              className="hover:text-[#f3e5ab] underline underline-offset-2"
-            >
-              Executive GM Login
-            </button>
+            Authorized Front Desk Staff Only • Passwords managed exclusively by General Manager
           </div>
           <div className="text-[10px] text-gray-500">
             All shift sign-ins and operational actions are logged to the Security Audit Trail.

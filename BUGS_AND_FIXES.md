@@ -179,3 +179,25 @@
   3. Added markdown syntax cleaning so asterisks, URLs, and table markup are stripped before synthesis, delivering smooth human speech.
   4. Provided user controls: 1-click Mute/Unmute toggle, message-level "Listen" buttons, and a prominent "Stop Speaking" action.
 - **Permanent Guardrail**: Keep voice interactions 100% client-side to protect server compute quotas, and always halt speech synthesis before activating microphone recognition.
+
+---
+
+### `BUG-013` — Predictable Staff Entrance URLs, Unprotected Financial Vault & Missing Exclusive Credential Authority
+- **Date**: 2026-10-27
+- **Affected Files**: `src/data/portalStore.js`, `src/App.jsx`, `src/pages/AccountantLogin.jsx`, `src/pages/AdminLogin.jsx`, `src/pages/ReceptionLogin.jsx`, `src/pages/AdminPortal.jsx`, `src/pages/AccountantPortal.jsx`, `src/pages/ReceptionPortal.jsx`
+- **Symptom**:
+  1. Staff portals used guessable URLs (`/#reception`, `/#admin`, `/#accountant`).
+  2. Accountant login had single-factor authentication (username + password only) and exposed test autofill buttons.
+  3. No centralized control existed where only the Super Admin could issue, manage, or change all staff credentials (including a separate PIN for the Accountant).
+- **Root Cause**: Reliance on legacy standard hash routes and lack of multi-factor authentication + strict administrative privilege separation.
+- **Fix Applied**:
+  1. **Obfuscated Entrance Slugs**: Replaced guessable URLs with high-entropy secret gateway links:
+     - Main Reception (600 Wing): `/#desk-600m-gate` (dashboard: `/#desk-600m`)
+     - Extension Reception (100 Wing): `/#desk-100e-gate` (dashboard: `/#desk-100e`)
+     - Accountant Financial Vault: `/#vault-finance-77a` (dashboard: `/#vault-finance`)
+     - Super Admin Core: `/#exec-core-99x` (dashboard: `/#exec-core`)
+  2. **Legacy Route Interceptor**: Any attempt to access `/#admin`, `/#admin-login`, `/#reception`, `/#reception-login`, `/#accountant`, `/#accountant-login`, or `/#portal-login` is intercepted and renders a luxury "Gateway Decommissioned" security screen.
+  3. **2-Step Financial Vault Authentication**: Upgraded `AccountantLogin.jsx` to enforce a 3-credential verification: verified staff username, master password, and a **6-Digit Financial Security PIN** (`securityPin: "742918"`), backed by a 5-attempt rate-limiting lockout protection (15-minute cooldown) and audit trail logging.
+  4. **Exclusive Admin Credential Authority**: Expanded the Staff Credentials Manager in `AdminPortal.jsx` to cover all 4 roles (Main Desk, Extension Desk, Accountant Vault with PIN editor, and General Manager Core). Staff portals contain zero password change capability. Provided 1-click "Copy Secret Entrance Link" buttons.
+  5. **Removed Backdoor Autofills**: Removed all test quick-fill buttons and cross-portal navigation links from `AccountantLogin.jsx` and `AdminLogin.jsx`.
+- **Permanent Guardrail**: Never expose predictable portal URLs or public login buttons. Keep all credential management exclusive to Super Admin in `AdminPortal.jsx`.

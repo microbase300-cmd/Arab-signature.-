@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { portalStore } from '../data/portalStore';
+import { portalStore, SECURE_PORTAL_ROUTES } from '../data/portalStore';
 import { 
   getPaystackPublicKey, 
   setPaystackPublicKey, 
@@ -12,7 +12,7 @@ import {
   AlertTriangle, Lock, Users, Phone, MapPin, Printer, RefreshCw, 
   Sparkles, KeyRound, Clock, Edit3, ChevronRight, UserCheck, 
   AlertCircle, ShieldAlert, Key, Check, Eye, EyeOff, Utensils,
-  Wine, Plus, Trash2, Search, X, Flame, GlassWater, Beer, CreditCard, ExternalLink, Calculator, Image as ImageIcon
+  Wine, Plus, Trash2, Search, X, Flame, GlassWater, Beer, CreditCard, ExternalLink, Calculator, Image as ImageIcon, Copy
 } from 'lucide-react';
 import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
 
@@ -54,26 +54,46 @@ export default function AdminPortal({ onNavigate }) {
     isSignature: false
   });
 
-  // Editable Receptionist & Accountant Credentials Management
-  const [selectedStaffDesk, setSelectedStaffDesk] = useState('Main Building'); // 'Main Building' | 'Extension Building' | 'Accountant Office'
+  // Editable Staff & Executive Credentials Management
+  const [selectedStaffDesk, setSelectedStaffDesk] = useState('Main Building'); // 'Main Building' | 'Extension Building' | 'Accountant Office' | 'Admin Core'
   const [receptionForm, setReceptionForm] = useState({
     username: '',
     password: '',
-    name: ''
+    name: '',
+    securityPin: ''
   });
   const [showReceptionPass, setShowReceptionPass] = useState(false);
+  const [showPinField, setShowPinField] = useState(false);
+  const [copiedSlug, setCopiedSlug] = useState('');
+
+  const handleCopySecretLink = (slug) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://arabsignature.com';
+    const fullUrl = `${origin}/#${slug}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(fullUrl);
+      setCopiedSlug(slug);
+      showToast(`Secret link copied to clipboard: ${fullUrl}`);
+      setTimeout(() => setCopiedSlug(''), 3000);
+    }
+  };
 
   const handleSelectStaffDesk = (deskBuilding) => {
     setSelectedStaffDesk(deskBuilding);
-    const staff = deskBuilding === 'Accountant Office'
-      ? portalStore.getAccountantUser()
-      : portalStore.getReceptionistUser(deskBuilding);
+    let staff = null;
+    if (deskBuilding === 'Accountant Office') {
+      staff = portalStore.getAccountantUser();
+    } else if (deskBuilding === 'Admin Core') {
+      staff = portalStore.getAdminUser();
+    } else {
+      staff = portalStore.getReceptionistUser(deskBuilding);
+    }
     setReceptionUser(staff);
     if (staff) {
       setReceptionForm({
         username: staff.username,
         password: staff.password,
-        name: staff.name
+        name: staff.name,
+        securityPin: staff.securityPin || '742918'
       });
     }
   };
@@ -113,9 +133,14 @@ export default function AdminPortal({ onNavigate }) {
     const currentConfig = portalStore.getHotelConfig();
     const currentLogs = portalStore.getActivityLogs();
     const currentLoginAttempts = portalStore.getLoginAttempts();
-    const currentReception = selectedStaffDesk === 'Accountant Office'
-      ? portalStore.getAccountantUser()
-      : portalStore.getReceptionistUser(selectedStaffDesk);
+    let currentReception = null;
+    if (selectedStaffDesk === 'Accountant Office') {
+      currentReception = portalStore.getAccountantUser();
+    } else if (selectedStaffDesk === 'Admin Core') {
+      currentReception = portalStore.getAdminUser();
+    } else {
+      currentReception = portalStore.getReceptionistUser(selectedStaffDesk);
+    }
     const currentDining = portalStore.getDiningMenu();
 
     setRooms(currentRooms);
@@ -147,7 +172,8 @@ export default function AdminPortal({ onNavigate }) {
       setReceptionForm({
         username: currentReception.username,
         password: currentReception.password,
-        name: currentReception.name
+        name: currentReception.name,
+        securityPin: currentReception.securityPin || '742918'
       });
     }
 
@@ -165,7 +191,7 @@ export default function AdminPortal({ onNavigate }) {
     const user = portalStore.getCurrentUser();
     // Verify user is authenticated and has admin rights
     if (!user || user.role !== 'admin') {
-      onNavigate('admin-login');
+      onNavigate(SECURE_PORTAL_ROUTES.ADMIN_LOGIN);
       return;
     }
     
@@ -211,7 +237,7 @@ export default function AdminPortal({ onNavigate }) {
 
   const handleLogout = () => {
     portalStore.logout();
-    onNavigate('admin-login');
+    onNavigate(SECURE_PORTAL_ROUTES.ADMIN_LOGIN);
   };
 
   // 1. Save new room rate
@@ -334,13 +360,29 @@ export default function AdminPortal({ onNavigate }) {
     }
 
     if (selectedStaffDesk === 'Accountant Office') {
+      if (!receptionForm.securityPin || String(receptionForm.securityPin).trim().length !== 6) {
+        alert("The Chief Accountant requires a 6-digit Financial Security PIN.");
+        return;
+      }
       portalStore.updateAccountantCredentials(
+        receptionForm.username,
+        receptionForm.password,
+        receptionForm.name,
+        receptionForm.securityPin
+      );
+      refreshData();
+      showToast(`Chief Accountant credentials & 6-Digit PIN saved successfully.`);
+      return;
+    }
+
+    if (selectedStaffDesk === 'Admin Core') {
+      portalStore.updateAdminCredentials(
         receptionForm.username,
         receptionForm.password,
         receptionForm.name
       );
       refreshData();
-      showToast(`Accountant Portal login updated to '${receptionForm.username}' with new password.`);
+      showToast(`General Manager Executive Core credentials updated successfully.`);
       return;
     }
 
@@ -1151,205 +1193,285 @@ export default function AdminPortal({ onNavigate }) {
         )}
 
         {/* ======================================================== */}
-        {/* 6. TAB CONTENT: FRONT DESK STAFF CREDENTIALS (DUAL DESK) */}
+        {/* 6. TAB CONTENT: FRONT DESK & ACCOUNTANT STAFF CREDENTIALS */}
         {/* ======================================================== */}
-        {activeTab === 'receptionist' && (
-          <div className="max-w-2xl space-y-6">
-            
-            <div className="p-6 rounded-2xl bg-[#16030c] border border-[#d4af37]/40 shadow-xl space-y-5">
+        {activeTab === 'receptionist' && (() => {
+          const currentSecretSlug = 
+            selectedStaffDesk === 'Main Building' ? SECURE_PORTAL_ROUTES.MAIN_RECEPTION_LOGIN :
+            selectedStaffDesk === 'Extension Building' ? SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_LOGIN :
+            selectedStaffDesk === 'Accountant Office' ? SECURE_PORTAL_ROUTES.ACCOUNTANT_LOGIN :
+            SECURE_PORTAL_ROUTES.ADMIN_LOGIN;
+
+          return (
+            <div className="max-w-3xl space-y-6">
               
-              <div className="flex items-start justify-between border-b border-white/10 pb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <UserCheck size={18} className="text-[#d4af37]" />
-                    <h3 className="font-cinzel font-bold text-lg text-white">
-                      Front Desk & Accountant Portal Credentials
-                    </h3>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Manage login credentials and operational access for both hotel front desk terminals and the Financial Accountant Portal.
-                  </p>
-                </div>
-
-                <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold">
-                  3 Staff Terminals Active
-                </span>
-              </div>
-
-              {/* Desk & Accountant Selection Tabs */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-1 bg-black/60 rounded-2xl border border-white/10">
-                <button
-                  type="button"
-                  onClick={() => handleSelectStaffDesk('Main Building')}
-                  className={`py-2.5 px-3 rounded-xl text-xs font-semibold transition-all flex flex-col items-center gap-0.5 ${
-                    selectedStaffDesk === 'Main Building'
-                      ? 'bg-gradient-to-r from-[#5c0725] to-[#7a0a32] text-[#f3e5ab] border border-[#d4af37]/60 shadow-lg'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <span className="font-bold">Main Building Desk</span>
-                  <span className="text-[10px] opacity-80 font-mono">Rooms 601–620 (20 Rooms)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSelectStaffDesk('Extension Building')}
-                  className={`py-2.5 px-3 rounded-xl text-xs font-semibold transition-all flex flex-col items-center gap-0.5 ${
-                    selectedStaffDesk === 'Extension Building'
-                      ? 'bg-gradient-to-r from-[#1e1b4b] to-[#312e81] text-sky-200 border border-sky-400/50 shadow-lg'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <span className="font-bold">Extension Wing Desk</span>
-                  <span className="text-[10px] opacity-80 font-mono">Rooms 101–114 (14 Rooms)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSelectStaffDesk('Accountant Office')}
-                  className={`py-2.5 px-3 rounded-xl text-xs font-semibold transition-all flex flex-col items-center gap-0.5 ${
-                    selectedStaffDesk === 'Accountant Office'
-                      ? 'bg-gradient-to-r from-emerald-950 to-emerald-900 text-emerald-200 border border-emerald-400/50 shadow-lg'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <span className="font-bold">Accountant Portal</span>
-                  <span className="text-[10px] opacity-80 font-mono">Audit, Room Bills & P&L</span>
-                </button>
-              </div>
-
-              {/* Current Active Credentials Info Box */}
-              <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-[#f3e5ab] uppercase tracking-wider block">
-                    Active Login ({
-                      selectedStaffDesk === 'Accountant Office'
-                        ? 'Financial Controller • Accountant Portal'
-                        : selectedStaffDesk === 'Main Building'
-                          ? 'Main Desk • 600 Wing'
-                          : 'Extension Desk • 100 Wing'
-                    }):
-                  </span>
-                  <span className="text-[10px] text-[#d4af37] font-semibold uppercase tracking-wider">
-                    {selectedStaffDesk === 'Accountant Office'
-                      ? 'Full Ledger & Expense Audit'
-                      : selectedStaffDesk === 'Main Building'
-                        ? '600 Wing Exclusive Control'
-                        : '100 Wing Exclusive Control'}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-gray-300">
-                  <div>
-                    <span className="text-gray-500">Username / Email: </span>
-                    <span className="font-mono text-white font-semibold">{receptionUser?.username}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Current Password: </span>
-                    <span className="font-mono text-[#f3e5ab] font-semibold">{receptionUser?.password}</span>
-                  </div>
-                </div>
-                <div className="text-[10px] text-gray-400 pt-1 border-t border-white/5 flex flex-wrap items-center justify-between gap-1">
-                  <span>
-                    Portal Login URL:{' '}
-                    <span className="text-gray-200 font-mono">
-                      {selectedStaffDesk === 'Accountant Office' ? '/#accountant-login' : '/#reception-login'}
-                    </span>
-                  </span>
-                  <span className="text-amber-400/80">
-                    {selectedStaffDesk === 'Accountant Office'
-                      ? 'Suites (ARS) + Food (ARB-FDD) + Drinks (ARB-DRK)'
-                      : 'Cross-Wing Visibility: Read-Only Overview Enabled'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Edit Form */}
-              <form onSubmit={handleSaveReceptionCredentials} className="space-y-4 text-xs">
+              <div className="p-6 rounded-2xl bg-[#16030c] border border-[#d4af37]/40 shadow-xl space-y-5">
                 
-                <div className="space-y-1.5">
-                  <label className="text-gray-300 font-medium">
-                    Staff Title / Display Label for {selectedStaffDesk === 'Accountant Office' ? 'Accountant Office' : selectedStaffDesk === 'Main Building' ? 'Main Desk' : 'Extension Desk'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder={
-                      selectedStaffDesk === 'Accountant Office'
-                        ? 'e.g. Chief Hotel Accountant'
-                        : selectedStaffDesk === 'Main Building'
-                          ? 'e.g. Lead Concierge (Main Building)'
-                          : 'e.g. Front Desk Officer (Extension Wing)'
-                    }
-                    value={receptionForm.name}
-                    onChange={(e) => setReceptionForm({ ...receptionForm, name: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-gray-300 font-medium">
-                    {selectedStaffDesk === 'Accountant Office' ? 'Accountant Login Username / Email *' : 'Receptionist Login Username / Email *'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder={
-                      selectedStaffDesk === 'Accountant Office'
-                        ? 'accountant@arabsignature.com'
-                        : selectedStaffDesk === 'Main Building'
-                          ? 'main@arabsignature.com'
-                          : 'extension@arabsignature.com'
-                    }
-                    value={receptionForm.username}
-                    onChange={(e) => setReceptionForm({ ...receptionForm, username: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-gray-300 font-medium">
-                    {selectedStaffDesk === 'Accountant Office' ? 'New Accountant Password *' : 'New Reception Password *'}
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showReceptionPass ? 'text' : 'password'}
-                      required
-                      placeholder={selectedStaffDesk === 'Accountant Office' ? 'Enter new password for Accountant Portal' : 'Enter new password for this front desk'}
-                      value={receptionForm.password}
-                      onChange={(e) => setReceptionForm({ ...receptionForm, password: e.target.value })}
-                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 font-mono focus:outline-none focus:border-[#d4af37]"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowReceptionPass(!showReceptionPass)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
-                    >
-                      {showReceptionPass ? <EyeOff size={15} /> : <Eye size={15} />}
-                    </button>
+                <div className="flex items-start justify-between border-b border-white/10 pb-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <UserCheck size={18} className="text-[#d4af37]" />
+                      <h3 className="font-cinzel font-bold text-lg text-white">
+                        Staff Credentials & Secret Entrance Gates
+                      </h3>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Centralized hotel authentication authority. Manage secret entrance links, passwords, and 2-step financial security PINs.
+                    </p>
                   </div>
-                  <p className="text-[10px] text-gray-500">
-                    {selectedStaffDesk === 'Accountant Office'
-                      ? 'Finance personnel will immediately need this updated password to sign in at #accountant-login.'
-                      : `Front desk staff at the ${selectedStaffDesk} will immediately need this new password to access #reception-login.`}
-                  </p>
+
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold">
+                    4 Isolated Terminals
+                  </span>
                 </div>
 
-                <div className="pt-2">
+                {/* Exclusive Authority Banner */}
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-center gap-2">
+                  <ShieldAlert size={16} className="text-amber-400 flex-shrink-0" />
+                  <span>
+                    <strong>Exclusive Administrative Authority:</strong> Front desk staff and accountants cannot change their credentials. Only Super Admin in this command center can issue, reset, or alter passwords and financial PINs.
+                  </span>
+                </div>
+
+                {/* 4 Terminals Selector Tabs */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 bg-black/60 rounded-2xl border border-white/10">
                   <button
-                    type="submit"
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#d4af37]/20 hover:scale-[1.01] transition-all flex items-center justify-center gap-2"
+                    type="button"
+                    onClick={() => handleSelectStaffDesk('Main Building')}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-semibold transition-all flex flex-col items-center gap-0.5 text-center ${
+                      selectedStaffDesk === 'Main Building'
+                        ? 'bg-gradient-to-r from-[#5c0725] to-[#7a0a32] text-[#f3e5ab] border border-[#d4af37]/60 shadow-lg'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
                   >
-                    <Save size={15} />
-                    <span>
-                      Save {selectedStaffDesk === 'Accountant Office' ? 'Accountant Portal' : selectedStaffDesk === 'Main Building' ? 'Main Desk' : 'Extension Desk'} Login Credentials
-                    </span>
+                    <span className="font-bold">Main Desk</span>
+                    <span className="text-[10px] opacity-80 font-mono">600 Wing (20 Rms)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectStaffDesk('Extension Building')}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-semibold transition-all flex flex-col items-center gap-0.5 text-center ${
+                      selectedStaffDesk === 'Extension Building'
+                        ? 'bg-gradient-to-r from-[#1e1b4b] to-[#312e81] text-sky-200 border border-sky-400/50 shadow-lg'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span className="font-bold">Extension Desk</span>
+                    <span className="text-[10px] opacity-80 font-mono">100 Wing (14 Rms)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectStaffDesk('Accountant Office')}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-semibold transition-all flex flex-col items-center gap-0.5 text-center ${
+                      selectedStaffDesk === 'Accountant Office'
+                        ? 'bg-gradient-to-r from-emerald-950 to-emerald-900 text-emerald-200 border border-emerald-400/50 shadow-lg'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span className="font-bold">Accountant Vault</span>
+                    <span className="text-[10px] opacity-80 font-mono">2-Step PIN Protected</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectStaffDesk('Admin Core')}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-semibold transition-all flex flex-col items-center gap-0.5 text-center ${
+                      selectedStaffDesk === 'Admin Core'
+                        ? 'bg-gradient-to-r from-[#854d0e] to-[#a16207] text-amber-100 border border-amber-300/60 shadow-lg'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span className="font-bold">Admin Core</span>
+                    <span className="text-[10px] opacity-80 font-mono">Executive GM Master</span>
                   </button>
                 </div>
 
-              </form>
+                {/* Current Active Credentials & Secret Link Info Box */}
+                <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-3 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-[#f3e5ab] uppercase tracking-wider block">
+                      Active Credentials for {
+                        selectedStaffDesk === 'Accountant Office'
+                          ? 'Chief Accountant Vault'
+                          : selectedStaffDesk === 'Admin Core'
+                            ? 'Executive GM Core'
+                            : selectedStaffDesk === 'Main Building'
+                              ? 'Main Desk (600 Wing)'
+                              : 'Extension Desk (100 Wing)'
+                      }:
+                    </span>
+                    <span className="text-[10px] text-[#d4af37] font-semibold uppercase tracking-wider">
+                      {selectedStaffDesk === 'Accountant Office'
+                        ? 'Financial Audit & 2-Step Gate'
+                        : selectedStaffDesk === 'Admin Core'
+                          ? 'Full Hotel Administration'
+                          : `${selectedStaffDesk} Desk`}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-gray-300">
+                    <div>
+                      <span className="text-gray-500">Staff Label: </span>
+                      <span className="text-white font-medium">{receptionUser?.name}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Username / Email: </span>
+                      <span className="font-mono text-white font-semibold">{receptionUser?.username}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Master Password: </span>
+                      <span className="font-mono text-[#f3e5ab] font-semibold">{receptionUser?.password}</span>
+                    </div>
+                    {selectedStaffDesk === 'Accountant Office' && (
+                      <div>
+                        <span className="text-gray-500">6-Digit Security PIN: </span>
+                        <span className="font-mono text-emerald-400 font-bold tracking-widest">{receptionUser?.securityPin || '742918'}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Secret Entrance Link Box with 1-Click Copy */}
+                  <div className="pt-2 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="space-y-0.5">
+                      <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">
+                        Confidential Entrance Link (Secret Slug):
+                      </div>
+                      <div className="font-mono text-xs text-[#f3e5ab] break-all">
+                        /{currentSecretSlug}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleCopySecretLink(currentSecretSlug)}
+                      className="px-3 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-[#d4af37]/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex-shrink-0"
+                    >
+                      {copiedSlug === currentSecretSlug ? (
+                        <>
+                          <Check size={14} className="text-emerald-950 font-bold" />
+                          <span>Link Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={14} />
+                          <span>Copy Secret Entrance Link</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Edit Credentials Form */}
+                <form onSubmit={handleSaveReceptionCredentials} className="space-y-4 text-xs">
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-gray-300 font-medium">
+                      Staff Title / Display Label
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Chief Hotel Accountant"
+                      value={receptionForm.name}
+                      onChange={(e) => setReceptionForm({ ...receptionForm, name: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-gray-300 font-medium">
+                      Login Username / Email *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. staff@arabsignature.com"
+                      value={receptionForm.username}
+                      onChange={(e) => setReceptionForm({ ...receptionForm, username: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-gray-300 font-medium">
+                      New Password *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showReceptionPass ? 'text' : 'password'}
+                        required
+                        placeholder="Enter new master password"
+                        value={receptionForm.password}
+                        onChange={(e) => setReceptionForm({ ...receptionForm, password: e.target.value })}
+                        className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white placeholder-gray-500 font-mono focus:outline-none focus:border-[#d4af37]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowReceptionPass(!showReceptionPass)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                      >
+                        {showReceptionPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 6-Digit Financial Security PIN (Accountant Only) */}
+                  {selectedStaffDesk === 'Accountant Office' && (
+                    <div className="space-y-1.5 p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/30">
+                      <div className="flex items-center justify-between">
+                        <label className="text-emerald-300 font-medium flex items-center gap-1.5">
+                          <KeyRound size={14} className="text-emerald-400" />
+                          <span>6-Digit Financial Security PIN *</span>
+                        </label>
+                        <span className="text-[10px] text-gray-400 font-mono">Mandatory 2FA</span>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showPinField ? 'text' : 'password'}
+                          required
+                          maxLength={6}
+                          pattern="[0-9]{6}"
+                          inputMode="numeric"
+                          placeholder="• • • • • •"
+                          value={receptionForm.securityPin}
+                          onChange={(e) => setReceptionForm({ ...receptionForm, securityPin: e.target.value.replace(/[^0-9]/g, '').slice(0, 6) })}
+                          className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-black/60 border border-emerald-500/40 text-emerald-200 placeholder-gray-500 font-mono text-center tracking-widest font-bold focus:outline-none focus:border-emerald-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPinField(!showPinField)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                        >
+                          {showPinField ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-gray-400">
+                        The accountant must enter this 6-digit PIN on every login attempt after password validation.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#d4af37]/20 hover:scale-[1.01] transition-all flex items-center justify-center gap-2"
+                    >
+                      <Save size={15} />
+                      <span>
+                        Save {selectedStaffDesk === 'Accountant Office' ? 'Accountant Vault' : selectedStaffDesk === 'Admin Core' ? 'Executive Admin' : selectedStaffDesk === 'Main Building' ? 'Main Desk' : 'Extension Desk'} Credentials
+                      </span>
+                    </button>
+                  </div>
+
+                </form>
+
+              </div>
 
             </div>
-
-          </div>
-        )}
+          );
+        })()}
 
         {/* ======================================================== */}
         {/* 7. TAB CONTENT: LOGIN ATTEMPTS & SECURITY MONITOR */}

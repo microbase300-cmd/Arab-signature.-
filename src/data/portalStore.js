@@ -1,6 +1,21 @@
 // Centralized State & Real-Time Storage for Receptionist & Admin Portals
 import { ROOMS as DEFAULT_ROOMS, HOTEL_INFO as DEFAULT_HOTEL_INFO } from './hotelData';
 
+// Obfuscated & High-Security Entrance Routes for Staff Portals
+export const SECURE_PORTAL_ROUTES = {
+  // Login Gates (Secret Entrance Slugs)
+  MAIN_RECEPTION_LOGIN: 'desk-600m-gate',
+  EXTENSION_RECEPTION_LOGIN: 'desk-100e-gate',
+  ACCOUNTANT_LOGIN: 'vault-finance-77a',
+  ADMIN_LOGIN: 'exec-core-99x',
+
+  // Active Authenticated Portals
+  MAIN_RECEPTION_PORTAL: 'desk-600m',
+  EXTENSION_RECEPTION_PORTAL: 'desk-100e',
+  ACCOUNTANT_PORTAL: 'vault-finance',
+  ADMIN_PORTAL: 'exec-core'
+};
+
 const STORAGE_KEYS = {
   AUTH: 'ash_portal_auth_user_v3',
   USERS: 'ash_portal_staff_users_v6',
@@ -233,6 +248,7 @@ const INITIAL_USERS = [
     id: "u-accountant",
     username: "accountant@arabsignature.com",
     password: "accountant2026",
+    securityPin: "742918",
     name: "Chief Hotel Accountant",
     role: "accountant",
     buildingAccess: "all",
@@ -1833,14 +1849,20 @@ export const portalStore = {
     let users = getLocalItem(STORAGE_KEYS.USERS, INITIAL_USERS);
     if (!Array.isArray(users)) users = [...INITIAL_USERS];
 
-    // Guarantee Accountant user exists in staff registry
+    // Guarantee Accountant user exists in staff registry and has securityPin
     if (!users.some(u => u.role === 'accountant')) {
       const defAcc = INITIAL_USERS.find(u => u.role === 'accountant');
       if (defAcc) users = [...users, defAcc];
     }
 
-    // Guarantee that staff users have buildingAccess strictly set
+    // Guarantee that staff users have buildingAccess strictly set and accountant has securityPin
     return users.map(u => {
+      if (u.role === 'accountant' && !u.securityPin) {
+        return {
+          ...u,
+          securityPin: '742918'
+        };
+      }
       if (u.role === 'reception' && (!u.buildingAccess || u.buildingAccess === 'all')) {
         const isExt = (u.username || '').toLowerCase().includes('ext');
         return {
@@ -1866,7 +1888,11 @@ export const portalStore = {
 
   getAccountantUser() {
     const users = this.getUsers();
-    return users.find(u => u.role === 'accountant') || INITIAL_USERS.find(u => u.role === 'accountant');
+    const acc = users.find(u => u.role === 'accountant') || INITIAL_USERS.find(u => u.role === 'accountant');
+    if (acc && !acc.securityPin) {
+      return { ...acc, securityPin: '742918' };
+    }
+    return acc;
   },
 
   getAdminUser() {
@@ -1890,14 +1916,34 @@ export const portalStore = {
     });
 
     setLocalItem(STORAGE_KEYS.USERS, updated);
-    this.logActivity(`Admin changed ${buildingAccess} Receptionist login to '${newUsername.trim()}'.`);
+    this.logActivity(`Super Admin changed ${buildingAccess} Receptionist login to '${newUsername.trim()}'.`);
     return updated;
   },
 
-  updateAccountantCredentials(newUsername, newPassword, staffName) {
+  updateAccountantCredentials(newUsername, newPassword, staffName, securityPin) {
     const users = this.getUsers();
     const updated = users.map(u => {
       if (u.role === 'accountant') {
+        return {
+          ...u,
+          username: newUsername.trim(),
+          password: newPassword.trim(),
+          name: staffName ? staffName.trim() : u.name,
+          securityPin: securityPin ? String(securityPin).trim() : (u.securityPin || '742918')
+        };
+      }
+      return u;
+    });
+
+    setLocalItem(STORAGE_KEYS.USERS, updated);
+    this.logActivity(`Super Admin updated Chief Accountant credentials & 6-Digit Security PIN.`);
+    return updated;
+  },
+
+  updateAdminCredentials(newUsername, newPassword, staffName) {
+    const users = this.getUsers();
+    const updated = users.map(u => {
+      if (u.role === 'admin') {
         return {
           ...u,
           username: newUsername.trim(),
@@ -1909,13 +1955,13 @@ export const portalStore = {
     });
 
     setLocalItem(STORAGE_KEYS.USERS, updated);
-    this.logActivity(`Admin changed Chief Accountant login to '${newUsername.trim()}'.`);
+    this.logActivity(`Super Admin updated Executive Admin Core credentials.`);
     return updated;
   },
 
   // --- SEPARATE AUTHENTICATION HANDLERS ---
   
-  // 1. Dedicated Admin Login Gate (#admin-login)
+  // 1. Dedicated Admin Login Gate (#exec-core-99x)
   loginAdmin(username, password) {
     const users = this.getUsers();
     const adminUser = users.find(u => u.role === 'admin');
@@ -1923,8 +1969,6 @@ export const portalStore = {
     const cleanUser = username.trim().toLowerCase();
     const isUserMatch = adminUser && adminUser.username.toLowerCase() === cleanUser;
     const isPassMatch = adminUser && adminUser.password === password;
-
-    const timestamp = new Date().toLocaleString();
 
     if (!isUserMatch || !isPassMatch) {
       // Record failed attempt
@@ -1964,12 +2008,12 @@ export const portalStore = {
     return session;
   },
 
-  // 2. Dedicated Receptionist Login Gate (#reception-login)
+  // 2. Dedicated Receptionist Login Gate (#desk-600m-gate / #desk-100e-gate)
   // Supports both Main Building Desk (Rooms 601–620) & Extension Building Desk (Rooms 101–114)
-  loginReception(username, password) {
+  loginReception(username, password, targetBuilding = null) {
     const users = this.getUsers();
     const cleanUser = username.trim().toLowerCase();
-    const isExtTarget = cleanUser.includes('ext') || cleanUser.includes('100');
+    const isExtTarget = targetBuilding === 'Extension Building' || cleanUser.includes('ext') || cleanUser.includes('100');
 
     // Match receptionist account by username or legacy alias
     let receptionUser = users.find(u => 
@@ -1988,6 +2032,17 @@ export const portalStore = {
     const assignedBuilding = (receptionUser?.buildingAccess === 'Extension Building' || isExtTarget)
       ? 'Extension Building'
       : 'Main Building';
+
+    // Cross-gate restriction: verify desk match if targetBuilding was specified
+    if (targetBuilding && receptionUser && receptionUser.buildingAccess && receptionUser.buildingAccess !== targetBuilding) {
+      this.recordLoginAttempt({
+        usernameAttempted: username,
+        targetRole: 'reception',
+        status: 'FAILED',
+        reason: `Mismatched desk: account belongs to ${receptionUser.buildingAccess}, attempted at ${targetBuilding}`
+      });
+      throw new Error(`Access Denied: This account is assigned to ${receptionUser.buildingAccess}. Please access via the ${receptionUser.buildingAccess} secret gate.`);
+    }
 
     const isUserMatch = !!receptionUser;
     const isPassMatch = receptionUser && (
@@ -2035,23 +2090,45 @@ export const portalStore = {
     return session;
   },
 
-  // 3. Dedicated Accountant Login Gate (#accountant-login)
-  loginAccountant(username, password) {
+  // 3. Dedicated Accountant Login Gate (#vault-finance-77a)
+  loginAccountant(username, password, securityPin) {
     const users = this.getUsers();
     const accUser = users.find(u => u.role === 'accountant');
 
-    const cleanUser = username.trim().toLowerCase();
+    const cleanUser = (username || '').trim().toLowerCase();
+    const cleanPin = (securityPin || '').toString().trim();
+    const expectedPin = (accUser?.securityPin || '742918').toString().trim();
+
+    // Rate-limiting / lockout protection: check recent failed attempts for accountant within last 15 mins
+    const recentLogs = this.getLoginAttempts();
+    const fifteenMinsAgo = Date.now() - 15 * 60 * 1000;
+    const failedAttempts = recentLogs.filter(l => 
+      l.targetRole === 'accountant' &&
+      l.status === 'FAILED' &&
+      new Date(l.timestamp).getTime() > fifteenMinsAgo
+    ).length;
+
+    if (failedAttempts >= 5) {
+      throw new Error("Security Lockout: Accountant vault access is temporarily locked due to 5 consecutive failed attempts. Please wait 15 minutes or contact Super Admin.");
+    }
+
     const isUserMatch = accUser && accUser.username.toLowerCase() === cleanUser;
     const isPassMatch = accUser && (accUser.password === password || password === 'accountant2026');
+    const isPinMatch = cleanPin === expectedPin;
 
-    if (!isUserMatch || !isPassMatch) {
+    if (!isUserMatch || !isPassMatch || !isPinMatch) {
+      let failureReason = 'Invalid Finance Credentials';
+      if (!isUserMatch) failureReason = 'Unknown Accountant Username';
+      else if (!isPassMatch) failureReason = 'Incorrect Accountant Password';
+      else if (!isPinMatch) failureReason = 'Incorrect 6-Digit Financial Security PIN';
+
       this.recordLoginAttempt({
         usernameAttempted: username,
         targetRole: 'accountant',
         status: 'FAILED',
-        reason: !isUserMatch ? 'Unknown Accountant Username' : 'Incorrect Accountant Password'
+        reason: failureReason
       });
-      throw new Error("Access Denied: Invalid Finance & Accountant credentials.");
+      throw new Error(`Access Denied: ${failureReason}. Double-check your Username, Password, and 6-digit Security PIN.`);
     }
 
     const session = {
@@ -2075,7 +2152,7 @@ export const portalStore = {
       usernameAttempted: accUser.username,
       targetRole: 'accountant',
       status: 'SUCCESS',
-      reason: 'Authorized Finance & Accountant Portal Login'
+      reason: 'Authorized 2-Step Financial Vault Authentication'
     });
     this.logActivity(`Chief Accountant (${accUser.name}) signed in to Finance Portal.`);
     return session;

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { portalStore } from '../data/portalStore';
+import { portalStore, SECURE_PORTAL_ROUTES } from '../data/portalStore';
 import { ShieldCheck, Lock, User, Eye, EyeOff, ArrowRight, ArrowLeft, ShieldAlert } from 'lucide-react';
 
 export default function AdminLogin({ onNavigate }) {
@@ -16,20 +16,14 @@ export default function AdminLogin({ onNavigate }) {
 
     setTimeout(() => {
       try {
-        const user = portalStore.loginAdmin(username, password);
+        portalStore.loginAdmin(username, password);
         setIsLoading(false);
-        onNavigate('admin');
+        onNavigate(SECURE_PORTAL_ROUTES.ADMIN_PORTAL);
       } catch (err) {
         setIsLoading(false);
         setError(err.message || 'Access Denied: Invalid Executive Admin credentials.');
       }
     }, 600);
-  };
-
-  const handleQuickFill = () => {
-    setError('');
-    setUsername('admin@arabsignature.com');
-    setPassword('admin2026');
   };
 
   return (
@@ -51,7 +45,7 @@ export default function AdminLogin({ onNavigate }) {
       {/* Main Login Card */}
       <div className="relative z-10 w-full max-w-md bg-[#16030c]/90 border border-[#d4af37]/50 rounded-3xl p-8 sm:p-10 shadow-2xl shadow-black/80 backdrop-blur-xl space-y-7">
         
-        {/* Header with Official Option 1 Logo */}
+        {/* Header with Official Logo */}
         <div className="text-center space-y-3">
           <div className="w-16 h-16 rounded-2xl mx-auto overflow-hidden border-2 border-[#d4af37]/60 shadow-lg shadow-[#d4af37]/20 bg-[#120208]">
             <img
@@ -64,15 +58,20 @@ export default function AdminLogin({ onNavigate }) {
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#5c0725]/60 border border-[#d4af37]/30 text-[#f3e5ab] text-[10px] font-mono tracking-widest uppercase mb-1">
               <ShieldCheck size={11} className="text-[#d4af37]" />
-              <span>Restricted Executive Access</span>
+              <span>Restricted Executive Access Gate</span>
             </div>
             <h2 className="font-cinzel text-xl sm:text-2xl font-bold text-white tracking-wide">
-              General Manager Admin Portal
+              General Manager Admin Core
             </h2>
             <p className="text-xs text-gray-400 mt-1">
-              Arab Signature Hotel & Suites • Nsugbe, Onitsha
+              Arab Signature Hotel & Suites • Executive Operations Command
             </p>
           </div>
+        </div>
+
+        {/* Security Scope Notice */}
+        <div className="p-3 rounded-2xl bg-white/5 border border-[#d4af37]/20 text-[11px] text-gray-300 leading-relaxed text-center">
+          Executive access point with centralized authority over all hotel wings, accounting records, and staff credential management.
         </div>
 
         {/* Error Alert */}
@@ -94,6 +93,7 @@ export default function AdminLogin({ onNavigate }) {
               <input
                 type="text"
                 required
+                autoComplete="off"
                 placeholder="admin@arabsignature.com"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -111,6 +111,7 @@ export default function AdminLogin({ onNavigate }) {
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
+                autoComplete="new-password"
                 placeholder="••••••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -131,7 +132,7 @@ export default function AdminLogin({ onNavigate }) {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-cinzel font-bold text-sm tracking-wider shadow-lg shadow-[#d4af37]/20 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
+            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-cinzel font-bold text-sm tracking-wider shadow-lg shadow-[#d4af37]/20 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50"
           >
             {isLoading ? (
               <span className="animate-pulse">Authenticating Executive Session...</span>
@@ -145,33 +146,13 @@ export default function AdminLogin({ onNavigate }) {
 
         </form>
 
-        {/* Quick Test Helper (for client verification) */}
-        <div className="pt-4 border-t border-white/10 text-center space-y-2.5">
+        {/* Security Footer Notice */}
+        <div className="pt-3 border-t border-white/10 text-center space-y-1.5">
           <div className="text-[11px] text-gray-400">
-            For verified administrators only. All login attempts are recorded.
+            For verified Executive General Managers only. All login attempts are recorded.
           </div>
-          <button
-            onClick={handleQuickFill}
-            className="px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[#d4af37] text-xs font-medium border border-[#d4af37]/20 transition-all"
-          >
-            Autofill Admin Credentials (Test)
-          </button>
-          <div className="flex items-center justify-center gap-3 text-[11px] font-mono text-gray-400 pt-1">
-            <button
-              type="button"
-              onClick={() => onNavigate('reception-login')}
-              className="hover:text-[#f3e5ab] underline underline-offset-2"
-            >
-              Front Desk Login
-            </button>
-            <span>•</span>
-            <button
-              type="button"
-              onClick={() => onNavigate('accountant-login')}
-              className="hover:text-[#f3e5ab] underline underline-offset-2"
-            >
-              Accountant Portal
-            </button>
+          <div className="text-[10px] text-gray-500">
+            Confidential Gate • Authorized personnel only.
           </div>
         </div>
 

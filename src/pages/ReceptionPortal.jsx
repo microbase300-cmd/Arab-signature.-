@@ -304,7 +304,7 @@ export default function ReceptionPortal({ onNavigate }) {
     // 1. Check Auth (Requires Reception or Admin session)
     const user = portalStore.getCurrentUser();
     if (!user) {
-      onNavigate('reception-login');
+      onNavigate('desk-600m-gate');
       return;
     }
     setCurrentUser(user);
@@ -490,8 +490,9 @@ export default function ReceptionPortal({ onNavigate }) {
 
   // Logout handler
   const handleLogout = () => {
+    const isExt = currentUser?.buildingAccess === 'Extension Building';
     portalStore.logout();
-    onNavigate('reception-login');
+    onNavigate(isExt ? 'desk-100e-gate' : 'desk-600m-gate');
   };
 
   // Quick Room Status Toggle (Enforces Building Operational Permissions)
