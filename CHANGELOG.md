@@ -5,7 +5,7 @@ This document records the complete history of every single commit, feature, bug 
 ---
 
 ## Summary Statistics
-- **Total Commits Logged**: 91 Commits
+- **Total Commits Logged**: 93 Commits
 - **Repository**: `https://github.com/microbase300-cmd/Arab-signature.-.git` (`main` branch)
 - **Active Portals**: Public Website, VIP Guest Portal (`CustomerDashboardPage`), Main & Extension Reception Portals (`ReceptionPortal`), Accountant Portal (`AccountantPortal`), Executive Admin Portal (`AdminPortal`), and Food/Drink Order Tracker (`OrderTrackingPage`).
 
@@ -15,6 +15,7 @@ This document records the complete history of every single commit, feature, bug 
 
 | Commit Hash | Date | Type | Detailed Description |
 | :--- | :--- | :--- | :--- |
+| `5ea9c26` | 2026-10-27 | `feat` | **Voice AI Gated Behind Feature Flag**: Turned off Voice AI features for lean first launch via `ENABLE_VOICE_ASSISTANT = false` in `HotelAiChat.jsx`. Restored clean, focused text chat interface while keeping `clientVoiceAssistant.js` modularly preserved for instant re-activation whenever needed. |
 | `a619f25` | 2026-10-26 | `feat` | **100% Client-Side Voice AI Assistant ("Amira")**: Built `clientVoiceAssistant.js` using browser Web Speech API (`SpeechRecognition` for voice input, `SpeechSynthesis` for speech output) with **zero serverless function calls and zero cloud audio API costs**. Added golden microphone input with live interim transcript, audio wave visualizer, natural concierge female voice narration, 1-click Mute/Unmute toggle, message-level "Listen" buttons, and audio feedback protection (`BUG-012`). |
 | `eb7e95e` | 2026-10-26 | `perf` | **Serverless Quota Protection & Anti-Polling Guardrail**: Eliminated 5-second public landing page polling loop in `HotelAiChat.jsx` in favor of event-driven updates (`ash_rooms_updated`, `storage`, `focus`), extended MantleDB cloud timeout to 4000ms for Nigerian cellular networks, and enforced an ironclad 60-second cooldown protection on `/api/rooms` fallback in `portalStore.js` (`BUG-011`). |
 | `986c607` | 2026-10-26 | `docs` | **Foundational Project Governance & Architecture Suite**: Created `BUGS_AND_FIXES.md`, `CHANGELOG.md`, `IMPLEMENTATION_PLAN.md`, `PROJECT_ARCHITECTURE.md`, and `ROADMAP.md` synchronized across all development and repository roots. |
