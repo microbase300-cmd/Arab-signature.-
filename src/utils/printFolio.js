@@ -331,3 +331,111 @@ export function printFolioReceipt(booking) {
     }
   }, 250);
 }
+
+/**
+ * Clean phone number to international WhatsApp format (e.g. 0812... -> 234812...)
+ */
+export function formatWhatsAppPhone(phone) {
+  if (!phone) return '';
+  let clean = phone.replace(/[^0-9]/g, '');
+  if (clean.startsWith('0') && clean.length === 11) {
+    clean = '234' + clean.slice(1);
+  } else if (!clean.startsWith('234') && clean.length === 10) {
+    clean = '234' + clean;
+  }
+  return clean;
+}
+
+/**
+ * Generate Luxury WhatsApp Folio Receipt with Big "PAID IN FULL" Stamp
+ * Mirrors the exact layout of the official printable folio document
+ */
+export function buildWhatsAppReceiptText(booking) {
+  if (!booking) return '';
+  const code = booking.id || booking.bookingCode || 'ARS-CONFIRMED';
+  const isExt = code.includes('EXT') || String(booking.roomNumber || '').startsWith('1') || (booking.roomName || '').toLowerCase().includes('ext');
+  const wing = booking.buildingLabel || (isExt ? 'Extension Building (100 Wing)' : 'Main Building (600 Wing)');
+  const amountFormatted = Number(booking.amount || 0).toLocaleString();
+  const nights = Number(booking.nights) || 1;
+  const nightlyRate = Math.round((Number(booking.amount) || 0) / nights).toLocaleString();
+  const paystackRef = booking.paystackReference || booking.paymentRef || 'PAYSTACK-VERIFIED';
+  const paymentMethod = booking.paymentMethod || 'Paystack (Online Verified)';
+  const roomNumberDisplay = booking.roomNumber && booking.roomNumber !== 'Unassigned' ? `#${booking.roomNumber}` : 'Front Desk Keycard Allocation';
+  const receiptDate = new Date().toLocaleDateString('en-GB');
+
+  return (
+`╔══════════════════════════════════════════╗
+   👑 *ARAB SIGNATURE HOTEL & SUITES* 👑
+   _Nsugbe, Onitsha, Anambra State, Nigeria_
+   _Front Desk Concierge: +234 812 578 6875_
+╚══════════════════════════════════════════╝
+
+🧾 *OFFICIAL GUEST FOLIO & PAYMENT RECEIPT*
+📋 *BOOKING CODE:* *${code}*
+
+╔══════════════════════════════════════════╗
+████████████████████████████████████████████
+██  ★  *O F F I C I A L   P A I D   S T A M P*  ★  ██
+██      [ ✓ ] *P A I D   I N   F U L L*        ██
+██      *PAYSTACK VERIFIED ONLINE (100%)*      ██
+████████████████████████████████████████████
+╚══════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 *GUEST STAY REGISTRATION*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• *Primary Guest:* ${booking.guestName || 'Valued Guest'}
+• *Phone / WhatsApp:* ${booking.phone || 'N/A'}
+• *Email Address:* ${booking.email || 'N/A'}
+${booking.homeAddress ? `• *Residential Address:* ${booking.homeAddress}\n` : ''}${booking.nextOfKinName ? `• *Next of Kin:* ${booking.nextOfKinName} (${booking.nextOfKinPhone || ''}${booking.nextOfKinRelationship ? ' • ' + booking.nextOfKinRelationship : ''})\n` : ''}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏨 *SUITE & STAY SCHEDULE*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• *Suite Reserved:* ${booking.roomName || 'Luxury Suite'}
+• *Assigned Suite:* Room ${roomNumberDisplay}
+• *Building Wing:* ${wing}
+• *Check-In Date:* ${booking.checkIn || 'Confirmed'} (from 2:00 PM)
+• *Check-Out Date:* ${booking.checkOut || 'Confirmed'} (by 12:00 PM)
+• *Duration of Stay:* ${nights} ${nights === 1 ? 'Night' : 'Nights'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💳 *ITEMIZED BILLING & PAYMENT BREAKDOWN*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• *Description:* ${booking.roomName || 'Luxury Suite'} (${wing})
+• *Nights:* ${nights} ${nights === 1 ? 'Night' : 'Nights'}
+• *Rate / Night:* ₦${nightlyRate}
+────────────────────────────────────────────
+💰 *TOTAL PAID IN FULL:* *₦${amountFormatted}*
+────────────────────────────────────────────
+• *Payment Channel:* ${paymentMethod}
+• *Paystack Ref:* ${paystackRef}
+• *Receipt Date:* ${receiptDate}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📶 *COMPLIMENTARY GUEST WI-FI ACCESS*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• *Network (SSID):* *Arab_Signature_HighSpeed_Guest*
+• *Password:* *ArabSignatureVIP*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📍 *HOTEL LOCATION & ARRIVAL PROTOCOL*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Arab Signature Hotel & Suites, Nsugbe-Onitsha Expressway, Anambra State.
+_Please present your Booking Code (*${code}*) at the Front Desk reception to collect your RFID keycard._
+
+🌐 *Access Your Live VIP Guest Portal:*
+https://arabsignature.com/#pass`
+  );
+}
+
+/**
+ * Open WhatsApp with the complete official folio receipt pre-filled
+ */
+export function openWhatsAppReceipt(phone, booking) {
+  const cleanPhone = formatWhatsAppPhone(phone);
+  const text = buildWhatsAppReceiptText(booking);
+  const encoded = encodeURIComponent(text);
+  const url = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+  window.open(url, '_blank');
+}
+

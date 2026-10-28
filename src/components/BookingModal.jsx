@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { HOTEL_INFO } from '../data/hotelData';
 import { portalStore } from '../data/portalStore';
 import { emailService } from '../utils/emailService';
-import { printFolioReceipt } from '../utils/printFolio';
+import { printFolioReceipt, openWhatsAppReceipt, buildWhatsAppReceiptText, formatWhatsAppPhone } from '../utils/printFolio';
 import { 
   getPaystackPublicKey, 
   setPaystackPublicKey, 
@@ -354,84 +354,49 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
   };
 
   const handleWhatsAppSend = () => {
-    const isExt = selectedRoom.buildingLabel?.toLowerCase().includes('ext') || (assignedRoomNumber && String(assignedRoomNumber).startsWith('1'));
-    const wingName = isExt ? 'Extension Building (100 Wing)' : 'Main Building (600 Wing)';
-
-    const receiptMessage = 
-      `*ARAB SIGNATURE HOTEL & SUITES*\n` +
-      `*OFFICIAL GUEST FOLIO & PAYMENT RECEIPT*\n` +
-      `══════════════════════════════\n` +
-      `Dear *${guestName.trim()}*,\n` +
-      `Your room reservation at Arab Signature Hotel & Suites (Nsugbe, Onitsha) is confirmed and paid in full!\n\n` +
-      `📋 *OFFICIAL BOOKING CODE:* *${bookingCode}*\n` +
-      (createdSession?.sessionId ? `🔑 *Active Guest Session:* ${createdSession.sessionId}\n` : '') +
-      `💳 *Paystack Reference:* ${paystackReference}\n` +
-      `══════════════════════════════\n` +
-      `👤 *Primary Guest:* ${guestName.trim()}\n` +
-      `📱 *Phone / WhatsApp:* ${guestPhone.trim()}\n` +
-      `📧 *Email:* ${guestEmail.trim()}\n` +
-      (guestAddress ? `📍 *Residential Address:* ${guestAddress.trim()}\n` : '') +
-      (nextOfKinName ? `👥 *Next of Kin:* ${nextOfKinName.trim()} (${nextOfKinPhone.trim()} • ${nextOfKinRelationship})\n` : '') +
-      `══════════════════════════════\n` +
-      `🏨 *Suite Accommodation:* ${selectedRoom.name}\n` +
-      (assignedRoomNumber && assignedRoomNumber !== 'Unassigned' ? `🚪 *Assigned Suite:* Room #${assignedRoomNumber}\n` : `🚪 *Assigned Suite:* Allocated upon arrival\n`) +
-      `🏢 *Building Wing:* ${wingName}\n` +
-      `📅 *Check-In Date:* ${checkIn} (from 2:00 PM)\n` +
-      `📅 *Check-Out Date:* ${checkOut} (by 12:00 PM)\n` +
-      `🌙 *Duration of Stay:* ${nights} ${nights === 1 ? 'Night' : 'Nights'}\n` +
-      `💰 *Total Amount Paid:* ₦${totalAmount.toLocaleString()} via Paystack\n` +
-      `🧾 *Payment Status:* Verified & Confirmed Online (Paid in Full)\n` +
-      `══════════════════════════════\n` +
-      `📶 *Complimentary High-Speed Wi-Fi:*\n` +
-      `Network: *Arab_Signature_HighSpeed_Guest*\n` +
-      `Password: *ArabSignatureVIP*\n\n` +
-      `📍 *Location:* Arab Signature Hotel, Nsugbe-Onitsha Expressway, Anambra State\n` +
-      `📞 *24/7 Front Desk Concierge:* +234 812 578 6875\n\n` +
-      `_Kindly present your Booking Code (*${bookingCode}*) upon arrival at the ${wingName} front desk for instant keycard pickup._`;
-
-    const encoded = encodeURIComponent(receiptMessage);
-    window.open(`https://wa.me/${HOTEL_INFO.whatsapp}?text=${encoded}`, '_blank');
+    const booking = lastSavedBooking || {
+      id: bookingCode,
+      guestName: guestName.trim(),
+      phone: guestPhone.trim(),
+      email: guestEmail.trim(),
+      homeAddress: guestAddress.trim(),
+      nextOfKinName: nextOfKinName.trim(),
+      nextOfKinPhone: nextOfKinPhone.trim(),
+      nextOfKinRelationship: nextOfKinRelationship.trim(),
+      roomName: selectedRoom.name,
+      roomNumber: assignedRoomNumber,
+      buildingLabel: selectedRoom.buildingLabel,
+      checkIn: checkIn,
+      checkOut: checkOut,
+      nights: nights,
+      amount: totalAmount,
+      paymentMethod: "Paystack (Online Verified)",
+      paystackReference: paystackReference
+    };
+    openWhatsAppReceipt(HOTEL_INFO.whatsapp, booking);
   };
 
   const handleSendToMyWhatsApp = () => {
-    let cleanPhone = guestPhone.replace(/[^0-9]/g, '');
-    if (cleanPhone.startsWith('0')) {
-      cleanPhone = '234' + cleanPhone.slice(1);
-    } else if (!cleanPhone.startsWith('234') && cleanPhone.length === 10) {
-      cleanPhone = '234' + cleanPhone;
-    }
-    const isExt = selectedRoom.buildingLabel?.toLowerCase().includes('ext') || (assignedRoomNumber && String(assignedRoomNumber).startsWith('1'));
-    const wingName = isExt ? 'Extension Building (100 Wing)' : 'Main Building (600 Wing)';
-
-    const receiptMessage = 
-      `*ARAB SIGNATURE HOTEL & SUITES*\n` +
-      `*OFFICIAL GUEST FOLIO & PAYMENT RECEIPT*\n` +
-      `══════════════════════════════\n` +
-      `Dear *${guestName.trim()}*,\n` +
-      `Your room reservation at Arab Signature Hotel & Suites (Nsugbe, Onitsha) is confirmed and paid in full!\n\n` +
-      `📋 *OFFICIAL BOOKING CODE:* *${bookingCode}*\n` +
-      (createdSession?.sessionId ? `🔑 *Active Guest Session:* ${createdSession.sessionId}\n` : '') +
-      `💳 *Paystack Reference:* ${paystackReference}\n` +
-      `══════════════════════════════\n` +
-      `👤 *Primary Guest:* ${guestName.trim()}\n` +
-      `📱 *Phone / WhatsApp:* ${guestPhone.trim()}\n` +
-      `📧 *Email:* ${guestEmail.trim()}\n` +
-      `🏨 *Suite Accommodation:* ${selectedRoom.name}\n` +
-      (assignedRoomNumber && assignedRoomNumber !== 'Unassigned' ? `🚪 *Assigned Suite:* Room #${assignedRoomNumber}\n` : `🚪 *Assigned Suite:* Allocated upon arrival\n`) +
-      `🏢 *Building Wing:* ${wingName}\n` +
-      `📅 *Check-In Date:* ${checkIn} (from 2:00 PM)\n` +
-      `📅 *Check-Out Date:* ${checkOut} (by 12:00 PM)\n` +
-      `🌙 *Duration of Stay:* ${nights} ${nights === 1 ? 'Night' : 'Nights'}\n` +
-      `💰 *Total Amount Paid:* ₦${totalAmount.toLocaleString()} via Paystack\n` +
-      `🧾 *Payment Status:* Verified & Confirmed Online (Paid in Full)\n` +
-      `══════════════════════════════\n` +
-      `📶 *Wi-Fi Access:* Arab_Signature_HighSpeed_Guest (Password: ArabSignatureVIP)\n` +
-      `📍 *Location:* Arab Signature Hotel, Nsugbe-Onitsha Expressway, Anambra State\n` +
-      `📞 *24/7 Front Desk Concierge:* +234 812 578 6875\n\n` +
-      `_Save this official receipt for your arrival check-in._`;
-
-    const encoded = encodeURIComponent(receiptMessage);
-    window.open(`https://wa.me/${cleanPhone}?text=${encoded}`, '_blank');
+    const booking = lastSavedBooking || {
+      id: bookingCode,
+      guestName: guestName.trim(),
+      phone: guestPhone.trim(),
+      email: guestEmail.trim(),
+      homeAddress: guestAddress.trim(),
+      nextOfKinName: nextOfKinName.trim(),
+      nextOfKinPhone: nextOfKinPhone.trim(),
+      nextOfKinRelationship: nextOfKinRelationship.trim(),
+      roomName: selectedRoom.name,
+      roomNumber: assignedRoomNumber,
+      buildingLabel: selectedRoom.buildingLabel,
+      checkIn: checkIn,
+      checkOut: checkOut,
+      nights: nights,
+      amount: totalAmount,
+      paymentMethod: "Paystack (Online Verified)",
+      paystackReference: paystackReference
+    };
+    openWhatsAppReceipt(guestPhone, booking);
   };
 
   const handlePrintReceipt = () => {
@@ -1185,26 +1150,43 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                   </button>
                 )}
 
-                {/* Primary WhatsApp Receipt Button: Sends full official folio receipt to Hotel Reception */}
-                <button
-                  type="button"
-                  onClick={handleWhatsAppSend}
-                  className="w-full py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-black font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
-                >
-                  <Share2 size={15} /> Send Arrival Notice &amp; Official Receipt to Hotel WhatsApp
-                </button>
+                {/* Dedicated WhatsApp Official Folio Receipt Card */}
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-[#120208] to-emerald-950/40 border border-emerald-500/40 text-left space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                      <MessageSquare size={14} className="text-[#25D366]" />
+                      <span>Official WhatsApp Digital Receipt</span>
+                    </div>
+                    <span className="text-[10px] text-emerald-300 font-mono bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold">
+                      100% Free &bull; 1-Click
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-300 leading-relaxed">
+                    Carries your complete official stay folio with the <strong className="text-emerald-300">[ &check; ] PAID IN FULL</strong> stamp, room assignment, emergency contact, and Wi-Fi access.
+                  </p>
 
-                {/* Optional Second WhatsApp: Send Copy of Receipt to Guest's Own WhatsApp */}
-                {guestPhone && (
+                  {/* Primary 1-Click Button directly to the customer's phone number */}
+                  {guestPhone && (
+                    <button
+                      type="button"
+                      onClick={handleSendToMyWhatsApp}
+                      className="w-full py-3 px-4 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 transition-all cursor-pointer active:scale-[0.99] hover:brightness-105"
+                    >
+                      <MessageSquare size={16} className="text-black stroke-[2.5]" />
+                      <span>Send Official Receipt to My WhatsApp ({guestPhone})</span>
+                    </button>
+                  )}
+
+                  {/* Secondary Button to Hotel Reception */}
                   <button
                     type="button"
-                    onClick={handleSendToMyWhatsApp}
-                    className="w-full py-2 rounded-xl bg-emerald-950/50 hover:bg-emerald-900/60 border border-emerald-500/30 text-emerald-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    onClick={handleWhatsAppSend}
+                    className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-emerald-200 font-semibold text-[11px] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                   >
-                    <MessageSquare size={13} className="text-emerald-400" />
-                    <span>Send Official Receipt Copy to My WhatsApp ({guestPhone})</span>
+                    <Share2 size={13} className="text-[#25D366]" />
+                    <span>Also Send Copy to Hotel Front Desk WhatsApp (+234 812 578 6875)</span>
                   </button>
-                )}
+                </div>
 
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <button

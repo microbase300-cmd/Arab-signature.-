@@ -10,6 +10,7 @@ import {
 import { compressImage, formatFileSize } from '../utils/imageCompressor';
 import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
 import { emailService } from '../utils/emailService';
+import { printFolioReceipt, openWhatsAppReceipt } from '../utils/printFolio';
 
 export default function ReceptionPortal({ onNavigate }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -825,50 +826,8 @@ export default function ReceptionPortal({ onNavigate }) {
   // Send WhatsApp message to guest with official hotel receipt
   const handleSendWhatsApp = (booking) => {
     if (!booking) return;
-    let rawPhone = (booking.phone || '').replace(/[^0-9]/g, '');
-    if (rawPhone.startsWith('0')) {
-      rawPhone = '234' + rawPhone.slice(1);
-    } else if (!rawPhone.startsWith('234') && rawPhone.length === 10) {
-      rawPhone = '234' + rawPhone;
-    }
-
-    const isHold = booking.bookingMode === 'Reservation Hold';
-    const bldg = (String(booking.roomNumber).startsWith('1') || (booking.roomName || '').toLowerCase().includes('ext'))
-      ? 'Extension Wing (100 Wing)'
-      : 'Main Building (600 Wing)';
-
-    const scheduleText = isHold
-      ? `📅 *Reservation Date:* ${booking.reservationDate || booking.checkIn}\n⏳ *Expected Check-In:* ${booking.expectedCheckIn || booking.checkIn}\n🌙 *Duration of Stay:* ${booking.nights} ${booking.nights === 1 ? 'Night' : 'Nights'}`
-      : `📅 *Check-In Date:* ${booking.checkIn} (from 2:00 PM)\n🚪 *Check-Out Date:* ${booking.checkOut}\n🌙 *Duration of Stay:* ${booking.nights} ${booking.nights === 1 ? 'Night' : 'Nights'}`;
-
-    const paymentProofText = booking.proofOfPayment ? `🧾 *Payment Ref:* ${booking.proofOfPayment}\n` : '';
-
-    const message = encodeURIComponent(
-      `*ARAB SIGNATURE HOTEL & SUITES*\n` +
-      `*OFFICIAL GUEST FOLIO & RECEIPT*\n` +
-      `══════════════════════════════\n` +
-      `Dear *${booking.guestName}*,\n` +
-      `Thank you for choosing Arab Signature Hotel & Suites, Nsugbe-Onitsha Expressway!\n\n` +
-      `📋 *Booking Reference Code:* *${booking.id}*\n` +
-      `🏨 *Suite Accommodation:* ${booking.roomName}\n` +
-      `🚪 *Room Number:* #${booking.roomNumber || 'Assigned on arrival'}\n` +
-      `🏢 *Building Wing:* ${bldg}\n` +
-      `${scheduleText}\n` +
-      `💰 *Total Amount Billed:* ₦${Number(booking.amount || 0).toLocaleString()}\n` +
-      `💳 *Payment Channel:* ${booking.paymentMethod} (${booking.paymentStatus || 'Paid'})\n` +
-      `${paymentProofText}` +
-      `══════════════════════════════\n` +
-      `🔑 *VIP GUEST PORTAL LOGIN:*\n` +
-      `Track your stay, order food (ARB-FDD) & drinks (ARB-DRK), and access high-speed Wi-Fi:\n` +
-      `${typeof window !== 'undefined' ? window.location.origin : 'https://arab-signature.vercel.app'}\n` +
-      `Enter your Booking Code: *${booking.id}*\n\n` +
-      `📍 *Location:* Arab Signature Hotel, Nsugbe-Onitsha Expressway, Anambra State\n` +
-      `📞 *24/7 Front Desk Concierge:* +234 812 578 6875\n\n` +
-      `_We wish you a wonderful and restful stay!_`
-    );
-
-    showToast(`Opening WhatsApp for ${booking.guestName} (${booking.phone})...`);
-    window.open(`https://wa.me/${rawPhone}?text=${message}`, '_blank');
+    showToast(`Opening WhatsApp receipt for ${booking.guestName} (${booking.phone})...`);
+    openWhatsAppReceipt(booking.phone, booking);
   };
 
   // Filtered bookings
@@ -3559,7 +3518,7 @@ export default function ReceptionPortal({ onNavigate }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={() => printFolioReceipt(selectedReceiptBooking)}
                   className="px-3.5 py-1.5 rounded-xl bg-[#5c0725] text-white hover:bg-[#3d0418] text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
                 >
                   <Printer size={14} />
@@ -3801,7 +3760,7 @@ export default function ReceptionPortal({ onNavigate }) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => window.print()}
+                    onClick={() => printFolioReceipt(selectedReceiptBooking)}
                     className="px-4 py-2.5 rounded-xl bg-[#5c0725] hover:bg-[#3d0418] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
                   >
                     <Printer size={15} />
