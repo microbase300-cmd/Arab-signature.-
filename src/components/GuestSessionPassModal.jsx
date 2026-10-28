@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { HOTEL_INFO } from '../data/hotelData';
 import { portalStore } from '../data/portalStore';
+import { printFolioReceipt } from '../utils/printFolio';
 import { 
   X, Key, Wifi, Phone, ShieldCheck, Printer, Calendar, Clock, 
   MapPin, Check, Copy, Utensils, LogOut, Sparkles, Building2
@@ -207,8 +208,8 @@ export default function GuestSessionPassModal({ isOpen, onClose, onNavigate }) {
           {/* Print Folio & End Session */}
           <div className="pt-2 border-t border-white/10 flex items-center justify-between text-gray-400 text-[11px]">
             <button
-              onClick={() => window.print()}
-              className="hover:text-white flex items-center gap-1 transition-colors"
+              onClick={() => printFolioReceipt(session)}
+              className="hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
             >
               <Printer size={13} />
               <span>Print Folio Receipt</span>

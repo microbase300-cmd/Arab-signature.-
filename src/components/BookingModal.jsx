@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { HOTEL_INFO } from '../data/hotelData';
 import { portalStore } from '../data/portalStore';
 import { emailService } from '../utils/emailService';
+import { printFolioReceipt } from '../utils/printFolio';
 import { 
   getPaystackPublicKey, 
   setPaystackPublicKey, 
@@ -32,7 +33,9 @@ import {
   Wifi,
   FileText,
   MapPin,
-  Heart
+  Heart,
+  RotateCw,
+  MessageSquare
 } from 'lucide-react';
 
 export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpenGuestPass }) {
@@ -75,9 +78,14 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
   const [paystackReference, setPaystackReference] = useState('');
   const [assignedRoomNumber, setAssignedRoomNumber] = useState('');
   const [createdSession, setCreatedSession] = useState(null);
+  const [lastSavedBooking, setLastSavedBooking] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const [copiedRef, setCopiedRef] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [emailStatus, setEmailStatus] = useState('idle'); // 'idle' | 'sending' | 'sent' | 'failed'
+  const [emailStatusMsg, setEmailStatusMsg] = useState('');
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
 
   // Paystack Key Management
   const [keyInput, setKeyInput] = useState('');
@@ -197,6 +205,7 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
     const code = savedBooking.id;
     setBookingCode(code);
     setPaystackReference(reference);
+    setLastSavedBooking(savedBooking);
 
     if (savedBooking && savedBooking.roomNumber) {
       setAssignedRoomNumber(savedBooking.roomNumber);
@@ -208,9 +217,23 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
 
     // 3. Send Official Luxury Confirmation Email via Resend
     if (savedBooking && savedBooking.email) {
-      emailService.sendReservationEmail(savedBooking).catch(err => {
-        console.warn('[Reservation Email Notice]:', err);
-      });
+      setEmailStatus('sending');
+      setEmailStatusMsg(`Dispatching confirmation email to ${savedBooking.email}...`);
+      emailService.sendReservationEmail(savedBooking)
+        .then(res => {
+          if (res && res.success !== false) {
+            setEmailStatus('sent');
+            setEmailStatusMsg(`Official confirmation email with booking code dispatched to ${savedBooking.email}`);
+          } else {
+            setEmailStatus('failed');
+            setEmailStatusMsg(res?.error || `Email could not be delivered to ${savedBooking.email}`);
+          }
+        })
+        .catch(err => {
+          console.warn('[Reservation Email Notice]:', err);
+          setEmailStatus('failed');
+          setEmailStatusMsg(err?.message || 'Email dispatch error');
+        });
     }
 
     // Optional background verification call to /api/verify-payment
@@ -281,27 +304,157 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
     }
   };
 
+  const handleCopyBookingCode = () => {
+    if (bookingCode) {
+      navigator.clipboard.writeText(bookingCode);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2500);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    const booking = lastSavedBooking || {
+      id: bookingCode,
+      guestName: guestName.trim(),
+      email: guestEmail.trim(),
+      phone: guestPhone.trim(),
+      roomName: selectedRoom.name,
+      roomNumber: assignedRoomNumber,
+      checkIn: checkIn,
+      checkOut: checkOut,
+      nights: nights,
+      amount: totalAmount,
+      paystackReference: paystackReference
+    };
+
+    if (!booking.email) {
+      alert('No email address provided for this reservation.');
+      return;
+    }
+
+    setIsResendingEmail(true);
+    setEmailStatus('sending');
+    setEmailStatusMsg(`Resending confirmation email to ${booking.email}...`);
+
+    try {
+      const res = await emailService.sendReservationEmail(booking);
+      if (res && res.success !== false) {
+        setEmailStatus('sent');
+        setEmailStatusMsg(`Confirmation email successfully sent to ${booking.email}`);
+      } else {
+        setEmailStatus('failed');
+        setEmailStatusMsg(res?.error || `Email delivery failed. Please check internet connection.`);
+      }
+    } catch (err) {
+      setEmailStatus('failed');
+      setEmailStatusMsg(err?.message || 'Email delivery failed.');
+    } finally {
+      setIsResendingEmail(false);
+    }
+  };
+
   const handleWhatsAppSend = () => {
-    const text = encodeURIComponent(
-      `Hello Arab Signature Hotel Reception, I just completed a room reservation online!\n\n` +
-      `📋 Official Booking Code: ${bookingCode}\n` +
-      (createdSession?.sessionId ? `🔑 Guest Session: ${createdSession.sessionId}\n` : '') +
-      `💳 Paystack Reference: ${paystackReference}\n` +
-      `👤 Guest Name: ${guestName}\n` +
-      `📱 Phone: ${guestPhone}\n` +
-      `🏨 Room: ${selectedRoom.name} (${selectedRoom.buildingLabel || 'Arab Signature Wing'})\n` +
-      (assignedRoomNumber && assignedRoomNumber !== 'Unassigned' ? `🔑 Assigned Suite: Room #${assignedRoomNumber}\n` : '') +
-      `📅 Check-in: ${checkIn} (2:00 PM)\n` +
-      `📅 Check-out: ${checkOut} (12:00 PM)\n` +
-      `🌙 Duration: ${nights} ${nights === 1 ? 'Night' : 'Nights'}\n` +
-      `💰 Amount Paid: ₦${totalAmount.toLocaleString()} via Paystack\n\n` +
-      `Kindly confirm my arrival and keycard pickup. Thank you!`
-    );
-    window.open(`https://wa.me/${HOTEL_INFO.whatsapp}?text=${text}`, '_blank');
+    const isExt = selectedRoom.buildingLabel?.toLowerCase().includes('ext') || (assignedRoomNumber && String(assignedRoomNumber).startsWith('1'));
+    const wingName = isExt ? 'Extension Building (100 Wing)' : 'Main Building (600 Wing)';
+
+    const receiptMessage = 
+      `*ARAB SIGNATURE HOTEL & SUITES*\n` +
+      `*OFFICIAL GUEST FOLIO & PAYMENT RECEIPT*\n` +
+      `══════════════════════════════\n` +
+      `Dear *${guestName.trim()}*,\n` +
+      `Your room reservation at Arab Signature Hotel & Suites (Nsugbe, Onitsha) is confirmed and paid in full!\n\n` +
+      `📋 *OFFICIAL BOOKING CODE:* *${bookingCode}*\n` +
+      (createdSession?.sessionId ? `🔑 *Active Guest Session:* ${createdSession.sessionId}\n` : '') +
+      `💳 *Paystack Reference:* ${paystackReference}\n` +
+      `══════════════════════════════\n` +
+      `👤 *Primary Guest:* ${guestName.trim()}\n` +
+      `📱 *Phone / WhatsApp:* ${guestPhone.trim()}\n` +
+      `📧 *Email:* ${guestEmail.trim()}\n` +
+      (guestAddress ? `📍 *Residential Address:* ${guestAddress.trim()}\n` : '') +
+      (nextOfKinName ? `👥 *Next of Kin:* ${nextOfKinName.trim()} (${nextOfKinPhone.trim()} • ${nextOfKinRelationship})\n` : '') +
+      `══════════════════════════════\n` +
+      `🏨 *Suite Accommodation:* ${selectedRoom.name}\n` +
+      (assignedRoomNumber && assignedRoomNumber !== 'Unassigned' ? `🚪 *Assigned Suite:* Room #${assignedRoomNumber}\n` : `🚪 *Assigned Suite:* Allocated upon arrival\n`) +
+      `🏢 *Building Wing:* ${wingName}\n` +
+      `📅 *Check-In Date:* ${checkIn} (from 2:00 PM)\n` +
+      `📅 *Check-Out Date:* ${checkOut} (by 12:00 PM)\n` +
+      `🌙 *Duration of Stay:* ${nights} ${nights === 1 ? 'Night' : 'Nights'}\n` +
+      `💰 *Total Amount Paid:* ₦${totalAmount.toLocaleString()} via Paystack\n` +
+      `🧾 *Payment Status:* Verified & Confirmed Online (Paid in Full)\n` +
+      `══════════════════════════════\n` +
+      `📶 *Complimentary High-Speed Wi-Fi:*\n` +
+      `Network: *Arab_Signature_HighSpeed_Guest*\n` +
+      `Password: *ArabSignatureVIP*\n\n` +
+      `📍 *Location:* Arab Signature Hotel, Nsugbe-Onitsha Expressway, Anambra State\n` +
+      `📞 *24/7 Front Desk Concierge:* +234 812 578 6875\n\n` +
+      `_Kindly present your Booking Code (*${bookingCode}*) upon arrival at the ${wingName} front desk for instant keycard pickup._`;
+
+    const encoded = encodeURIComponent(receiptMessage);
+    window.open(`https://wa.me/${HOTEL_INFO.whatsapp}?text=${encoded}`, '_blank');
+  };
+
+  const handleSendToMyWhatsApp = () => {
+    let cleanPhone = guestPhone.replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('0')) {
+      cleanPhone = '234' + cleanPhone.slice(1);
+    } else if (!cleanPhone.startsWith('234') && cleanPhone.length === 10) {
+      cleanPhone = '234' + cleanPhone;
+    }
+    const isExt = selectedRoom.buildingLabel?.toLowerCase().includes('ext') || (assignedRoomNumber && String(assignedRoomNumber).startsWith('1'));
+    const wingName = isExt ? 'Extension Building (100 Wing)' : 'Main Building (600 Wing)';
+
+    const receiptMessage = 
+      `*ARAB SIGNATURE HOTEL & SUITES*\n` +
+      `*OFFICIAL GUEST FOLIO & PAYMENT RECEIPT*\n` +
+      `══════════════════════════════\n` +
+      `Dear *${guestName.trim()}*,\n` +
+      `Your room reservation at Arab Signature Hotel & Suites (Nsugbe, Onitsha) is confirmed and paid in full!\n\n` +
+      `📋 *OFFICIAL BOOKING CODE:* *${bookingCode}*\n` +
+      (createdSession?.sessionId ? `🔑 *Active Guest Session:* ${createdSession.sessionId}\n` : '') +
+      `💳 *Paystack Reference:* ${paystackReference}\n` +
+      `══════════════════════════════\n` +
+      `👤 *Primary Guest:* ${guestName.trim()}\n` +
+      `📱 *Phone / WhatsApp:* ${guestPhone.trim()}\n` +
+      `📧 *Email:* ${guestEmail.trim()}\n` +
+      `🏨 *Suite Accommodation:* ${selectedRoom.name}\n` +
+      (assignedRoomNumber && assignedRoomNumber !== 'Unassigned' ? `🚪 *Assigned Suite:* Room #${assignedRoomNumber}\n` : `🚪 *Assigned Suite:* Allocated upon arrival\n`) +
+      `🏢 *Building Wing:* ${wingName}\n` +
+      `📅 *Check-In Date:* ${checkIn} (from 2:00 PM)\n` +
+      `📅 *Check-Out Date:* ${checkOut} (by 12:00 PM)\n` +
+      `🌙 *Duration of Stay:* ${nights} ${nights === 1 ? 'Night' : 'Nights'}\n` +
+      `💰 *Total Amount Paid:* ₦${totalAmount.toLocaleString()} via Paystack\n` +
+      `🧾 *Payment Status:* Verified & Confirmed Online (Paid in Full)\n` +
+      `══════════════════════════════\n` +
+      `📶 *Wi-Fi Access:* Arab_Signature_HighSpeed_Guest (Password: ArabSignatureVIP)\n` +
+      `📍 *Location:* Arab Signature Hotel, Nsugbe-Onitsha Expressway, Anambra State\n` +
+      `📞 *24/7 Front Desk Concierge:* +234 812 578 6875\n\n` +
+      `_Save this official receipt for your arrival check-in._`;
+
+    const encoded = encodeURIComponent(receiptMessage);
+    window.open(`https://wa.me/${cleanPhone}?text=${encoded}`, '_blank');
   };
 
   const handlePrintReceipt = () => {
-    window.print();
+    const bookingToPrint = lastSavedBooking || {
+      id: bookingCode,
+      guestName: guestName.trim(),
+      phone: guestPhone.trim(),
+      email: guestEmail.trim(),
+      homeAddress: guestAddress.trim(),
+      nextOfKinName: nextOfKinName.trim(),
+      nextOfKinPhone: nextOfKinPhone.trim(),
+      nextOfKinRelationship: nextOfKinRelationship.trim(),
+      roomName: selectedRoom.name,
+      roomNumber: assignedRoomNumber,
+      buildingLabel: selectedRoom.buildingLabel,
+      checkIn: checkIn,
+      checkOut: checkOut,
+      nights: nights,
+      amount: totalAmount,
+      paymentMethod: "Paystack (Online Verified)",
+      paystackReference: paystackReference
+    };
+    printFolioReceipt(bookingToPrint);
   };
 
   return (
@@ -871,11 +1024,22 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                       ACTIVE GUEST SESSION
                     </span>
-                    <div className="text-2xl sm:text-3xl font-mono font-extrabold text-[#f3e5ab] tracking-wider mt-0.5">
-                      {bookingCode}
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="text-2xl sm:text-3xl font-mono font-extrabold text-[#f3e5ab] tracking-wider">
+                        {bookingCode}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleCopyBookingCode}
+                        className="px-2.5 py-1 rounded-lg bg-[#d4af37]/20 hover:bg-[#d4af37]/35 border border-[#d4af37]/50 text-[#f3e5ab] text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+                        title="Copy Official Booking Code"
+                      >
+                        {copiedCode ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                        <span>{copiedCode ? 'Copied Code!' : 'Copy Code'}</span>
+                      </button>
                     </div>
                     {createdSession?.sessionId && (
-                      <span className="text-[10px] text-gray-400 font-mono block mt-0.5">
+                      <span className="text-[10px] text-gray-400 font-mono block mt-1">
                         Session: {createdSession.sessionId}
                       </span>
                     )}
@@ -883,6 +1047,46 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                   <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                     PAID (Paystack)
                   </span>
+                </div>
+
+                {/* Live Official Email Confirmation Status */}
+                <div className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 transition-all ${
+                  emailStatus === 'sent'
+                    ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'
+                    : emailStatus === 'failed'
+                    ? 'bg-rose-950/40 border-rose-500/40 text-rose-200'
+                    : 'bg-black/40 border-white/10 text-gray-300'
+                }`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    {emailStatus === 'sending' ? (
+                      <RotateCw size={14} className="text-[#d4af37] animate-spin shrink-0" />
+                    ) : emailStatus === 'sent' ? (
+                      <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                    ) : emailStatus === 'failed' ? (
+                      <AlertCircle size={14} className="text-rose-400 shrink-0" />
+                    ) : (
+                      <Mail size={14} className="text-[#d4af37] shrink-0" />
+                    )}
+                    <div className="truncate">
+                      <span className="font-semibold block text-[11px]">
+                        {emailStatus === 'sent' ? 'Confirmation Email Delivered' : emailStatus === 'failed' ? 'Email Notice' : 'Confirmation Email'}
+                      </span>
+                      <span className="text-[10px] text-gray-400 truncate block">
+                        {emailStatusMsg || (guestEmail ? `Sent to ${guestEmail}` : 'Email dispatch queued')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isResendingEmail}
+                    onClick={handleResendEmail}
+                    className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-[#f3e5ab] text-[10px] font-mono shrink-0 transition-colors cursor-pointer border border-white/15 flex items-center gap-1"
+                    title="Resend email confirmation to your inbox"
+                  >
+                    <RotateCw size={10} className={isResendingEmail ? "animate-spin" : ""} />
+                    <span>{isResendingEmail ? 'Sending...' : 'Resend Email'}</span>
+                  </button>
                 </div>
 
                 {/* Paystack Reference */}
@@ -981,13 +1185,26 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                   </button>
                 )}
 
+                {/* Primary WhatsApp Receipt Button: Sends full official folio receipt to Hotel Reception */}
                 <button
                   type="button"
                   onClick={handleWhatsAppSend}
                   className="w-full py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-black font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
                 >
-                  <Share2 size={15} /> Send Arrival Notice to Hotel WhatsApp
+                  <Share2 size={15} /> Send Arrival Notice &amp; Official Receipt to Hotel WhatsApp
                 </button>
+
+                {/* Optional Second WhatsApp: Send Copy of Receipt to Guest's Own WhatsApp */}
+                {guestPhone && (
+                  <button
+                    type="button"
+                    onClick={handleSendToMyWhatsApp}
+                    className="w-full py-2 rounded-xl bg-emerald-950/50 hover:bg-emerald-900/60 border border-emerald-500/30 text-emerald-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <MessageSquare size={13} className="text-emerald-400" />
+                    <span>Send Official Receipt Copy to My WhatsApp ({guestPhone})</span>
+                  </button>
+                )}
 
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <button

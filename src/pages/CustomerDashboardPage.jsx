@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { HOTEL_INFO, ROOMS } from '../data/hotelData';
 import { portalStore } from '../data/portalStore';
 import { payWithPaystack, getPaystackMode } from '../utils/paystack';
+import { printFolioReceipt } from '../utils/printFolio';
 import {
   Key,
   User,
@@ -369,7 +370,11 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
   };
 
   const handlePrintReceipt = () => {
-    window.print();
+    if (customerProfile?.primaryBooking) {
+      printFolioReceipt(customerProfile.primaryBooking);
+    } else {
+      window.print();
+    }
   };
 
   const handleRebookNow = () => {
