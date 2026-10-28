@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { compressImage, formatFileSize } from '../utils/imageCompressor';
 import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
+import CounterCheckInModal from '../components/CounterCheckInModal';
 import { emailService } from '../utils/emailService';
 import { printFolioReceipt, openWhatsAppReceipt } from '../utils/printFolio';
 import { 
@@ -16,6 +17,13 @@ import {
   downloadReceiptImageBlob, 
   shareReceiptImageToWhatsApp 
 } from '../utils/receiptImageGenerator';
+import { 
+  playLoudReservationAlert, 
+  playLoudDiningOrderAlert, 
+  playIntercomPing, 
+  testLoudAlert, 
+  initAudioUnlocker 
+} from '../utils/hotelSoundAlerts';
 
 export default function ReceptionPortal({ onNavigate }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -57,6 +65,9 @@ export default function ReceptionPortal({ onNavigate }) {
   const [orderLookupError, setOrderLookupError] = useState('');
   const [isOrderLookupModalOpen, setIsOrderLookupModalOpen] = useState(false);
 
+  // Front Desk Counter Check-In & Booking Code Verification Modal
+  const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
+
   // Front Desk Intercom Chat State
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
@@ -71,73 +82,16 @@ export default function ReceptionPortal({ onNavigate }) {
     isMutedRef.current = isSoundMuted;
   }, [isSoundMuted]);
 
-  // Front Desk Concierge Brass Bell Sound Synthesizer (Web Audio API - Zero External Audio Files)
+  // Front Desk High-Impact Concierge Bell & Reservation Alert (Cuts through lobby ambient noise)
   const playReceptionDeskBeep = () => {
     if (isMutedRef.current) return;
-    try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-
-      const playTone = (freq, delay, dur) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
-
-        gain.gain.setValueAtTime(0, ctx.currentTime + delay);
-        gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + delay + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + dur);
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start(ctx.currentTime + delay);
-        osc.stop(ctx.currentTime + delay + dur);
-      };
-
-      // Triple Harmonic Hotel Front Desk Brass Chime (Crystal Bell Sound)
-      playTone(880, 0, 0.45);        // Note A5
-      playTone(1174.66, 0.16, 0.65); // Note D6
-      playTone(1760, 0.32, 0.75);    // Note A6
-    } catch (err) {
-      console.log('[Reception Sound Notice]:', err);
-    }
+    playLoudReservationAlert();
   };
 
   // Front Desk Two-Way Radio Intercom Chime (Pleasant 2-Tone Hotel Walkie / Concierge Ping)
   const playIntercomChime = () => {
     if (isMutedRef.current) return;
-    try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      if (ctx.state === 'suspended') ctx.resume();
-
-      const playTone = (freq, delay, dur) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
-        gain.gain.setValueAtTime(0, ctx.currentTime + delay);
-        gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + delay + 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + dur);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(ctx.currentTime + delay);
-        osc.stop(ctx.currentTime + delay + dur);
-      };
-
-      playTone(659.25, 0, 0.22);    // E5
-      playTone(880, 0.14, 0.35);    // A5
-    } catch (err) {
-      console.log('[Intercom Chime Notice]:', err);
-    }
+    playIntercomPing();
   };
 
   // Walk-in / Counter Booking form state (includes live Booking Code Generator)
@@ -324,23 +278,28 @@ export default function ReceptionPortal({ onNavigate }) {
       refreshData();
     });
 
+    // 1.2 Initialize Web Audio Unlocker
+    initAudioUnlocker();
+
     // 2. Digital clock timer
     const timer = setInterval(() => {
       setCurrentTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     }, 1000);
 
-    // 3. Listen for live incoming bookings & price adjustments in real time
-    const handleBookingsSync = (e) => {
+    // 3. Listen for live incoming bookings across all tabs & devices in real time
+    const unsubscribeBookings = portalStore.subscribeBookings((detail) => {
       refreshData();
-      if (e && e.detail && e.detail.isNewReservation && e.detail.newBooking) {
-        // Play luxury concierge desk bell chime beep
-        playReceptionDeskBeep();
+      if (detail && detail.isNewReservation && detail.newBooking) {
+        // Play VERY LOUD multi-harmonic front desk fanfare & brass bell alert!
+        if (!isMutedRef.current) {
+          playLoudReservationAlert();
+        }
         // Display prominent alert banner at top of reception screen
-        setIncomingAlert(e.detail.newBooking);
+        setIncomingAlert(detail.newBooking);
       }
-    };
+    });
+
     const handleLiveSync = () => refreshData();
-    window.addEventListener('ash_bookings_updated', handleBookingsSync);
     window.addEventListener('ash_rates_updated', handleLiveSync);
     window.addEventListener('ash_rooms_updated', handleLiveSync);
     window.addEventListener('ash_menu_updated', handleLiveSync);
@@ -350,19 +309,32 @@ export default function ReceptionPortal({ onNavigate }) {
       refreshData();
       if (detail?.isNewOrder && detail?.newOrder) {
         const o = detail.newOrder;
-        const isOutside = Boolean(
-          o.isOutsideRoom || !o.isLodgeGuest || !o.roomNumber || !o.bookingId
-        );
-        if (isOutside) {
-          playReceptionDeskBeep();
+        const currentDesk = getDeskBuilding();
+
+        // Main Reception receives the VERY LOUD sound alert for ALL food and drink orders!
+        if (currentDesk === 'Main Building' || currentDesk === 'all') {
+          if (!isMutedRef.current) {
+            playLoudDiningOrderAlert();
+          }
           setIncomingDiningAlert(o);
         } else {
-          playIntercomChime();
+          // Extension Building Reception receives loud sound if order is for Extension wing
+          if (isDeskDiningOrder(o)) {
+            if (!isMutedRef.current) {
+              playLoudDiningOrderAlert();
+            }
+            setIncomingDiningAlert(o);
+          } else {
+            if (!isMutedRef.current) {
+              playIntercomPing();
+            }
+          }
         }
+
         showToast(
           o.chargeToRoom
             ? `🍽️ Room Bill Order ${o.id} (₦${Number(o.amount).toLocaleString()}) added to Suite #${o.roomNumber}!`
-            : `🔔 New Pickup/Dining Order ${o.id} (${o.guestName} • ${o.serviceLocation}) received at Main Reception!`
+            : `🔔 New Food/Drink Order ${o.id} (${o.guestName} • ${o.serviceLocation}) received at Front Desk!`
         );
       }
     });
@@ -412,7 +384,7 @@ export default function ReceptionPortal({ onNavigate }) {
 
     return () => {
       clearInterval(timer);
-      window.removeEventListener('ash_bookings_updated', handleBookingsSync);
+      unsubscribeBookings();
       window.removeEventListener('ash_rates_updated', handleLiveSync);
       window.removeEventListener('ash_rooms_updated', handleLiveSync);
       window.removeEventListener('ash_menu_updated', handleLiveSync);
@@ -933,15 +905,26 @@ export default function ReceptionPortal({ onNavigate }) {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             
+            {/* Primary Online Guest Check-In & Booking Code Verification Trigger */}
+            <button
+              onClick={() => setIsCheckInModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-950/40 hover:scale-102 active:scale-98 transition-all cursor-pointer border border-emerald-400/50"
+              title="Confirm online booking code & check in guest arriving at counter"
+            >
+              <Key size={14} className="stroke-[2.5] text-[#f3e5ab]" />
+              <span className="hidden sm:inline">Confirm Booking Code &amp; Check In</span>
+              <span className="sm:hidden">Check In Guest</span>
+            </button>
+
             {/* New Walk-In / Counter Booking Code Generator Trigger */}
             <button
               onClick={() => handleOpenNewWalkIn()}
-              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-semibold text-xs flex items-center gap-1.5 shadow-lg shadow-[#d4af37]/20 hover:scale-102 active:scale-98 transition-all"
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-semibold text-xs flex items-center gap-1.5 shadow-lg shadow-[#d4af37]/20 hover:scale-102 active:scale-98 transition-all cursor-pointer"
             >
-              <Key size={14} className="stroke-[2.5]" />
-              <span>Counter Booking & Code</span>
+              <Plus size={14} className="stroke-[2.5]" />
+              <span>Counter Walk-In</span>
             </button>
 
             {/* Quick Order Code Verification Trigger */}
@@ -966,7 +949,7 @@ export default function ReceptionPortal({ onNavigate }) {
             {/* View Dining Menu Prices (Read-Only Front Desk) */}
             <button
               onClick={() => setIsDiningMenuOpen(true)}
-              className="p-2 sm:px-3 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-medium border border-white/10 flex items-center gap-1.5 transition-all"
+              className="p-2 sm:px-3 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-medium border border-white/10 flex items-center gap-1.5 transition-all cursor-pointer"
               title="View Dining & Drinks Current Prices (Read-Only)"
             >
               <Utensils size={14} className="text-[#d4af37]" />
@@ -978,22 +961,22 @@ export default function ReceptionPortal({ onNavigate }) {
               onClick={() => {
                 if (isSoundMuted) {
                   setIsSoundMuted(false);
-                  showToast('Concierge Bell Chime Unmuted 🔔');
-                  setTimeout(() => playReceptionDeskBeep(), 100);
+                  showToast('Front Desk Audio Alerts Unmuted 🔔');
+                  testLoudAlert('reservation');
                 } else {
-                  playReceptionDeskBeep();
-                  showToast('Testing Front Desk Bell Chime... 🔔');
+                  testLoudAlert('reservation');
+                  showToast('Testing LOUD Front Desk Bell Sound... 🔔');
                 }
               }}
-              className={`p-2 sm:px-3 sm:py-2 rounded-xl text-xs font-medium border flex items-center gap-1.5 transition-all ${
+              className={`p-2 sm:px-3 sm:py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all cursor-pointer ${
                 isSoundMuted 
-                  ? 'bg-rose-950/40 border-rose-500/30 text-rose-300' 
-                  : 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border-white/10'
+                  ? 'bg-rose-950/60 border-rose-500/50 text-rose-300' 
+                  : 'bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border-emerald-500/40 shadow-sm'
               }`}
-              title={isSoundMuted ? "Audio Muted - Click to Unmute" : "Test Front Desk Bell Sound"}
+              title={isSoundMuted ? "Audio Muted - Click to Unmute" : "Test Loud Reservation Bell (Unlocks Audio)"}
             >
-              {isSoundMuted ? <VolumeX size={15} className="text-rose-400" /> : <Volume2 size={15} className="text-[#d4af37]" />}
-              <span className="hidden sm:inline">{isSoundMuted ? 'Muted' : 'Test Bell'}</span>
+              {isSoundMuted ? <VolumeX size={15} className="text-rose-400" /> : <Volume2 size={15} className="text-emerald-400" />}
+              <span className="hidden sm:inline">{isSoundMuted ? 'Muted' : '🔊 Test Loud Bell'}</span>
             </button>
 
             {/* Back to Guest Website */}
@@ -1053,11 +1036,21 @@ export default function ReceptionPortal({ onNavigate }) {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => {
+                  setIsCheckInModalOpen(true);
+                  setIncomingAlert(null);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer border border-emerald-400/50"
+              >
+                <CheckCircle2 size={14} className="stroke-[2.5]" />
+                <span>Confirm &amp; Check In Now</span>
+              </button>
               <button
                 onClick={() => playReceptionDeskBeep()}
                 className="px-3 py-1.5 rounded-xl bg-black/15 hover:bg-black/25 text-black font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-                title="Replay concierge bell chime"
+                title="Replay loud concierge bell chime"
               >
                 <Volume2 size={15} />
                 <span>Re-chime</span>
@@ -1070,7 +1063,7 @@ export default function ReceptionPortal({ onNavigate }) {
                 }}
                 className="px-3.5 py-1.5 rounded-xl bg-black text-white hover:bg-black/85 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
               >
-                <Key size={14} className="text-[#d4af37]" />
+                <Key size={14} className="text-[#f3e5ab]" />
                 <span>View In Ledger</span>
               </button>
               <button
@@ -1307,6 +1300,15 @@ export default function ReceptionPortal({ onNavigate }) {
               />
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             </div>
+
+            <button
+              onClick={() => setIsCheckInModalOpen(true)}
+              className="px-3 py-2 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-400/40 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shadow-sm"
+              title="Verify customer online booking code & check in"
+            >
+              <Key size={13} className="text-emerald-400" />
+              <span>Check In Code</span>
+            </button>
 
             <button
               onClick={refreshData}
@@ -4167,6 +4169,16 @@ export default function ReceptionPortal({ onNavigate }) {
           </div>
         </div>
       )}
+
+      {/* Front Desk Counter Check-In & Booking Code Verification Modal */}
+      <CounterCheckInModal
+        isOpen={isCheckInModalOpen}
+        onClose={() => setIsCheckInModalOpen(false)}
+        deskBuilding={getDeskBuilding()}
+        currentStaffName={currentUser?.name || 'Front Desk Receptionist'}
+        rooms={rooms}
+        onOpenReceipt={(b) => setSelectedReceiptBooking(b)}
+      />
 
     </div>
   );

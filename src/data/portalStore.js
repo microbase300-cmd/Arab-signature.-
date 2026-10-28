@@ -2718,7 +2718,13 @@ export const portalStore = {
     const bc = getSharedBroadcastChannel();
     if (bc) {
       try {
-        bc.postMessage({ type: 'BOOKINGS_UPDATED', bookings: updated, newBooking, timestamp: Date.now() });
+        bc.postMessage({ 
+          type: 'BOOKINGS_UPDATED', 
+          bookings: updated, 
+          newBooking, 
+          isNewReservation: newBooking.source !== 'Front Desk Walk-In' && !String(newBooking.source).includes('Counter'),
+          timestamp: Date.now() 
+        });
       } catch (e) {}
     }
 
@@ -4474,6 +4480,114 @@ export const portalStore = {
       window.removeEventListener('storage', storageHandler);
       if (bc) bc.removeEventListener('message', bcHandler);
     };
+  },
+
+  /**
+   * Subscribe to live Room Bookings updates across tabs, windows, and serverless sync
+   */
+  subscribeBookings(callback) {
+    if (typeof window === 'undefined') return () => {};
+    const localHandler = (e) => callback(e.detail || { bookings: this.getBookings() });
+    window.addEventListener('ash_bookings_updated', localHandler);
+
+    const storageHandler = (e) => {
+      if (e.key === STORAGE_KEYS.BOOKINGS) {
+        callback({ bookings: this.getBookings() });
+      }
+    };
+    window.addEventListener('storage', storageHandler);
+
+    const bc = getSharedBroadcastChannel();
+    const bcHandler = (ev) => {
+      if (ev.data?.type === 'BOOKINGS_UPDATED') {
+        callback({
+          bookings: ev.data.bookings || this.getBookings(),
+          newBooking: ev.data.newBooking,
+          isNewReservation: Boolean(ev.data.isNewReservation || (ev.data.newBooking && ev.data.newBooking.source !== 'Front Desk Walk-In' && !String(ev.data.newBooking.source).includes('Counter')))
+        });
+      }
+    };
+    if (bc) bc.addEventListener('message', bcHandler);
+
+    return () => {
+      window.removeEventListener('ash_bookings_updated', localHandler);
+      window.removeEventListener('storage', storageHandler);
+      if (bc) bc.removeEventListener('message', bcHandler);
+    };
+  },
+
+  /**
+   * Find a booking by Booking Code (exact or alphanumeric case-insensitive match)
+   */
+  findBookingByCode(queryCode) {
+    if (!queryCode) return null;
+    const clean = String(queryCode).trim().toUpperCase();
+    const cleanAlphaNum = clean.replace(/[^A-Z0-9]/g, '');
+    const bookings = this.getBookings();
+
+    return bookings.find(b => {
+      const bId = String(b.id || b.bookingCode || '').trim().toUpperCase();
+      const bAlpha = bId.replace(/[^A-Z0-9]/g, '');
+      if (bId === clean || bAlpha === cleanAlphaNum) return true;
+      if (cleanAlphaNum.length >= 4 && (bAlpha.endsWith(cleanAlphaNum) || bAlpha.includes(cleanAlphaNum))) return true;
+      // Also check phone match if user entered full phone number
+      const phoneDigits = String(b.phone || '').replace(/[^0-9]/g, '');
+      if (cleanAlphaNum.length >= 7 && phoneDigits.endsWith(cleanAlphaNum)) return true;
+      return false;
+    }) || null;
+  },
+
+  /**
+   * Check in an arriving guest using their confirmed Booking Code
+   */
+  checkInGuestByCode(bookingCode, allocatedRoomNumber = '', checkedInBy = 'Front Desk Receptionist') {
+    const booking = this.findBookingByCode(bookingCode);
+    if (!booking) {
+      throw new Error(`Booking code "${bookingCode}" was not found in the hotel database.`);
+    }
+
+    const finalRoom = allocatedRoomNumber || booking.roomNumber;
+    if (!finalRoom || finalRoom === 'Unassigned') {
+      throw new Error(`Please assign a room number to complete check-in.`);
+    }
+
+    // 1. Update Booking status to 'Checked In'
+    const bookings = this.getBookings();
+    const updatedBookings = bookings.map(b => {
+      if (b.id === booking.id) {
+        return {
+          ...b,
+          status: 'Checked In',
+          roomNumber: String(finalRoom),
+          checkedInAt: new Date().toLocaleString(),
+          checkedInBy: checkedInBy
+        };
+      }
+      return b;
+    });
+    setLocalItem(STORAGE_KEYS.BOOKINGS, updatedBookings);
+
+    // 2. Update Room status to 'occupied' in inventory
+    this.updateRoomStatus(finalRoom, 'occupied', booking.guestName);
+
+    // 3. Log Activity
+    this.logActivity(`Counter Check-In: Guest ${booking.guestName} checked in to Room #${finalRoom} with code ${booking.id} (${checkedInBy})`);
+
+    // 4. Broadcast live update
+    const updatedBooking = updatedBookings.find(b => b.id === booking.id);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_bookings_updated', {
+        detail: { bookings: updatedBookings, updatedBooking, isCheckIn: true }
+      }));
+    }
+    const bc = getSharedBroadcastChannel();
+    if (bc) {
+      try {
+        bc.postMessage({ type: 'BOOKINGS_UPDATED', bookings: updatedBookings, updatedBooking, timestamp: Date.now() });
+      } catch (e) {}
+    }
+
+    return updatedBooking;
   },
 
   // ==============================================================
