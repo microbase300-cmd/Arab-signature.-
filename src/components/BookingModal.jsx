@@ -4,6 +4,12 @@ import { portalStore } from '../data/portalStore';
 import { emailService } from '../utils/emailService';
 import { printFolioReceipt, openWhatsAppReceipt, buildWhatsAppReceiptText, formatWhatsAppPhone } from '../utils/printFolio';
 import { 
+  generateReceiptImageBlob, 
+  downloadReceiptImageBlob, 
+  shareReceiptImageToWhatsApp, 
+  copyReceiptImageToClipboard 
+} from '../utils/receiptImageGenerator';
+import { 
   getPaystackPublicKey, 
   setPaystackPublicKey, 
   getPaystackMode, 
@@ -35,7 +41,9 @@ import {
   MapPin,
   Heart,
   RotateCw,
-  MessageSquare
+  MessageSquare,
+  Eye,
+  Image as ImageIcon
 } from 'lucide-react';
 
 export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpenGuestPass }) {
@@ -86,6 +94,12 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
   const [emailStatus, setEmailStatus] = useState('idle'); // 'idle' | 'sending' | 'sent' | 'failed'
   const [emailStatusMsg, setEmailStatusMsg] = useState('');
   const [isResendingEmail, setIsResendingEmail] = useState(false);
+
+  // Official Folio Receipt Image State (Canvas PNG)
+  const [receiptImageObj, setReceiptImageObj] = useState(null); // { dataUrl, blob, file, fileName }
+  const [isGeneratingReceiptImage, setIsGeneratingReceiptImage] = useState(false);
+  const [receiptImageToast, setReceiptImageToast] = useState('');
+  const [isPreviewImageOpen, setIsPreviewImageOpen] = useState(false);
 
   // Paystack Key Management
   const [keyInput, setKeyInput] = useState('');
@@ -420,6 +434,155 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
       paystackReference: paystackReference
     };
     printFolioReceipt(bookingToPrint);
+  };
+
+  // Automatically generate High-Res Canvas Receipt Slip Image when Step 4 is reached
+  useEffect(() => {
+    if (step === 4) {
+      const booking = lastSavedBooking || {
+        id: bookingCode,
+        guestName: guestName.trim(),
+        phone: guestPhone.trim(),
+        email: guestEmail.trim(),
+        homeAddress: guestAddress.trim(),
+        nextOfKinName: nextOfKinName.trim(),
+        nextOfKinPhone: nextOfKinPhone.trim(),
+        nextOfKinRelationship: nextOfKinRelationship.trim(),
+        roomName: selectedRoom.name,
+        roomNumber: assignedRoomNumber,
+        buildingLabel: selectedRoom.buildingLabel,
+        checkIn: checkIn,
+        checkOut: checkOut,
+        nights: nights,
+        amount: totalAmount,
+        paymentMethod: "Paystack (Online Verified)",
+        paystackReference: paystackReference
+      };
+
+      setIsGeneratingReceiptImage(true);
+      generateReceiptImageBlob(booking)
+        .then((res) => {
+          setReceiptImageObj(res);
+        })
+        .catch((err) => {
+          console.warn('[Receipt Image Generation Notice]:', err);
+        })
+        .finally(() => {
+          setIsGeneratingReceiptImage(false);
+        });
+    }
+  }, [step, bookingCode, assignedRoomNumber]);
+
+  // Share Official Receipt Image to WhatsApp (Mobile 1-Tap / Desktop Copy + Open)
+  const handleShareImageWhatsApp = async (targetPhone) => {
+    const booking = lastSavedBooking || {
+      id: bookingCode,
+      guestName: guestName.trim(),
+      phone: guestPhone.trim(),
+      email: guestEmail.trim(),
+      homeAddress: guestAddress.trim(),
+      nextOfKinName: nextOfKinName.trim(),
+      nextOfKinPhone: nextOfKinPhone.trim(),
+      nextOfKinRelationship: nextOfKinRelationship.trim(),
+      roomName: selectedRoom.name,
+      roomNumber: assignedRoomNumber,
+      buildingLabel: selectedRoom.buildingLabel,
+      checkIn: checkIn,
+      checkOut: checkOut,
+      nights: nights,
+      amount: totalAmount,
+      paymentMethod: "Paystack (Online Verified)",
+      paystackReference: paystackReference
+    };
+
+    setReceiptImageToast('Preparing official receipt slip image...');
+    try {
+      const res = await shareReceiptImageToWhatsApp(targetPhone, booking);
+      if (res?.method === 'native_share') {
+        setReceiptImageToast('Receipt image slip shared to WhatsApp!');
+      } else if (res?.copiedToClipboard) {
+        setReceiptImageToast('Receipt image copied to clipboard & downloaded! Press Ctrl+V in WhatsApp to send.');
+      } else {
+        setReceiptImageToast('Receipt image downloaded! You can attach it in WhatsApp.');
+      }
+    } catch (err) {
+      console.warn('WhatsApp image error:', err);
+      setReceiptImageToast('Opening text receipt fallback...');
+      openWhatsAppReceipt(targetPhone, booking);
+    }
+    setTimeout(() => setReceiptImageToast(''), 6000);
+  };
+
+  // Download high-resolution PNG receipt slip directly
+  const handleDownloadImage = async () => {
+    const booking = lastSavedBooking || {
+      id: bookingCode,
+      guestName: guestName.trim(),
+      phone: guestPhone.trim(),
+      email: guestEmail.trim(),
+      homeAddress: guestAddress.trim(),
+      nextOfKinName: nextOfKinName.trim(),
+      nextOfKinPhone: nextOfKinPhone.trim(),
+      nextOfKinRelationship: nextOfKinRelationship.trim(),
+      roomName: selectedRoom.name,
+      roomNumber: assignedRoomNumber,
+      buildingLabel: selectedRoom.buildingLabel,
+      checkIn: checkIn,
+      checkOut: checkOut,
+      nights: nights,
+      amount: totalAmount,
+      paymentMethod: "Paystack (Online Verified)",
+      paystackReference: paystackReference
+    };
+
+    try {
+      let blob = receiptImageObj?.blob;
+      let fileName = receiptImageObj?.fileName;
+      if (!blob) {
+        const gen = await generateReceiptImageBlob(booking);
+        blob = gen.blob;
+        fileName = gen.fileName;
+        setReceiptImageObj(gen);
+      }
+      downloadReceiptImageBlob(blob, fileName || `Arab_Signature_Receipt_${bookingCode}.png`);
+      setReceiptImageToast('Receipt image slip downloaded (.png)!');
+    } catch (e) {
+      setReceiptImageToast('Failed to download image slip.');
+    }
+    setTimeout(() => setReceiptImageToast(''), 4000);
+  };
+
+  // Copy receipt image to system clipboard
+  const handleCopyImage = async () => {
+    try {
+      let blob = receiptImageObj?.blob;
+      if (!blob) {
+        const booking = lastSavedBooking || {
+          id: bookingCode,
+          guestName: guestName.trim(),
+          phone: guestPhone.trim(),
+          email: guestEmail.trim(),
+          homeAddress: guestAddress.trim(),
+          roomName: selectedRoom.name,
+          roomNumber: assignedRoomNumber,
+          buildingLabel: selectedRoom.buildingLabel,
+          checkIn: checkIn,
+          checkOut: checkOut,
+          nights: nights,
+          amount: totalAmount,
+          paymentMethod: "Paystack (Online Verified)",
+          paystackReference: paystackReference
+        };
+        const gen = await generateReceiptImageBlob(booking);
+        blob = gen.blob;
+        setReceiptImageObj(gen);
+      }
+      await copyReceiptImageToClipboard(blob);
+      setReceiptImageToast('Receipt image copied to clipboard! Simply press Ctrl+V in WhatsApp to paste.');
+    } catch (e) {
+      setReceiptImageToast('Clipboard image copying not supported. Please use Download button.');
+    }
+    setTimeout(() => setReceiptImageToast(''), 4000);
   };
 
   return (
@@ -1150,42 +1313,132 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                   </button>
                 )}
 
-                {/* Dedicated WhatsApp Official Folio Receipt Card */}
-                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-[#120208] to-emerald-950/40 border border-emerald-500/40 text-left space-y-2.5">
-                  <div className="flex items-center justify-between">
+                {/* Dedicated WhatsApp Official Folio Receipt Card (VISUAL IMAGE FIRST) */}
+                <div className="p-4 rounded-2xl bg-gradient-to-b from-[#182a20] via-[#120208] to-[#1a2c22] border-2 border-emerald-500/50 text-left space-y-3 shadow-2xl">
+                  <div className="flex items-center justify-between flex-wrap gap-1">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                      <MessageSquare size={14} className="text-[#25D366]" />
-                      <span>Official WhatsApp Digital Receipt</span>
+                      <MessageSquare size={15} className="text-[#25D366]" />
+                      <span>Official WhatsApp Receipt Slip (Image)</span>
                     </div>
-                    <span className="text-[10px] text-emerald-300 font-mono bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold">
-                      100% Free &bull; 1-Click
+                    <span className="text-[10px] text-emerald-300 font-mono bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold flex items-center gap-1">
+                      <Check size={11} className="text-emerald-400" />
+                      Visual Image Slip • High-Res PNG
                     </span>
                   </div>
+
                   <p className="text-[11px] text-gray-300 leading-relaxed">
-                    Carries your complete official stay folio with the <strong className="text-emerald-300">[ &check; ] PAID IN FULL</strong> stamp, room assignment, emergency contact, and Wi-Fi access.
+                    Official receipt slip formatted like the folio document, featuring the golden AS emblem, customer particulars, Wi-Fi credentials, and the big green <strong className="text-emerald-300">[ &check; ] PAID IN FULL</strong> stamp.
                   </p>
 
-                  {/* Primary 1-Click Button directly to the customer's phone number */}
+                  {/* High-Resolution Receipt Image Slip Thumbnail & Preview Card */}
+                  {receiptImageObj?.dataUrl && (
+                    <div className="relative rounded-xl border border-emerald-500/30 overflow-hidden bg-black/60 group">
+                      <div 
+                        onClick={() => setIsPreviewImageOpen(true)}
+                        className="cursor-pointer relative max-h-48 overflow-hidden flex items-center justify-center p-2 bg-white/5 hover:bg-white/10 transition-colors"
+                        title="Click to view full receipt image slip"
+                      >
+                        <img 
+                          src={receiptImageObj.dataUrl} 
+                          alt="Arab Signature Official Receipt Slip" 
+                          className="w-full max-w-xs object-cover rounded shadow-md group-hover:scale-[1.02] transition-transform duration-300" 
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity text-white text-xs font-bold">
+                          <Eye size={16} /> Tap to Enlarge Slip
+                        </div>
+                      </div>
+                      <div className="px-3 py-1.5 bg-black/80 border-t border-emerald-500/20 flex items-center justify-between text-[10px] text-gray-400">
+                        <span className="flex items-center gap-1.5 truncate">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+                          <span className="truncate">Image Slip Ready: {receiptImageObj.fileName}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsPreviewImageOpen(true)}
+                          className="text-emerald-400 hover:text-emerald-300 underline font-medium shrink-0 ml-2 cursor-pointer"
+                        >
+                          Enlarge Slip ↗
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {isGeneratingReceiptImage && !receiptImageObj && (
+                    <div className="p-4 rounded-xl bg-black/40 border border-emerald-500/20 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+                      <RotateCw size={14} className="animate-spin text-emerald-400" />
+                      Rendering high-resolution receipt image slip...
+                    </div>
+                  )}
+
+                  {/* Feedback Toast if any */}
+                  {receiptImageToast && (
+                    <div className="p-2.5 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 text-xs font-medium flex items-center gap-2 animate-fadeIn">
+                      <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                      <span>{receiptImageToast}</span>
+                    </div>
+                  )}
+
+                  {/* Primary 1-Tap Share Image Button directly to the customer's WhatsApp */}
                   {guestPhone && (
                     <button
                       type="button"
-                      onClick={handleSendToMyWhatsApp}
-                      className="w-full py-3 px-4 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 transition-all cursor-pointer active:scale-[0.99] hover:brightness-105"
+                      onClick={() => handleShareImageWhatsApp(guestPhone)}
+                      className="w-full py-3.5 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl transition-all cursor-pointer active:scale-[0.99] hover:brightness-110"
+                      style={{
+                        background: 'linear-gradient(135deg, #10b981 0%, #25D366 50%, #059669 100%)',
+                        color: '#06200e',
+                        border: '2px solid #a7f3d0',
+                        fontWeight: '900',
+                        letterSpacing: '0.04em'
+                      }}
                     >
-                      <MessageSquare size={16} className="text-black stroke-[2.5]" />
-                      <span>Send Official Receipt to My WhatsApp ({guestPhone})</span>
+                      <MessageSquare size={16} className="text-[#06200e] stroke-[2.5]" />
+                      <span>Send Receipt Image to My WhatsApp ({guestPhone})</span>
                     </button>
                   )}
 
-                  {/* Secondary Button to Hotel Reception */}
-                  <button
-                    type="button"
-                    onClick={handleWhatsAppSend}
-                    className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-emerald-200 font-semibold text-[11px] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    <Share2 size={13} className="text-[#25D366]" />
-                    <span>Also Send Copy to Hotel Front Desk WhatsApp (+234 812 578 6875)</span>
-                  </button>
+                  {/* Quick Action Grid: Download PNG Image & Copy Image to Clipboard */}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleDownloadImage}
+                      className="py-2.5 px-3 rounded-xl bg-emerald-900/30 hover:bg-emerald-900/50 border border-emerald-500/40 text-emerald-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      title="Download receipt slip as PNG image file"
+                    >
+                      <Download size={13} className="text-emerald-400" />
+                      <span>Download Image (.png)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyImage}
+                      className="py-2.5 px-3 rounded-xl bg-emerald-900/30 hover:bg-emerald-900/50 border border-emerald-500/40 text-emerald-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      title="Copy receipt image to clipboard for instant pasting (Ctrl+V) into WhatsApp"
+                    >
+                      <Copy size={13} className="text-emerald-400" />
+                      <span>Copy Image to Paste</span>
+                    </button>
+                  </div>
+
+                  {/* Secondary Options */}
+                  <div className="pt-2 border-t border-emerald-500/20 flex items-center justify-between text-[11px] text-gray-400 flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleShareImageWhatsApp(HOTEL_INFO.whatsapp)}
+                      className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <Share2 size={11} /> Send Copy to Reception WhatsApp
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSendToMyWhatsApp}
+                      className="text-gray-400 hover:text-gray-200 underline transition-colors cursor-pointer"
+                      title="Send clean formatted text version to WhatsApp"
+                    >
+                      Or send text version
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 pt-1">
@@ -1212,6 +1465,65 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
         </div>
 
       </div>
+
+      {/* High-Resolution Fullscreen Receipt Image Lightbox */}
+      {isPreviewImageOpen && receiptImageObj?.dataUrl && (
+        <div className="fixed inset-0 z-[70] bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-3 sm:p-6 animate-fadeIn">
+          <div className="w-full max-w-2xl bg-[#14121a] border border-[#d4af37]/40 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[94vh]">
+            <div className="flex items-center justify-between px-4 py-3 bg-[#3d0519] border-b border-[#d4af37]/30 text-white">
+              <div className="flex items-center gap-2">
+                <ImageIcon size={18} className="text-[#f3e5ab]" />
+                <span className="font-serif font-bold text-sm text-[#f3e5ab]">Official Guest Folio Receipt Slip</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPreviewImageOpen(false)}
+                className="p-1 rounded-full text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+                aria-label="Close image preview"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-3 overflow-y-auto flex-1 flex items-center justify-center bg-neutral-900/90">
+              <img 
+                src={receiptImageObj.dataUrl} 
+                alt="Official Arab Signature Receipt"
+                className="max-w-full max-h-[72vh] object-contain rounded-lg shadow-2xl border border-white/10"
+              />
+            </div>
+
+            <div className="p-3 bg-[#14121a] border-t border-white/10 flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-xs text-gray-400 font-mono truncate max-w-[200px]">
+                {receiptImageObj.fileName}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadImage}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Download size={13} /> Download (.png)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyImage}
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Copy size={13} /> Copy Image
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewImageOpen(false)}
+                  className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 font-medium text-xs transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

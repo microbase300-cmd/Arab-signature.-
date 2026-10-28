@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { HOTEL_INFO } from '../data/hotelData';
 import { portalStore } from '../data/portalStore';
 import { printFolioReceipt } from '../utils/printFolio';
+import { shareReceiptImageToWhatsApp } from '../utils/receiptImageGenerator';
 import { 
   X, Key, Wifi, Phone, ShieldCheck, Printer, Calendar, Clock, 
-  MapPin, Check, Copy, Utensils, LogOut, Sparkles, Building2
+  MapPin, Check, Copy, Utensils, LogOut, Sparkles, Building2, MessageSquare
 } from 'lucide-react';
 
 export default function GuestSessionPassModal({ isOpen, onClose, onNavigate }) {
@@ -205,19 +206,30 @@ export default function GuestSessionPassModal({ isOpen, onClose, onNavigate }) {
             </button>
           </div>
 
-          {/* Print Folio & End Session */}
-          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-gray-400 text-[11px]">
-            <button
-              onClick={() => printFolioReceipt(session)}
-              className="hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
-            >
-              <Printer size={13} />
-              <span>Print Folio Receipt</span>
-            </button>
+          {/* Print Folio, WhatsApp Receipt & End Session */}
+          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-gray-400 text-[11px] flex-wrap gap-2">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => shareReceiptImageToWhatsApp(session.phone, session)}
+                className="hover:text-emerald-400 text-emerald-400/90 flex items-center gap-1 transition-colors cursor-pointer font-medium"
+                title="Send official receipt slip image to WhatsApp"
+              >
+                <MessageSquare size={13} />
+                <span>WhatsApp Image Slip</span>
+              </button>
+
+              <button
+                onClick={() => printFolioReceipt(session)}
+                className="hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <Printer size={13} />
+                <span>Print Folio</span>
+              </button>
+            </div>
 
             <button
               onClick={handleEndSession}
-              className="text-rose-400 hover:text-rose-300 flex items-center gap-1 transition-colors"
+              className="text-rose-400 hover:text-rose-300 flex items-center gap-1 transition-colors cursor-pointer"
             >
               <LogOut size={13} />
               <span>Exit Guest Session</span>

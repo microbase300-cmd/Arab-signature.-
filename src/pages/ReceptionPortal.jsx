@@ -5,12 +5,17 @@ import {
   Search, Filter, Plus, Printer, MessageSquare, LogOut, ArrowLeft, ArrowRight, 
   Sparkles, RefreshCw, Key, ShieldCheck, Check, AlertCircle, X, ChevronRight,
   TrendingUp, DoorOpen, Sparkle, Utensils, Lock, Wine, Bell, BellRing, Eye, Volume2, VolumeX,
-  Copy, Receipt, CreditCard, MapPin, Heart, Image as ImageIcon, Upload, Trash2
+  Copy, Receipt, CreditCard, MapPin, Heart, Image as ImageIcon, Upload, Trash2, Download
 } from 'lucide-react';
 import { compressImage, formatFileSize } from '../utils/imageCompressor';
 import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
 import { emailService } from '../utils/emailService';
 import { printFolioReceipt, openWhatsAppReceipt } from '../utils/printFolio';
+import { 
+  generateReceiptImageBlob, 
+  downloadReceiptImageBlob, 
+  shareReceiptImageToWhatsApp 
+} from '../utils/receiptImageGenerator';
 
 export default function ReceptionPortal({ onNavigate }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -823,11 +828,37 @@ export default function ReceptionPortal({ onNavigate }) {
     }
   };
 
-  // Send WhatsApp message to guest with official hotel receipt
-  const handleSendWhatsApp = (booking) => {
+  // Send WhatsApp message to guest with official hotel receipt image slip
+  const handleSendWhatsApp = async (booking) => {
     if (!booking) return;
-    showToast(`Opening WhatsApp receipt for ${booking.guestName} (${booking.phone})...`);
-    openWhatsAppReceipt(booking.phone, booking);
+    showToast(`Generating official receipt slip image for ${booking.guestName}...`);
+    try {
+      const res = await shareReceiptImageToWhatsApp(booking.phone, booking);
+      if (res?.method === 'native_share') {
+        showToast(`Receipt image shared to WhatsApp!`);
+      } else if (res?.copiedToClipboard) {
+        showToast(`Receipt image copied to clipboard & downloaded! Press Ctrl+V in WhatsApp to send.`);
+      } else {
+        showToast(`Receipt image downloaded! You can attach it in WhatsApp.`);
+      }
+    } catch (err) {
+      console.warn('WhatsApp image dispatch fallback:', err);
+      showToast(`Opening WhatsApp text receipt for ${booking.guestName}...`);
+      openWhatsAppReceipt(booking.phone, booking);
+    }
+  };
+
+  // Download high-resolution PNG receipt slip
+  const handleDownloadReceiptImageSlip = async (booking) => {
+    if (!booking) return;
+    showToast(`Generating receipt image for ${booking.id}...`);
+    try {
+      const { blob, fileName } = await generateReceiptImageBlob(booking);
+      downloadReceiptImageBlob(blob, fileName);
+      showToast(`Downloaded ${fileName}`);
+    } catch (err) {
+      showToast(`Failed to download image slip`);
+    }
   };
 
   // Filtered bookings
@@ -3506,15 +3537,24 @@ export default function ReceptionPortal({ onNavigate }) {
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
                 Official Guest Folio
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
                   onClick={() => handleSendWhatsApp(selectedReceiptBooking)}
                   className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
-                  title={`Send Official Receipt via WhatsApp to ${selectedReceiptBooking.phone}`}
+                  title={`Send Official Receipt Image via WhatsApp to ${selectedReceiptBooking.phone}`}
                 >
                   <MessageSquare size={14} />
-                  <span>Send to WhatsApp</span>
+                  <span>Send Image to WhatsApp</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadReceiptImageSlip(selectedReceiptBooking)}
+                  className="px-3.5 py-1.5 rounded-xl bg-gray-800 hover:bg-black text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+                  title="Download Official Receipt Slip (.png)"
+                >
+                  <Download size={14} />
+                  <span>Image Slip</span>
                 </button>
                 <button
                   type="button"
@@ -3749,14 +3789,24 @@ export default function ReceptionPortal({ onNavigate }) {
                     Send full folio directly to customer's WhatsApp (<strong className="font-mono text-gray-900">{selectedReceiptBooking.phone}</strong>) or print for physical filing.
                   </span>
                 </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
                   <button
                     type="button"
                     onClick={() => handleSendWhatsApp(selectedReceiptBooking)}
                     className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                    title="Send official receipt slip image directly to guest WhatsApp"
                   >
                     <MessageSquare size={15} />
-                    <span>Send to WhatsApp</span>
+                    <span>Send Image to WhatsApp</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadReceiptImageSlip(selectedReceiptBooking)}
+                    className="px-3.5 py-2.5 rounded-xl bg-gray-800 hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
+                    title="Download receipt slip as high-resolution PNG"
+                  >
+                    <Download size={14} />
+                    <span>Image (.png)</span>
                   </button>
                   <button
                     type="button"
