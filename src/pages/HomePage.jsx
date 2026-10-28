@@ -4,9 +4,11 @@ import { portalStore } from '../data/portalStore';
 import { 
   Calendar, Users, ArrowRight, Star, ShieldCheck, Zap, Crown, 
   Car, Sparkles, Utensils, Waves, Phone, MapPin, Check, 
-  ChevronRight, Play, Clock, Share2, Award, Camera, Building2, DoorOpen
+  ChevronRight, Play, Clock, Share2, Award, Camera, Building2, DoorOpen,
+  Flame, X, PartyPopper
 } from 'lucide-react';
 import PhotoGallerySection from '../components/PhotoGallerySection';
+import { EventAdBannerCard, EventTemplateCard } from './EventsPage';
 
 export default function HomePage({ onNavigate, onOpenBooking }) {
   const [checkIn, setCheckIn] = useState('2026-10-20');
@@ -15,10 +17,18 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
   const [rooms, setRooms] = useState(() => portalStore.getRoomRates());
   const [activeRoomPhotos, setActiveRoomPhotos] = useState({});
   const [selectedBuilding, setSelectedBuilding] = useState('all'); // 'all' | 'main' | 'extension'
+  const [hotelEvents, setHotelEvents] = useState(() => portalStore.getHotelEvents());
+  const [homeEventTab, setHomeEventTab] = useState('upcoming'); // 'upcoming' | 'recap'
+  const [selectedHomeEvent, setSelectedHomeEvent] = useState(null);
 
-  // Listen for real-time room rate adjustments made by Admin
+  // Listen for real-time room rate & event adjustments made by Admin
   useEffect(() => {
-    return portalStore.subscribeRates(setRooms);
+    const unsubRates = portalStore.subscribeRates(setRooms);
+    const unsubEvents = portalStore.subscribeHotelEvents(setHotelEvents);
+    return () => {
+      unsubRates();
+      unsubEvents();
+    };
   }, []);
 
   const goldGradient = 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black';
@@ -493,6 +503,179 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* 4.5. HOMEPAGE EVENTS TAB: UPCOMING EVENTS, PREVIOUS RECAPS & AUTO-DESIGNED AD BANNER */}
+      <section className="py-16 px-6 max-w-7xl mx-auto border-t border-[#5c0725]/40 space-y-10">
+        {(() => {
+          const upcomingList = hotelEvents.filter((e) => e.type !== 'recap');
+          const recapList = hotelEvents.filter((e) => e.type === 'recap');
+          const adBannerEvent = upcomingList.find((e) => e.showAsAdBanner !== false) || upcomingList[0] || hotelEvents[0];
+          const activeList = homeEventTab === 'upcoming' ? upcomingList : recapList;
+
+          return (
+            <>
+              {/* Section Header & Interactive Tab Switcher */}
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-2.5 max-w-2xl">
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#5c0725]/80 border border-[#d4af37]/40 text-[#f3e5ab] text-xs font-semibold uppercase tracking-widest">
+                    <PartyPopper size={13} className="text-[#d4af37]" />
+                    <span>Events, Poolside Nights &amp; Royal Galas</span>
+                  </div>
+                  <h2 className="font-cinzel text-3xl sm:text-4xl font-extrabold text-white">
+                    Upcoming Events &amp; <span className="gold-text-gradient">Past Event Recaps</span>
+                  </h2>
+                  <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
+                    Experience live poolside saxophone nights, diplomatic banquets, and cultural soirées—or browse recaps from recent VIP events hosted at Arab Signature Hotel &amp; Suites.
+                  </p>
+                </div>
+
+                {/* Upcoming vs Previous Recap Tabs */}
+                <div className="flex flex-wrap items-center gap-2 bg-[#1c040d] p-1.5 rounded-2xl border border-[#d4af37]/30 self-start">
+                  <button
+                    type="button"
+                    onClick={() => setHomeEventTab('upcoming')}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                      homeEventTab === 'upcoming'
+                        ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black shadow-lg'
+                        : 'text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    <Flame size={13} className={homeEventTab === 'upcoming' ? 'text-black' : 'text-emerald-400'} />
+                    <span>Upcoming Events ({upcomingList.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setHomeEventTab('recap')}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                      homeEventTab === 'recap'
+                        ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black shadow-lg'
+                        : 'text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    <Camera size={13} className={homeEventTab === 'recap' ? 'text-black' : 'text-amber-400'} />
+                    <span>Previous Event Recaps ({recapList.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('events')}
+                    className="px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-[#f3e5ab] text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                  >
+                    <span>All Events</span>
+                    <ChevronRight size={13} className="text-[#d4af37]" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Auto-Designed Luxury Event Advertisement Banner */}
+              {adBannerEvent && (
+                <EventAdBannerCard
+                  event={adBannerEvent}
+                  onOpenBooking={onOpenBooking}
+                  onSelectEvent={setSelectedHomeEvent}
+                />
+              )}
+
+              {/* Events Grid (Upcoming or Recap) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {activeList.map((evt) => (
+                  <EventTemplateCard
+                    key={evt.id}
+                    event={evt}
+                    onOpenBooking={onOpenBooking}
+                    onSelectEvent={setSelectedHomeEvent}
+                  />
+                ))}
+              </div>
+            </>
+          );
+        })()}
+
+        {/* Full Event Story Modal on Homepage */}
+        {selectedHomeEvent && (
+          <div
+            className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+            onClick={() => setSelectedHomeEvent(null)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-2xl rounded-3xl overflow-hidden bg-gradient-to-b from-[#240310] via-[#16020a] to-[#0c0105] border-2 border-[#d4af37]/60 shadow-2xl my-8"
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedHomeEvent(null)}
+                className="absolute top-4 right-4 z-20 p-2 rounded-full bg-black/70 text-gray-300 hover:text-white border border-white/20 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="relative h-64 sm:h-72 bg-black">
+                <img
+                  src={selectedHomeEvent.banner || '/rooms/suite-royal-penthouse.jpg'}
+                  alt={selectedHomeEvent.title}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#16020a] via-black/30 to-transparent" />
+                <div className="absolute bottom-4 left-6 right-6">
+                  <span className="inline-block px-3 py-1 rounded-full bg-[#d4af37] text-black text-[10px] font-extrabold uppercase tracking-widest mb-2">
+                    {selectedHomeEvent.highlightBadge || (selectedHomeEvent.type === 'recap' ? 'OFFICIAL EVENT RECAP' : 'UPCOMING EVENT')}
+                  </span>
+                  <h3 className="font-cinzel text-2xl font-extrabold text-white">
+                    {selectedHomeEvent.title}
+                  </h3>
+                </div>
+              </div>
+
+              <div className="p-6 sm:p-8 space-y-4">
+                <div className="flex flex-wrap items-center gap-3 text-xs text-[#f3e5ab]">
+                  <span className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 flex items-center gap-1.5">
+                    <Calendar size={13} className="text-[#d4af37]" />
+                    <span>{selectedHomeEvent.dateLabel}</span>
+                  </span>
+                  <span className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 flex items-center gap-1.5">
+                    <MapPin size={13} className="text-[#d4af37]" />
+                    <span>{selectedHomeEvent.venue}</span>
+                  </span>
+                </div>
+
+                <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-line">
+                  {selectedHomeEvent.writeUp}
+                </p>
+
+                {selectedHomeEvent.ticketInfo && (
+                  <div className="p-3.5 rounded-2xl bg-[#5c0725]/35 border border-[#d4af37]/40 flex items-center gap-2.5 text-xs sm:text-sm text-[#f3e5ab] font-semibold">
+                    <Crown size={16} className="text-[#d4af37] shrink-0" />
+                    <span>{selectedHomeEvent.ticketInfo}</span>
+                  </div>
+                )}
+
+                <div className="pt-4 border-t border-white/10 flex flex-wrap items-center gap-3">
+                  <a
+                    href={`https://wa.me/${HOTEL_INFO.whatsapp}?text=${encodeURIComponent(`Hello Arab Signature Hotel! I am inquiring about: *${selectedHomeEvent.title}* (${selectedHomeEvent.dateLabel}).`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f5d77f] to-[#aa820a] text-black font-extrabold text-xs uppercase tracking-wider text-center shadow-lg"
+                  >
+                    {selectedHomeEvent.type === 'recap' ? 'Host Similar Event via WhatsApp' : 'RSVP / Reserve VIP Table on WhatsApp'}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const suiteId = selectedHomeEvent.featuredSuiteId || 'suites';
+                      setSelectedHomeEvent(null);
+                      onOpenBooking(suiteId);
+                    }}
+                    className="py-3 px-5 rounded-xl bg-white/10 hover:bg-white/15 border border-[#d4af37]/40 text-[#f3e5ab] font-bold text-xs uppercase tracking-wider cursor-pointer"
+                  >
+                    Book Suite
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* 5. ULTRA-HD CINEMATIC PHOTO GALLERY SHOWCASE */}

@@ -13,13 +13,15 @@ import {
   Sparkles, KeyRound, Clock, Edit3, ChevronRight, UserCheck, 
   AlertCircle, ShieldAlert, Key, Check, Eye, EyeOff, Utensils,
   Wine, Plus, Trash2, Search, X, Flame, GlassWater, Beer, CreditCard, ExternalLink, Calculator, Image as ImageIcon, Copy,
-  Building2, Package, BellRing, Layers, BarChart3, Tag, Percent
+  Building2, Package, BellRing, Layers, BarChart3, Tag, Percent, Calendar, Camera, PartyPopper, Upload
 } from 'lucide-react';
 import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
+import { compressImage } from '../utils/imageCompressor';
+import { EventAdBannerCard, EventTemplateCard } from './EventsPage';
 
 export default function AdminPortal({ onNavigate }) {
   const [currentUser, setCurrentUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'rates' | 'dining' | 'ledger' | 'receptionist' | 'logins' | 'settings' | 'logs'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'rates' | 'dining' | 'events' | 'ledger' | 'receptionist' | 'logins' | 'settings' | 'logs'
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [diningOrders, setDiningOrders] = useState([]);
@@ -59,6 +61,24 @@ export default function AdminPortal({ onNavigate }) {
     desc: '',
     price: '',
     isSignature: false
+  });
+
+  // Hotel Events & Galas Studio State (Upcoming Events & Previous Event Recaps)
+  const [hotelEvents, setHotelEvents] = useState([]);
+  const [eventPreviewMode, setEventPreviewMode] = useState('ad'); // 'ad' | 'template' | 'popup'
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [newEventForm, setNewEventForm] = useState({
+    type: 'upcoming',
+    title: '',
+    subtitle: '',
+    dateLabel: '',
+    venue: 'VIP Poolside & Royal Cabanas',
+    banner: '/rooms/suite-royal-penthouse.jpg',
+    writeUp: '',
+    ticketInfo: '',
+    showInPopup: true,
+    showAsAdBanner: true,
+    featuredSuiteId: 'suites'
   });
 
   // Editable Staff & Executive Credentials Management
@@ -152,6 +172,7 @@ export default function AdminPortal({ onNavigate }) {
     }
     const currentDining = portalStore.getDiningMenu();
     const currentDiningOrders = portalStore.getDiningOrders();
+    const currentHotelEvents = portalStore.getHotelEvents();
 
     setRooms(currentRooms);
     setBookings(currentBookings);
@@ -162,6 +183,7 @@ export default function AdminPortal({ onNavigate }) {
     setLoginAttempts(currentLoginAttempts);
     setReceptionUser(currentReception);
     setDiningMenu(currentDining);
+    setHotelEvents(currentHotelEvents);
     setChatMessages(portalStore.getChatMessages('admin'));
 
     // Initialize rate edit fields & promotional rates
@@ -230,6 +252,7 @@ export default function AdminPortal({ onNavigate }) {
     const unsubscribeRooms = portalStore.subscribeRooms(() => refreshData());
     const unsubscribeDining = portalStore.subscribeDiningMenu(() => refreshData());
     const unsubscribeDiningOrders = portalStore.subscribeDiningOrders(() => refreshData());
+    const unsubscribeEvents = portalStore.subscribeHotelEvents(() => refreshData());
     const unsubscribeChat = portalStore.subscribeChat(() => {
       setChatMessages(portalStore.getChatMessages('admin'));
     });
@@ -252,6 +275,7 @@ export default function AdminPortal({ onNavigate }) {
       unsubscribeRooms();
       unsubscribeDining();
       unsubscribeDiningOrders();
+      unsubscribeEvents();
       clearInterval(chatHeartbeat);
       unsubscribeChat();
     };
@@ -265,6 +289,69 @@ export default function AdminPortal({ onNavigate }) {
   const handleLogout = () => {
     portalStore.logout();
     onNavigate(SECURE_PORTAL_ROUTES.ADMIN_LOGIN);
+  };
+
+  // 0.9 Hotel Events & Galas Studio Handlers (Auto-Design Event Template, Ad Version & Visitor Popup)
+  const handleEventBannerUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingBanner(true);
+    try {
+      const result = await compressImage(file, { maxWidth: 1200, maxHeight: 800, quality: 0.78 });
+      setNewEventForm(prev => ({ ...prev, banner: result.dataUrl }));
+      showToast(`Event banner uploaded & optimized (${result.reductionPercent}% compressed for instant loading)!`);
+    } catch (err) {
+      alert(err.message || 'Could not process image file.');
+    } finally {
+      setIsUploadingBanner(false);
+    }
+  };
+
+  const handleCreateEvent = (e) => {
+    e.preventDefault();
+    if (!newEventForm.writeUp.trim() && !newEventForm.title.trim()) {
+      alert('Please enter at least your Event Write-Up (or Title) and choose a Banner!');
+      return;
+    }
+    const created = portalStore.addHotelEvent(newEventForm);
+    refreshData();
+    setNewEventForm({
+      type: newEventForm.type,
+      title: '',
+      subtitle: '',
+      dateLabel: '',
+      venue: 'VIP Poolside & Royal Cabanas',
+      banner: '/rooms/suite-royal-penthouse.jpg',
+      writeUp: '',
+      ticketInfo: '',
+      showInPopup: true,
+      showAsAdBanner: true,
+      featuredSuiteId: 'suites'
+    });
+    showToast(`Published "${created.title}"! Auto-designed in Event Template, Ad Banner & Visitor Popup.`);
+  };
+
+  const handleToggleEventFlag = (eventId, field, currentVal) => {
+    portalStore.updateHotelEvent(eventId, { [field]: !currentVal });
+    refreshData();
+    showToast(`Event setting "${field}" updated live!`);
+  };
+
+  const handleConvertEventType = (eventId, newType) => {
+    portalStore.updateHotelEvent(eventId, {
+      type: newType,
+      badge: newType === 'recap' ? 'PREVIOUS EVENT RECAP' : 'UPCOMING ROYAL EVENT',
+      showInPopup: newType === 'upcoming'
+    });
+    refreshData();
+    showToast(newType === 'recap' ? 'Event moved to Previous Events Recap!' : 'Event moved to Upcoming Events!');
+  };
+
+  const handleDeleteEvent = (eventId, title) => {
+    if (!window.confirm(`Remove event "${title}" from the website?`)) return;
+    portalStore.deleteHotelEvent(eventId);
+    refreshData();
+    showToast(`Removed event: ${title}`);
   };
 
   // 1. Save new room rate and promotional price
@@ -844,6 +931,18 @@ export default function AdminPortal({ onNavigate }) {
           </button>
 
           <button
+            onClick={() => setActiveTab('events')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+              activeTab === 'events'
+                ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black shadow-lg shadow-[#d4af37]/20'
+                : 'bg-[#16030c] text-gray-400 hover:text-white border border-white/10'
+            }`}
+          >
+            <PartyPopper size={14} />
+            <span>Events &amp; Galas Studio ({hotelEvents.length})</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('ledger')}
             className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
               activeTab === 'ledger'
@@ -949,18 +1048,25 @@ export default function AdminPortal({ onNavigate }) {
                   <span>Suite Rates</span>
                 </button>
                 <button
-                  onClick={() => setActiveTab('drinks-menu')}
+                  onClick={() => { setDiningCategoryFilter('drinks'); setActiveTab('dining'); }}
                   className="px-3.5 py-2 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-200 text-xs font-semibold flex items-center gap-1.5 transition-all"
                 >
                   <Wine size={14} className="text-purple-400" />
                   <span>Drinks Catalog ({drinkCatalogItems.length})</span>
                 </button>
                 <button
-                  onClick={() => setActiveTab('food-menu')}
+                  onClick={() => { setDiningCategoryFilter('food'); setActiveTab('dining'); }}
                   className="px-3.5 py-2 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-200 text-xs font-semibold flex items-center gap-1.5 transition-all"
                 >
                   <Utensils size={14} className="text-orange-400" />
                   <span>Food Menu ({foodCatalogItems.length})</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('events')}
+                  className="px-3.5 py-2 rounded-xl bg-[#d4af37]/15 hover:bg-[#d4af37]/25 border border-[#d4af37]/40 text-[#f3e5ab] text-xs font-semibold flex items-center gap-1.5 transition-all"
+                >
+                  <PartyPopper size={14} className="text-[#d4af37]" />
+                  <span>Events Studio ({hotelEvents.length})</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('settings')}
@@ -2158,6 +2264,526 @@ export default function AdminPortal({ onNavigate }) {
                 })}
             </div>
 
+          </div>
+        )}
+
+        {/* ======================================================== */}
+        {/* 4.8 TAB CONTENT: EVENTS & GALAS STUDIO (UPCOMING & PREVIOUS RECAPS) */}
+        {/* ======================================================== */}
+        {activeTab === 'events' && (
+          <div className="space-y-6">
+            {/* Studio Header Banner */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-[#1d0511] via-[#16030c] to-[#120208] border border-[#d4af37]/40 shadow-xl">
+              <div>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#f3e5ab] text-[10px] font-mono uppercase tracking-wider flex items-center gap-1.5 font-bold">
+                    <Sparkles size={12} className="text-[#d4af37]" />
+                    Auto-Design Event Engine
+                  </span>
+                  <h3 className="font-cinzel font-bold text-base sm:text-lg text-white">
+                    Events &amp; Royal Galas Studio (Upcoming &amp; Previous Recaps)
+                  </h3>
+                </div>
+                <p className="text-xs text-gray-300 mt-1 max-w-3xl">
+                  Simply upload an event <strong className="text-[#f3e5ab]">Banner</strong> and paste your <strong className="text-[#f3e5ab]">Write-Up</strong>. The system automatically designs and publishes the <strong className="text-white">Event Template Card</strong>, the <strong className="text-emerald-300">Ad Version Banner</strong> on the Homepage &amp; Events tab, and the <strong className="text-amber-300">Visitor Popup Modal</strong>.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+                <span className="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                  Upcoming: <strong>{hotelEvents.filter(e => e.type === 'upcoming').length}</strong>
+                </span>
+                <span className="px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+                  Past Recaps: <strong>{hotelEvents.filter(e => e.type === 'recap').length}</strong>
+                </span>
+              </div>
+            </div>
+
+            {/* Two-Column Studio: Left = Simple Banner + Write-Up Form | Right = Live 3-Format Auto-Designer Preview */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+
+              {/* LEFT COLUMN (5 cols): Simple Banner + Write-Up Input */}
+              <form
+                onSubmit={handleCreateEvent}
+                className="xl:col-span-5 p-5 sm:p-6 rounded-2xl bg-[#16030c] border border-[#d4af37]/30 space-y-4 shadow-xl"
+              >
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#d4af37] block">
+                      Step 1 &bull; Event Input
+                    </span>
+                    <h4 className="font-cinzel font-bold text-base text-white">
+                      Add Banner &amp; Event Write-Up
+                    </h4>
+                  </div>
+                  <PartyPopper size={18} className="text-[#d4af37]" />
+                </div>
+
+                {/* Event Type Toggle: Upcoming Event vs Previous Event Recap */}
+                <div>
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-gray-300 block mb-1.5">
+                    1. Select Event Category *
+                  </label>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setNewEventForm({ ...newEventForm, type: 'upcoming', showInPopup: true })}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        newEventForm.type === 'upcoming'
+                          ? 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black border-[#d4af37] shadow-md'
+                          : 'bg-black/40 text-gray-300 border-white/10 hover:text-white'
+                      }`}
+                    >
+                      <Calendar size={14} />
+                      <span>Upcoming Event</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewEventForm({ ...newEventForm, type: 'recap', showInPopup: false })}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        newEventForm.type === 'recap'
+                          ? 'bg-emerald-500 text-black border-emerald-400 shadow-md'
+                          : 'bg-black/40 text-gray-300 border-white/10 hover:text-white'
+                      }`}
+                    >
+                      <Camera size={14} />
+                      <span>Previous Recap</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Banner Upload or Quick Preset Selection */}
+                <div className="space-y-2">
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-gray-300 block">
+                    2. Event Banner Image (Upload Flyer/Photo or Pick Preset) *
+                  </label>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <label className="flex-1 px-3.5 py-2.5 rounded-xl bg-[#5c0725] hover:bg-[#7a0932] border border-[#d4af37]/40 text-[#f3e5ab] text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all">
+                      <Upload size={14} />
+                      <span>{isUploadingBanner ? 'Optimizing Banner...' : 'Upload Event Banner From Device'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleEventBannerUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Quick Hotel Backdrop Presets */}
+                  <div className="pt-1">
+                    <span className="text-[10px] text-gray-400 block mb-1.5">
+                      Or choose a luxury hotel backdrop preset or paste an image URL:
+                    </span>
+                    <div className="grid grid-cols-5 gap-1.5 mb-2">
+                      {[
+                        { label: 'Penthouse', url: '/rooms/suite-royal-penthouse.jpg' },
+                        { label: 'Presidential', url: '/rooms/suite-presidential.jpg' },
+                        { label: 'Ambassador', url: '/rooms/suite-ambassadorial.jpg' },
+                        { label: 'Diplomatic', url: '/rooms/suite-diplomatic.jpg' },
+                        { label: 'Grand Oasis', url: '/rooms/suite-grand-oasis.jpg' }
+                      ].map((preset) => (
+                        <button
+                          key={preset.url}
+                          type="button"
+                          onClick={() => setNewEventForm({ ...newEventForm, banner: preset.url })}
+                          className={`group relative h-12 rounded-lg overflow-hidden border transition-all cursor-pointer ${
+                            newEventForm.banner === preset.url
+                              ? 'border-[#d4af37] ring-2 ring-[#d4af37]/50'
+                              : 'border-white/15 opacity-70 hover:opacity-100'
+                          }`}
+                          title={preset.label}
+                        >
+                          <img src={preset.url} alt={preset.label} className="w-full h-full object-cover" />
+                          <span className="absolute inset-x-0 bottom-0 bg-black/75 text-[8px] text-white font-mono py-0.5 truncate px-0.5">
+                            {preset.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <input
+                      type="text"
+                      placeholder="Or paste image URL (e.g. /rooms/suite-royal-penthouse.jpg)"
+                      value={newEventForm.banner}
+                      onChange={(e) => setNewEventForm({ ...newEventForm, banner: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-xs text-gray-200 font-mono focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
+                </div>
+
+                {/* Event Write-Up (Main Story / Description) */}
+                <div>
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-[#f3e5ab] block mb-1">
+                    3. Event Write-Up / Story *
+                  </label>
+                  <textarea
+                    rows="4"
+                    required
+                    placeholder={
+                      newEventForm.type === 'upcoming'
+                        ? 'Write about the upcoming event... e.g. Join us this Friday at the VIP Poolside for an exclusive Arabian Oud & Champagne Night featuring live acoustic performers, grilled suya platters, and VIP cabana bottle service.'
+                        : 'Write the recap of the previous event... e.g. Over 120 VIP guests celebrated a glamorous evening of live jazz, signature cocktails, and royal hospitality at our Grand Diplomatic Banquet.'
+                    }
+                    value={newEventForm.writeUp}
+                    onChange={(e) => setNewEventForm({ ...newEventForm, writeUp: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-black/60 border border-[#d4af37]/40 text-white text-xs leading-relaxed focus:outline-none focus:border-[#d4af37]"
+                  />
+                  <span className="text-[10px] text-gray-400 block mt-1">
+                    Tip: Even if you only fill the Banner and Write-Up, the system will automatically extract a headline and format all 3 templates!
+                  </span>
+                </div>
+
+                {/* Optional Details (Auto-filled if left blank) */}
+                <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 space-y-3">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-gray-400 block">
+                    Optional Headline &amp; Schedule Details (Auto-Generated if left blank)
+                  </span>
+
+                  <div>
+                    <label className="text-[10px] text-gray-400 block mb-0.5">Event Title / Headline</label>
+                    <input
+                      type="text"
+                      placeholder="Auto-extracted from write-up if left blank"
+                      value={newEventForm.title}
+                      onChange={(e) => setNewEventForm({ ...newEventForm, title: e.target.value })}
+                      className="w-full px-3 py-1.5 rounded-lg bg-black/60 border border-white/15 text-white text-xs focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="text-[10px] text-gray-400 block mb-0.5">Date &amp; Time Label</label>
+                      <input
+                        type="text"
+                        placeholder={newEventForm.type === 'upcoming' ? 'e.g. This Friday • 8:00 PM' : 'e.g. Held Last Weekend'}
+                        value={newEventForm.dateLabel}
+                        onChange={(e) => setNewEventForm({ ...newEventForm, dateLabel: e.target.value })}
+                        className="w-full px-3 py-1.5 rounded-lg bg-black/60 border border-white/15 text-white text-xs focus:outline-none focus:border-[#d4af37]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-gray-400 block mb-0.5">Venue / Hall</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. VIP Poolside & Royal Cabanas"
+                        value={newEventForm.venue}
+                        onChange={(e) => setNewEventForm({ ...newEventForm, venue: e.target.value })}
+                        className="w-full px-3 py-1.5 rounded-lg bg-black/60 border border-white/15 text-white text-xs focus:outline-none focus:border-[#d4af37]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-gray-400 block mb-0.5">
+                      {newEventForm.type === 'upcoming' ? 'VIP Entry / Table / Suite Perk' : 'Event Attendance / Highlight Note'}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={newEventForm.type === 'upcoming' ? 'e.g. Free VIP Entry for Checked-In Suite Guests' : 'e.g. 150+ VIP Guests • Live Saxophone & Fireworks'}
+                      value={newEventForm.ticketInfo}
+                      onChange={(e) => setNewEventForm({ ...newEventForm, ticketInfo: e.target.value })}
+                      className="w-full px-3 py-1.5 rounded-lg bg-black/60 border border-white/15 text-white text-xs focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
+                </div>
+
+                {/* Display Channel Toggles (Ad Banner & Visitor Popup) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                  <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-black/40 border border-white/10 cursor-pointer hover:border-[#d4af37]/40">
+                    <input
+                      type="checkbox"
+                      checked={newEventForm.showAsAdBanner}
+                      onChange={(e) => setNewEventForm({ ...newEventForm, showAsAdBanner: e.target.checked })}
+                      className="w-4 h-4 accent-[#d4af37] rounded"
+                    />
+                    <div className="text-xs">
+                      <span className="font-bold text-white block">Auto-Design Ad Banner</span>
+                      <span className="text-[10px] text-gray-400">Show billboard ad on Homepage</span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-black/40 border border-white/10 cursor-pointer hover:border-[#d4af37]/40">
+                    <input
+                      type="checkbox"
+                      checked={newEventForm.showInPopup}
+                      onChange={(e) => setNewEventForm({ ...newEventForm, showInPopup: e.target.checked })}
+                      className="w-4 h-4 accent-[#d4af37] rounded"
+                    />
+                    <div className="text-xs">
+                      <span className="font-bold text-white block">Show in Visitor Popup</span>
+                      <span className="text-[10px] text-gray-400">Trigger popup for site visitors</span>
+                    </div>
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#d4af37]/25 hover:scale-[1.01] transition-all cursor-pointer"
+                >
+                  <Sparkles size={15} />
+                  <span>
+                    Publish {newEventForm.type === 'recap' ? 'Previous Event Recap' : 'Upcoming Event'} &amp; Auto-Generate Designs
+                  </span>
+                </button>
+              </form>
+
+              {/* RIGHT COLUMN (7 cols): Live Auto-Designer Preview (Ad Version, Event Template, Visitor Popup) */}
+              <div className="xl:col-span-7 p-5 sm:p-6 rounded-2xl bg-[#16030c] border border-[#d4af37]/30 space-y-5 shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 block">
+                      Step 2 &bull; Live System Auto-Designer Preview
+                    </span>
+                    <h4 className="font-cinzel font-bold text-base text-white">
+                      Instant 3-Format Design Preview
+                    </h4>
+                  </div>
+
+                  {/* Format Switcher Tabs */}
+                  <div className="flex items-center gap-1.5 bg-black/60 p-1 rounded-xl border border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setEventPreviewMode('ad')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                        eventPreviewMode === 'ad'
+                          ? 'bg-[#d4af37] text-black'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      1. Ad Version
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEventPreviewMode('template')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                        eventPreviewMode === 'template'
+                          ? 'bg-[#d4af37] text-black'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      2. Event Template
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEventPreviewMode('popup')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                        eventPreviewMode === 'popup'
+                          ? 'bg-[#d4af37] text-black'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      3. Visitor Popup
+                    </button>
+                  </div>
+                </div>
+
+                {/* Construct Live Preview Object from Form State */}
+                {(() => {
+                  const rawWriteUp = newEventForm.writeUp.trim() || 'Experience an unforgettable evening of signature Arabian hospitality, curated music, fine champagne, and poolside ambiance at Arab Signature Hotel & Suites.';
+                  const firstSentence = rawWriteUp.split(/[.!?\n]/)[0]?.trim() || '';
+                  const previewEvent = {
+                    id: 'preview-live',
+                    type: newEventForm.type,
+                    title: newEventForm.title.trim() || (firstSentence.length > 6 && firstSentence.length <= 68 ? firstSentence : (newEventForm.type === 'recap' ? 'Royal Signature Event Highlights' : 'Arab Signature Exclusive Royal Gala')),
+                    subtitle: newEventForm.subtitle.trim() || (newEventForm.type === 'recap' ? 'Official Event Recap & Highlights' : 'VIP Poolside & Diplomatic Lounge Experience'),
+                    dateLabel: newEventForm.dateLabel.trim() || (newEventForm.type === 'recap' ? 'Recent Royal Gathering' : 'Upcoming Friday & Weekend • 8:00 PM'),
+                    venue: newEventForm.venue.trim() || 'VIP Poolside & Royal Cabanas',
+                    banner: newEventForm.banner || '/rooms/suite-royal-penthouse.jpg',
+                    writeUp: rawWriteUp,
+                    badge: newEventForm.type === 'recap' ? 'PREVIOUS EVENT RECAP' : 'UPCOMING ROYAL EVENT',
+                    ticketInfo: newEventForm.ticketInfo.trim() || (newEventForm.type === 'recap' ? 'Memorable Night at Arab Signature Hotel' : 'Complimentary VIP Entry for Checked-In Suite Guests'),
+                    highlights: newEventForm.type === 'recap'
+                      ? ['VIP Guests & Dignitaries', 'Al-Sultan Gourmet Platter', 'Live Music & Entertainment']
+                      : ['VIP Cabana & Table Service', 'Al-Sultan Signature Grill', 'Priority Suite Guest Access'],
+                    featuredSuiteId: 'suites'
+                  };
+
+                  if (eventPreviewMode === 'ad') {
+                    return (
+                      <div className="space-y-2">
+                        <p className="text-[11px] text-gray-400">
+                          <strong className="text-[#f3e5ab]">Auto-Designed Ad Banner:</strong> Rendered automatically as a luxury billboard on the Homepage &amp; Events Page.
+                        </p>
+                        <EventAdBannerCard
+                          event={previewEvent}
+                          onBookEvent={() => showToast('Preview CTA clicked: Opens Suite Booking / Event Inquiry!')}
+                          onExploreEvents={() => showToast('Preview CTA clicked: Opens Full Event Story Modal!')}
+                        />
+                      </div>
+                    );
+                  }
+
+                  if (eventPreviewMode === 'template') {
+                    return (
+                      <div className="space-y-2 max-w-md mx-auto">
+                        <p className="text-[11px] text-gray-400 text-center">
+                          <strong className="text-[#f3e5ab]">Auto-Designed Event Card:</strong> Displayed in the Upcoming Events or Previous Recaps grid.
+                        </p>
+                        <EventTemplateCard
+                          event={previewEvent}
+                          onSelectEvent={() => showToast('Preview Card clicked: Opens Full Event Story!')}
+                          onBookSuite={() => showToast('Preview Reserve clicked: Opens Suite Reservation Modal!')}
+                        />
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-gray-400 text-center">
+                        <strong className="text-[#f3e5ab]">Auto-Designed Visitor Popup Version:</strong> Pops up automatically for website visitors.
+                      </p>
+                      <div className="max-w-md mx-auto rounded-3xl overflow-hidden bg-gradient-to-b from-[#1c040e] via-[#120208] to-[#0a0104] border-2 border-[#d4af37]/60 shadow-2xl">
+                        <div className="relative h-48 overflow-hidden">
+                          <img
+                            src={previewEvent.banner}
+                            alt={previewEvent.title}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#120208] via-[#120208]/40 to-transparent" />
+                          <div className="absolute top-3 left-3">
+                            <span className="px-3 py-1 rounded-full bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold text-[10px] uppercase tracking-wider shadow-lg">
+                              {previewEvent.badge}
+                            </span>
+                          </div>
+                          <div className="absolute bottom-3 left-4 right-4">
+                            <p className="text-[10px] font-mono uppercase tracking-widest text-[#f3e5ab]">
+                              {previewEvent.dateLabel}
+                            </p>
+                            <h3 className="font-cinzel font-bold text-lg text-white leading-snug">
+                              {previewEvent.title}
+                            </h3>
+                          </div>
+                        </div>
+                        <div className="p-5 space-y-3">
+                          <p className="text-xs text-gray-300 leading-relaxed line-clamp-3">
+                            {previewEvent.writeUp}
+                          </p>
+                          <div className="p-3 rounded-xl bg-black/50 border border-[#d4af37]/30 flex items-center justify-between text-xs">
+                            <span className="text-gray-400">Venue: <strong className="text-white">{previewEvent.venue}</strong></span>
+                            <span className="text-[#f3e5ab] font-mono text-[10px]">{previewEvent.ticketInfo}</span>
+                          </div>
+                          <div className="py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold text-xs text-center uppercase tracking-wider">
+                            Reserve VIP Suite For This Event
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+            </div>
+
+            {/* Manage All Published Events (Upcoming & Previous Recaps) */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-[#16030c] border border-white/10 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                <div>
+                  <h4 className="font-cinzel font-bold text-base text-white">
+                    Published Hotel Events &amp; Previous Event Recaps ({hotelEvents.length})
+                  </h4>
+                  <p className="text-xs text-gray-400">
+                    Toggle Visitor Popup or Ad Banner visibility, or convert an Upcoming Event into a Previous Event Recap with 1 click after the event concludes.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {hotelEvents.map((ev) => {
+                  const isRecap = ev.type === 'recap';
+                  return (
+                    <div
+                      key={ev.id}
+                      className={`p-4 rounded-2xl border flex flex-col justify-between gap-4 transition-all ${
+                        isRecap
+                          ? 'bg-[#120208] border-emerald-500/30'
+                          : 'bg-[#1a040e] border-[#d4af37]/40'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3.5">
+                        <img
+                          src={ev.banner}
+                          alt={ev.title}
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = '/rooms/suite-royal-penthouse.jpg';
+                          }}
+                          className="w-24 h-24 rounded-xl object-cover border border-[#d4af37]/40 flex-shrink-0"
+                        />
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono uppercase font-bold ${
+                              isRecap
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : 'bg-[#d4af37]/20 text-[#f3e5ab] border border-[#d4af37]/40'
+                            }`}>
+                              {isRecap ? 'Previous Event Recap' : 'Upcoming Event'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEvent(ev.id, ev.title)}
+                              className="p-1 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-950/40 transition-all cursor-pointer"
+                              title="Delete Event"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+
+                          <h5 className="font-cinzel font-bold text-sm text-white truncate">
+                            {ev.title}
+                          </h5>
+                          <p className="text-[11px] text-[#f3e5ab] font-mono truncate">
+                            {ev.dateLabel} &bull; {ev.venue}
+                          </p>
+                          <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                            {ev.writeUp}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Quick Action Toggles */}
+                      <div className="pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleEventFlag(ev.id, 'showAsAdBanner', ev.showAsAdBanner)}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold border transition-all cursor-pointer ${
+                              ev.showAsAdBanner
+                                ? 'bg-[#d4af37]/20 border-[#d4af37]/50 text-[#f3e5ab]'
+                                : 'bg-white/5 border-white/10 text-gray-500'
+                            }`}
+                          >
+                            Ad Banner: {ev.showAsAdBanner ? 'ON' : 'OFF'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleEventFlag(ev.id, 'showInPopup', ev.showInPopup)}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold border transition-all cursor-pointer ${
+                              ev.showInPopup
+                                ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                                : 'bg-white/5 border-white/10 text-gray-500'
+                            }`}
+                          >
+                            Visitor Popup: {ev.showInPopup ? 'ON' : 'OFF'}
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleConvertEventType(ev.id, isRecap ? 'upcoming' : 'recap')}
+                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-[10px] font-semibold text-gray-200 transition-all cursor-pointer"
+                        >
+                          {isRecap ? 'Move to Upcoming' : 'Convert to Past Recap →'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 

@@ -13,6 +13,7 @@ import {
   GlassWater 
 } from 'lucide-react';
 import { HOTEL_INFO } from '../data/hotelData';
+import { portalStore } from '../data/portalStore';
 
 // ============================================================================
 // 1. KITCHEN POOL (Base Foods + Proteins for Culinary Pairings)
@@ -329,12 +330,41 @@ export default function PromoPopupModal({
     return DRINKS_PROMOS[Math.floor(Math.random() * DRINKS_PROMOS.length)];
   };
 
-  // Helper: Pick random suite & event promo
+  // Helper: Pick random suite & Admin-created event promo
   const generateRandomSuitePromo = () => {
+    try {
+      const allEvents = portalStore.getHotelEvents() || [];
+      const popupEvents = allEvents.filter((e) => e.showInPopup !== false);
+      const rates = portalStore.getRoomRates() || [];
+
+      if (popupEvents.length > 0) {
+        const chosenEvt = popupEvents[Math.floor(Math.random() * popupEvents.length)];
+        const matchedSuite = rates.find((r) => r.id === (chosenEvt.featuredSuiteId || 'suites')) || rates[0];
+        const effectivePrice = (matchedSuite?.isPromoActive && matchedSuite?.promoPrice)
+          ? matchedSuite.promoPrice
+          : (matchedSuite?.price || 120000);
+
+        return {
+          id: chosenEvt.id,
+          eventTitle: chosenEvt.title,
+          eventBadge: chosenEvt.highlightBadge || (chosenEvt.type === 'recap' ? 'OFFICIAL EVENT RECAP' : 'UPCOMING SPECIAL EVENT'),
+          eventDate: `${chosenEvt.dateLabel || 'Upcoming'} • ${chosenEvt.venue || 'Arab Signature Hotel'}`,
+          eventDesc: chosenEvt.writeUp,
+          suiteName: matchedSuite?.name || 'Diplomatic Suite',
+          suiteCategory: matchedSuite?.buildingLabel || 'Main & Extension Luxury Wings',
+          suitePrice: effectivePrice,
+          suitePriceFormatted: `₦${Number(effectivePrice).toLocaleString()}`,
+          suiteId: matchedSuite?.id || 'suites',
+          image: chosenEvt.banner || '/rooms/suite-royal-penthouse.jpg',
+          perk: chosenEvt.ticketInfo || 'Free VIP Entry for Checked-In Suite Guests • Table Reservations Available',
+          tagline: chosenEvt.subtitle || 'Experience Legendary Arabian Hospitality in Nsugbe'
+        };
+      }
+    } catch (e) {}
     return SUITE_EVENT_PROMOS[Math.floor(Math.random() * SUITE_EVENT_PROMOS.length)];
   };
 
-  // Helper: Get next randomized promo type ensuring 1 suite, 2 kitchen, 2 drinks per 5 shows
+  // Helper: Get next randomized promo type ensuring events/suites, kitchen, and drinks appear
   const getNextRandomPromoType = () => {
     let batch = [];
     try {
@@ -346,10 +376,8 @@ export default function PromoPopupModal({
       batch = [];
     }
 
-    // If batch is empty or invalid, generate a fresh randomly shuffled bag of 5:
-    // Exactly 1 suite, 2 kitchen, 2 drinks
     if (!Array.isArray(batch) || batch.length === 0) {
-      batch = ['kitchen', 'kitchen', 'drinks', 'drinks', 'suite'];
+      batch = ['suite', 'suite', 'kitchen', 'drinks', 'kitchen'];
       // Fisher-Yates random shuffle so ANY category can appear first
       for (let i = batch.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -891,12 +919,24 @@ export default function PromoPopupModal({
                   <ArrowRight className="w-4 h-4 text-black" />
                 </button>
 
-                <button
-                  onClick={handleExploreSuites}
-                  className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white text-xs font-medium tracking-wide transition-all flex items-center justify-center gap-1.5"
-                >
-                  <span>Explore All 34 Arab Suites & Rooms</span>
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      handleClose();
+                      if (onNavigate) onNavigate('events');
+                    }}
+                    className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-[#d4af37]/30 text-[#f5d77f] hover:text-white text-xs font-medium tracking-wide transition-all flex items-center justify-center gap-1"
+                  >
+                    <span>All Events &amp; Recaps</span>
+                  </button>
+
+                  <button
+                    onClick={handleExploreSuites}
+                    className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white text-xs font-medium tracking-wide transition-all flex items-center justify-center gap-1"
+                  >
+                    <span>Explore 34 Suites</span>
+                  </button>
+                </div>
               </div>
             </>
           )}

@@ -28,6 +28,7 @@ const STORAGE_KEYS = {
   ROOM_RATES: 'ash_portal_room_rates_v3',
   DINING_MENU: 'ash_portal_dining_menu_v6',
   HOTEL_CONFIG: 'ash_portal_hotel_config',
+  HOTEL_EVENTS: 'ash_portal_hotel_events_v1',
   ACTIVITY_LOG: 'ash_portal_activity_log',
   INTERCOM_CHAT: 'ash_portal_intercom_chat_v1',
   GUEST_SESSION: 'ash_active_guest_session_v2',
@@ -3159,6 +3160,178 @@ export const portalStore = {
     setLocalItem(STORAGE_KEYS.HOTEL_CONFIG, updated);
     this.logActivity(`Admin updated hotel operations contact information.`);
     return updated;
+  },
+
+  // --- HOTEL EVENTS, UPCOMING GALAS & PREVIOUS RECAPS (AUTO-TEMPLATE + AD + VISITOR POPUP) ---
+  getDefaultEvents() {
+    return [
+      {
+        id: 'evt-upcoming-poolside-sax',
+        type: 'upcoming',
+        title: 'VIP Arabian Poolside Night & Live Sax',
+        subtitle: 'Exotic Shisha Cabanas • Live Acoustic Saxophone • Charcoal BBQ Grills',
+        dateLabel: 'Every Friday & Saturday • 7:00 PM Till Late',
+        venue: 'VIP Poolside & Royal Cabanas',
+        banner: '/rooms/suite-royal-penthouse.jpg',
+        writeUp: 'Experience the magic of Arabian nights in Nsugbe, Onitsha! Join us by the illuminated poolside for live acoustic saxophone melodies, exotic shisha lounge service, sizzling charcoal-grilled turkey & catfish pepper soup, and chilled vintage wines under the stars. Complimentary VIP entry for all checked-in suite guests.',
+        highlightBadge: 'UPCOMING • VIP POOLSIDE GALA',
+        ticketInfo: 'Free for Checked-In Guests • VIP Cabana Table: ₦50,000',
+        ctaLabel: 'Reserve VIP Table / Suite',
+        featuredSuiteId: 'suites',
+        showInPopup: true,
+        showAsAdBanner: true,
+        createdAt: '2026-10-25'
+      },
+      {
+        id: 'evt-upcoming-sunday-soiree',
+        type: 'upcoming',
+        title: 'Royal Sunday Seafood, Wine & Cultural Soirée',
+        subtitle: 'Fresh Live Catfish Pepper Soup • Fine Table Wines • Executive Lounge',
+        dateLabel: 'Every Sunday • 2:00 PM – 10:00 PM',
+        venue: 'Al-Sultan Royal Restaurant & Courtyard',
+        banner: '/rooms/al-sultan-dining-hall.jpg',
+        writeUp: 'Unwind every Sunday afternoon with dignitaries, families, and executives at the Al-Sultan Dining Hall. Indulge in our chef’s signature Onitsha Ofe Nsala, fresh live catfish pepper soup, smoky party jollof, and chilled Belaire & D’Angelus wines in a serene, air-conditioned Arabian ambiance.',
+        highlightBadge: 'SUNDAY SPECIAL GATHERING',
+        ticketInfo: 'Open to All VIP Guests • Table & Cabana Reservations Available',
+        ctaLabel: 'Book Sunday Table / Suite',
+        featuredSuiteId: 'super-executive',
+        showInPopup: true,
+        showAsAdBanner: true,
+        createdAt: '2026-10-26'
+      },
+      {
+        id: 'evt-recap-grand-launch',
+        type: 'recap',
+        title: 'Grand Diplomatic Wing Unveiling & Royal Gala Night',
+        subtitle: 'Over 120 Dignitaries, Captains of Industry & Traditional Leaders Hosted in Grand Style',
+        dateLabel: 'Held on October 18, 2026',
+        venue: 'Main Building & 100 Extension Diplomatic Wing',
+        banner: '/rooms/arch-facade-main.jpg',
+        writeUp: 'An unforgettable evening of Arabian luxury and Anambra hospitality! Arab Signature Hotel & Suites officially unveiled the 14-room Extension Diplomatic Wing alongside our 20-room Main Building. Guests enjoyed a 5-course Al-Sultan royal banquet, live cultural music, champagne toasts, and private guided tours of our flagship ₦120,000 Diplomatic Suites.',
+        highlightBadge: 'PAST EVENT RECAP • SOLD OUT',
+        ticketInfo: '120+ VIP Dignitaries & Guests Hosted',
+        ctaLabel: 'Book Your Own Event / Stay',
+        featuredSuiteId: 'suites',
+        showInPopup: false,
+        showAsAdBanner: false,
+        createdAt: '2026-10-19'
+      },
+      {
+        id: 'evt-recap-exec-summit',
+        type: 'recap',
+        title: 'Anambra Business Leaders & Diaspora Executive Dinner',
+        subtitle: 'Exclusive Networking, Fine Dining & Executive Staycation Weekend',
+        dateLabel: 'Held on October 11, 2026',
+        venue: 'Diplomatic Majlis Lounge & Poolside',
+        banner: '/rooms/suite-royal-lounge-wide.jpg',
+        writeUp: 'Leading entrepreneurs, industrialists, and diaspora investors gathered at Arab Signature Hotel for a weekend of high-level networking and luxury relaxation. Every delegate enjoyed uninterrupted 24/7 power, private Diplomatic Majlis lounge sessions, fine cognac pairings, and bespoke butler service.',
+        highlightBadge: 'EVENT RECAP • EXCLUSIVE',
+        ticketInfo: '65+ Executive Delegates Hosted • 100% Suite Occupancy',
+        ctaLabel: 'Inquire for Corporate Hosting',
+        featuredSuiteId: 'executive',
+        showInPopup: false,
+        showAsAdBanner: false,
+        createdAt: '2026-10-12'
+      }
+    ];
+  },
+
+  getHotelEvents() {
+    const stored = getLocalItem(STORAGE_KEYS.HOTEL_EVENTS, null);
+    if (stored && Array.isArray(stored) && stored.length > 0) {
+      return stored;
+    }
+    const defaults = this.getDefaultEvents();
+    setLocalItem(STORAGE_KEYS.HOTEL_EVENTS, defaults);
+    return defaults;
+  },
+
+  addHotelEvent(eventInput) {
+    const events = this.getHotelEvents();
+    const isRecap = eventInput.type === 'recap';
+    const rawWriteUp = String(eventInput.writeUp || '').trim();
+    const firstSentence = rawWriteUp.split(/[.!?]/)[0] || 'Exclusive Luxury Experience at Arab Signature Hotel & Suites';
+    const autoTitle = String(eventInput.title || '').trim() || (firstSentence.length > 55 ? firstSentence.slice(0, 55) + '...' : firstSentence);
+
+    const newEvent = {
+      id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      type: isRecap ? 'recap' : 'upcoming',
+      title: autoTitle,
+      subtitle: String(eventInput.subtitle || '').trim() || (isRecap ? 'Official Event Highlights & Recap at Arab Signature Hotel' : 'Live Luxury Hospitality, Fine Dining & VIP Entertainment'),
+      dateLabel: String(eventInput.dateLabel || '').trim() || (isRecap ? `Held Recently at Arab Signature` : 'Upcoming Special Event • From 7:00 PM'),
+      venue: String(eventInput.venue || '').trim() || 'VIP Poolside, Al-Sultan Lounge & Royal Suites',
+      banner: eventInput.banner || '/rooms/suite-royal-penthouse.jpg',
+      writeUp: rawWriteUp || 'Join us at Arab Signature Hotel & Suites, Nsugbe, Onitsha for an unforgettable royal experience featuring world-class cuisine, premium drinks, and 5-star hospitality.',
+      highlightBadge: String(eventInput.highlightBadge || '').trim() || (isRecap ? 'OFFICIAL EVENT RECAP' : 'UPCOMING SPECIAL EVENT'),
+      ticketInfo: String(eventInput.ticketInfo || '').trim() || (isRecap ? 'Memorable Gathering Hosted in Grand Style' : 'Free Entry for Checked-In Suite Guests • VIP Table Reservations Open'),
+      ctaLabel: String(eventInput.ctaLabel || '').trim() || (isRecap ? 'Host Your Next Event With Us' : 'Reserve VIP Table / Suite'),
+      featuredSuiteId: eventInput.featuredSuiteId || 'suites',
+      showInPopup: isRecap ? Boolean(eventInput.showInPopup) : (eventInput.showInPopup !== undefined ? Boolean(eventInput.showInPopup) : true),
+      showAsAdBanner: isRecap ? Boolean(eventInput.showAsAdBanner) : (eventInput.showAsAdBanner !== undefined ? Boolean(eventInput.showAsAdBanner) : true),
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+
+    const updated = [newEvent, ...events];
+    setLocalItem(STORAGE_KEYS.HOTEL_EVENTS, updated);
+    this.logActivity(`Admin published ${isRecap ? 'Event Recap' : 'Upcoming Event'}: "${newEvent.title}"`);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_events_updated', { detail: updated }));
+    }
+    return newEvent;
+  },
+
+  updateHotelEvent(eventId, updates) {
+    const events = this.getHotelEvents();
+    const updated = events.map(evt => {
+      if (evt.id === eventId) {
+        const merged = { ...evt, ...updates };
+        if (updates.type === 'recap' && evt.type !== 'recap') {
+          merged.highlightBadge = updates.highlightBadge || 'OFFICIAL EVENT RECAP';
+          merged.showInPopup = updates.showInPopup !== undefined ? updates.showInPopup : false;
+        }
+        return merged;
+      }
+      return evt;
+    });
+    setLocalItem(STORAGE_KEYS.HOTEL_EVENTS, updated);
+    this.logActivity(`Admin updated event (${eventId})`);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_events_updated', { detail: updated }));
+    }
+    return updated;
+  },
+
+  deleteHotelEvent(eventId) {
+    const events = this.getHotelEvents();
+    const target = events.find(e => e.id === eventId);
+    const updated = events.filter(e => e.id !== eventId);
+    setLocalItem(STORAGE_KEYS.HOTEL_EVENTS, updated);
+    this.logActivity(`Admin removed event: "${target?.title || eventId}"`);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_events_updated', { detail: updated }));
+    }
+    return updated;
+  },
+
+  subscribeHotelEvents(callback) {
+    if (typeof window === 'undefined') return () => {};
+    const handler = (e) => {
+      callback(e.detail || this.getHotelEvents());
+    };
+    const storageHandler = (e) => {
+      if (e.key === STORAGE_KEYS.HOTEL_EVENTS) {
+        callback(this.getHotelEvents());
+      }
+    };
+    window.addEventListener('ash_events_updated', handler);
+    window.addEventListener('storage', storageHandler);
+    return () => {
+      window.removeEventListener('ash_events_updated', handler);
+      window.removeEventListener('storage', storageHandler);
+    };
   },
 
   // --- ACTIVITY LOGS ---

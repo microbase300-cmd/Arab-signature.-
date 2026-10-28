@@ -28,6 +28,7 @@ export default function Navbar({ currentPage, onNavigate, onOpenBooking, onOpenG
     { id: 'suites', label: 'Arab Suites' },
     { id: 'amenities', label: 'Poolside & Cabanas' },
     { id: 'dining', label: 'Dining' },
+    { id: 'events', label: 'Events' },
     { id: 'gallery', label: 'Photo Gallery' },
     { id: 'contact', label: 'Location & Contact' },
   ];

@@ -15,6 +15,7 @@ import AboutPage from './pages/AboutPage';
 import SuitesPage from './pages/SuitesPage';
 import AmenitiesPage from './pages/AmenitiesPage';
 import DiningPage from './pages/DiningPage';
+import EventsPage from './pages/EventsPage';
 import FoodDrinkOrderTrackerPage from './pages/FoodDrinkOrderTrackerPage';
 import GalleryPage from './pages/GalleryPage';
 import ContactPage from './pages/ContactPage';
@@ -157,7 +158,7 @@ export default function App() {
       }
 
       // Public multi-page views
-      const validPages = ['about', 'suites', 'amenities', 'dining', 'gallery', 'contact', 'guest-portal', 'track-order'];
+      const validPages = ['about', 'suites', 'amenities', 'dining', 'events', 'gallery', 'contact', 'guest-portal', 'track-order'];
       if (validPages.includes(rawHash)) {
         setCurrentPage(rawHash);
       } else {
@@ -286,6 +287,8 @@ export default function App() {
         return <AmenitiesPage onNavigate={handleNavigate} onOpenBooking={handleOpenBooking} />;
       case 'dining':
         return <DiningPage onNavigate={handleNavigate} onOpenBooking={handleOpenBooking} />;
+      case 'events':
+        return <EventsPage onNavigate={handleNavigate} onOpenBooking={handleOpenBooking} />;
       case 'track-order':
         return <FoodDrinkOrderTrackerPage onNavigate={handleNavigate} />;
       case 'gallery':
