@@ -5,7 +5,7 @@ This document records the complete history of every single commit, feature, bug 
 ---
 
 ## Summary Statistics
-- **Total Commits Logged**: 98 Commits
+- **Total Commits Logged**: 99 Commits
 - **Repository**: `https://github.com/microbase300-cmd/Arab-signature.-.git` (`main` branch)
 - **Active Portals**: Public Website, VIP Guest Portal (`CustomerDashboardPage`), Main & Extension Reception Portals (`ReceptionPortal`), Accountant Portal (`AccountantPortal`), Executive Admin Portal (`AdminPortal`), and Food/Drink Order Tracker (`OrderTrackingPage`).
 
@@ -15,6 +15,8 @@ This document records the complete history of every single commit, feature, bug 
 
 | Commit Hash | Date | Type | Detailed Description |
 | :--- | :--- | :--- | :--- |
+| `HEAD` | 2026-10-28 | `feat` | **Suite & Menu Promotional Pricing Engine (Admin Promo Prices)**: Added full promo price controls to the Admin Portal (`AdminPortal.jsx`) under the Suite Rate Manager and Food & Drinks Menu Manager. Enabled setting optional promotional rates (₦), live discount percentage & savings calculation (₦), promo activation toggles, and 1-click promo clearance. Integrated live promo prices across `portalStore.js`, `HomePage.jsx` (strikethrough original rate + glowing promo badges), `SuitesPage.jsx` (discount pills + live promo pricing), `BookingModal.jsx` (auto-discounted booking total and Paystack checkout), and `hotelAiEngine.js` (Amira concierge promotional recommendations). |
+| `406f234` | 2026-10-27 | `docs` | **Changelog Sync**: Logged commit `0e83d2c` in CHANGELOG.md. |
 | `0e83d2c` | 2026-10-27 | `fix` | **CEO Portal Blank Screen Fix**: Resolved JavaScript `ReferenceError` on `mainWingOccupied` / `extWingOccupied` variables in `AdminPortal.jsx` by explicitly declaring building-level occupancy, reservation, and revenue calculations with case-insensitive status matching (`isRoomOccupied`, `isRoomReserved`, `isRoomCleaning`), safe 34-room status grid color rendering, and flexible array-safe `rates` product line mapping. |
 | `8cfe875` | 2026-10-27 | `feat` | **CEO Portal Default Operations, Products & Order Queue Command Center**: Made `overview` (**Hotel Operations & Products Summary**) the default tab when the CEO logs into `AdminPortal.jsx` instead of the Suite Rate Manager. Upgraded top KPI cards to show **Rooms Booked & Active** (`Occupied + Reserved` split across Main 600 Wing & Extension 100 Wing), **Drinks & Food Sold** (`ARB-DRK` units/orders + `ARB-FDD` plates/orders), **Pending Orders Queue**, and **Total Hotel Revenue** (Suites + Bar + Kitchen). Added 4 Operations Pillars, a live filterable **Bar & Kitchen Order Queue** with 1-click CEO fulfillment (`Mark Ready`, `Mark Delivered`, `Confirm Paid`), a live **34-Suite Status Map**, and a **3-Column Full Hotel Products & Catalog Performance** overview. |
 | `a184668` | 2026-10-27 | `feat` | **Remove Login OTP & Configure Official Domain Staff Accounts**: Removed 2-step email OTP from Accountant and CEO login flows (`AccountantLoginPage.jsx`, `AdminLoginPage.jsx`) for instant direct sign-in while keeping customer booking/food email confirmations active on `arabsignature.com`; configured official staff accounts (`main@arabsignature.com`, `extension@arabsignature.com`, `accountant@arabsignature.com`, and CEO personal email). |

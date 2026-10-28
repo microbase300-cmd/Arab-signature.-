@@ -319,7 +319,12 @@ export const hotelAiEngine = {
     const pricingTriggers = ["price", "cost", "how much", "rate", "rates", "charge", "expensive", "cheapest"];
     if (pricingTriggers.some(t => query.includes(t))) {
       const rates = aiBrainMemory.rates;
-      const rateSummary = rates.map(r => `• **${r.name}:** ${r.priceFormatted}/night — ${r.bed}, ${r.guests}`).join("\n");
+      const rateSummary = rates.map(r => {
+        if (r.isPromoActive && r.promoPrice) {
+          return `• **${r.name}:** ~~${r.priceFormatted}~~ **₦${Number(r.promoPrice).toLocaleString()}/night** 🔥 *(SPECIAL PROMO — Save ₦${((r.price - r.promoPrice) || 0).toLocaleString()})* — ${r.bed}, ${r.guests}`;
+        }
+        return `• **${r.name}:** ${r.priceFormatted}/night — ${r.bed}, ${r.guests}`;
+      }).join("\n");
 
       return {
         text: `💎 **Current Live Suite Rates — Prepared by Amira:**\n\n` +

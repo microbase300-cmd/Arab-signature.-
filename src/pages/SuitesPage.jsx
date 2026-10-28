@@ -238,10 +238,15 @@ export default function SuitesPage({ onNavigate, onOpenBooking }) {
                   <div className="absolute inset-0 bg-gradient-to-t from-[#1a040d] via-transparent to-black/30 opacity-80" />
 
                   {/* Category Badge */}
-                  <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                  <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
                     <span className="bg-[#5c0725] text-[#f3e5ab] border border-[#d4af37]/40 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">
                       {room.boardTitle || room.category}
                     </span>
+                    {room.isPromoActive && (
+                      <span className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white border border-emerald-300/60 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-1 animate-pulse">
+                        🔥 Special Promo
+                      </span>
+                    )}
                     <span className="bg-black/75 backdrop-blur-md text-white text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15">
                       {activeCount} {activeCount === 1 ? 'Room' : 'Rooms'}
                     </span>
@@ -296,9 +301,25 @@ export default function SuitesPage({ onNavigate, onOpenBooking }) {
                         </span>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <div className="text-lg sm:text-xl font-extrabold text-[#d4af37] font-mono leading-tight">
-                          {room.priceFormatted}
-                        </div>
+                        {room.isPromoActive && room.promoPrice ? (
+                          <div>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <span className="line-through text-gray-400 text-xs font-mono">
+                                {room.priceFormatted}
+                              </span>
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-500/25 border border-emerald-400/50 text-emerald-300 text-[9px] font-mono font-bold uppercase animate-pulse">
+                                {room.discountPercent ? `-${room.discountPercent}%` : 'PROMO'}
+                              </span>
+                            </div>
+                            <div className="text-lg sm:text-xl font-extrabold text-emerald-400 font-mono leading-tight">
+                              {room.promoPriceFormatted || `₦${Number(room.promoPrice).toLocaleString()}`}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-lg sm:text-xl font-extrabold text-[#d4af37] font-mono leading-tight">
+                            {room.priceFormatted}
+                          </div>
+                        )}
                         <span className="text-[10px] uppercase text-gray-400 block">per night</span>
                       </div>
                     </div>

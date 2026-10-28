@@ -3074,31 +3074,62 @@ export const portalStore = {
     return DEFAULT_ROOMS.map(defRoom => {
       const match = stored.find(r => r.id === defRoom.id);
       if (match && typeof match.price === 'number') {
+        const numPrice = Number(match.price);
+        const promoRaw = match.promoPrice !== undefined ? match.promoPrice : null;
+        const numPromo = (promoRaw !== null && promoRaw !== '' && !isNaN(promoRaw) && Number(promoRaw) > 0)
+          ? Number(promoRaw)
+          : null;
+        const isPromoActive = Boolean(match.isPromoActive && numPromo && numPromo < numPrice);
+
         return {
           ...defRoom,
-          price: match.price,
-          priceFormatted: match.priceFormatted || `₦${match.price.toLocaleString()}`
+          price: numPrice,
+          priceFormatted: `₦${numPrice.toLocaleString()}`,
+          promoPrice: numPromo,
+          promoPriceFormatted: numPromo ? `₦${numPromo.toLocaleString()}` : null,
+          isPromoActive: isPromoActive,
+          promoLabel: match.promoLabel || (isPromoActive ? 'PROMO' : null),
+          discountPercent: (isPromoActive && numPromo) ? Math.round(((numPrice - numPromo) / numPrice) * 100) : 0,
+          savingsAmount: (isPromoActive && numPromo) ? (numPrice - numPromo) : 0
         };
       }
-      return defRoom;
+      return {
+        ...defRoom,
+        promoPrice: null,
+        promoPriceFormatted: null,
+        isPromoActive: false,
+        discountPercent: 0,
+        savingsAmount: 0
+      };
     });
   },
 
-  updateRoomRate(roomId, newPrice) {
+  updateRoomRate(roomId, newPrice, promoPrice = null, isPromoActive = false, promoLabel = '') {
     const rates = this.getRoomRates();
     const numPrice = Number(newPrice);
+    const numPromo = (promoPrice !== null && promoPrice !== undefined && promoPrice !== '' && !isNaN(promoPrice) && Number(promoPrice) > 0)
+      ? Number(promoPrice)
+      : null;
+    const promoActive = Boolean(isPromoActive && numPromo && numPromo < numPrice);
+
     const updated = rates.map(r => {
       if (r.id === roomId) {
         return {
           ...r,
           price: numPrice,
-          priceFormatted: `₦${numPrice.toLocaleString()}`
+          priceFormatted: `₦${numPrice.toLocaleString()}`,
+          promoPrice: numPromo,
+          promoPriceFormatted: numPromo ? `₦${numPromo.toLocaleString()}` : null,
+          isPromoActive: promoActive,
+          promoLabel: promoLabel || (promoActive ? 'PROMO' : null),
+          discountPercent: (promoActive && numPromo) ? Math.round(((numPrice - numPromo) / numPrice) * 100) : 0,
+          savingsAmount: (promoActive && numPromo) ? (numPrice - numPromo) : 0
         };
       }
       return r;
     });
     setLocalItem(STORAGE_KEYS.ROOM_RATES, updated);
-    this.logActivity(`Admin adjusted room rate for '${roomId}' to ₦${numPrice.toLocaleString()}`);
+    this.logActivity(`Admin adjusted rate for '${roomId}' to ₦${numPrice.toLocaleString()}${promoActive ? ` (Active Promo: ₦${numPromo.toLocaleString()})` : ''}`);
 
     // Real-time broadcast to homepage, suites catalog, and booking modal
     if (typeof window !== 'undefined') {
@@ -3148,13 +3179,21 @@ export const portalStore = {
       const mergedDefaults = INITIAL_DINING_MENU.map(defaultMatch => {
         const storedItem = storedMap.get(defaultMatch.id);
         if (storedItem) {
+          const itemPrice = storedItem.price !== undefined ? Number(storedItem.price) : defaultMatch.price;
+          const promoRaw = storedItem.promoPrice !== undefined ? storedItem.promoPrice : null;
+          const numPromo = (promoRaw !== null && promoRaw !== '' && !isNaN(promoRaw) && Number(promoRaw) > 0) ? Number(promoRaw) : null;
+          const isPromoActive = Boolean(storedItem.isPromoActive && numPromo && numPromo < itemPrice);
+
           return {
             ...defaultMatch,
             ...storedItem,
             name: defaultMatch.name,
             category: defaultMatch.category,
             categoryLabel: defaultMatch.categoryLabel,
-            price: storedItem.price !== undefined ? Number(storedItem.price) : defaultMatch.price,
+            price: itemPrice,
+            promoPrice: numPromo,
+            isPromoActive: isPromoActive,
+            discountPercent: (isPromoActive && numPromo) ? Math.round(((itemPrice - numPromo) / itemPrice) * 100) : 0,
             image: defaultMatch.image || storedItem.image,
             requiresProtein: defaultMatch.requiresProtein,
             requiresSwallow: defaultMatch.requiresSwallow,
@@ -3172,14 +3211,22 @@ export const portalStore = {
     return INITIAL_DINING_MENU;
   },
 
-  updateMenuItemPrice(itemId, newPrice) {
+  updateMenuItemPrice(itemId, newPrice, promoPrice = null, isPromoActive = false) {
     const menu = this.getDiningMenu();
     const numPrice = Number(newPrice);
+    const numPromo = (promoPrice !== null && promoPrice !== undefined && promoPrice !== '' && !isNaN(promoPrice) && Number(promoPrice) > 0)
+      ? Number(promoPrice)
+      : null;
+    const promoActive = Boolean(isPromoActive && numPromo && numPromo < numPrice);
+
     const updated = menu.map(item => {
       if (item.id === itemId) {
         return {
           ...item,
-          price: numPrice
+          price: numPrice,
+          promoPrice: numPromo,
+          isPromoActive: promoActive,
+          discountPercent: (promoActive && numPromo) ? Math.round(((numPrice - numPromo) / numPrice) * 100) : 0
         };
       }
       return item;
@@ -3187,7 +3234,7 @@ export const portalStore = {
 
     setLocalItem(STORAGE_KEYS.DINING_MENU, updated);
     const itemObj = menu.find(i => i.id === itemId);
-    this.logActivity(`Admin updated price for '${itemObj?.name || itemId}' to ₦${numPrice.toLocaleString()}`);
+    this.logActivity(`Admin updated price for '${itemObj?.name || itemId}' to ₦${numPrice.toLocaleString()}${promoActive ? ` (Promo: ₦${numPromo.toLocaleString()})` : ''}`);
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ash_menu_updated', { detail: updated }));

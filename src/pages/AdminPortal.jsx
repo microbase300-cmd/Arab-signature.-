@@ -13,7 +13,7 @@ import {
   Sparkles, KeyRound, Clock, Edit3, ChevronRight, UserCheck, 
   AlertCircle, ShieldAlert, Key, Check, Eye, EyeOff, Utensils,
   Wine, Plus, Trash2, Search, X, Flame, GlassWater, Beer, CreditCard, ExternalLink, Calculator, Image as ImageIcon, Copy,
-  Building2, Package, BellRing, Layers, BarChart3
+  Building2, Package, BellRing, Layers, BarChart3, Tag, Percent
 } from 'lucide-react';
 import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
 
@@ -38,12 +38,16 @@ export default function AdminPortal({ onNavigate }) {
   const [chatFilter, setChatFilter] = useState('all');
   const [chatSearch, setChatSearch] = useState('');
 
-  // Editable Rates State
+  // Editable Rates & Promo Prices State
   const [rateEdits, setRateEdits] = useState({});
+  const [promoPriceEdits, setPromoPriceEdits] = useState({});
+  const [promoActiveEdits, setPromoActiveEdits] = useState({});
 
   // Editable Dining & Drinks Menu State (ADMIN EXCLUSIVE CONTROL)
   const [diningMenu, setDiningMenu] = useState([]);
   const [diningEdits, setDiningEdits] = useState({});
+  const [diningPromoEdits, setDiningPromoEdits] = useState({});
+  const [diningPromoActiveEdits, setDiningPromoActiveEdits] = useState({});
   const [diningCategoryFilter, setDiningCategoryFilter] = useState('all');
   const [diningSearchQuery, setDiningSearchQuery] = useState('');
   const [isAddMenuItemOpen, setIsAddMenuItemOpen] = useState(false);
@@ -160,19 +164,31 @@ export default function AdminPortal({ onNavigate }) {
     setDiningMenu(currentDining);
     setChatMessages(portalStore.getChatMessages('admin'));
 
-    // Initialize rate edit fields
+    // Initialize rate edit fields & promotional rates
     const initialRates = {};
+    const initialPromos = {};
+    const initialPromoActive = {};
     currentRates.forEach(r => {
       initialRates[r.id] = r.price;
+      initialPromos[r.id] = (r.promoPrice !== null && r.promoPrice !== undefined) ? r.promoPrice : '';
+      initialPromoActive[r.id] = Boolean(r.isPromoActive);
     });
     setRateEdits(initialRates);
+    setPromoPriceEdits(initialPromos);
+    setPromoActiveEdits(initialPromoActive);
 
-    // Initialize dining menu edit fields
+    // Initialize dining menu edit fields & promotional prices
     const initialDining = {};
+    const initialDiningPromos = {};
+    const initialDiningPromoActive = {};
     currentDining.forEach(item => {
       initialDining[item.id] = item.price;
+      initialDiningPromos[item.id] = (item.promoPrice !== null && item.promoPrice !== undefined) ? item.promoPrice : '';
+      initialDiningPromoActive[item.id] = Boolean(item.isPromoActive);
     });
     setDiningEdits(initialDining);
+    setDiningPromoEdits(initialDiningPromos);
+    setDiningPromoActiveEdits(initialDiningPromoActive);
 
     // Initialize reception credentials form
     if (currentReception) {
@@ -251,39 +267,79 @@ export default function AdminPortal({ onNavigate }) {
     onNavigate(SECURE_PORTAL_ROUTES.ADMIN_LOGIN);
   };
 
-  // 1. Save new room rate
+  // 1. Save new room rate and promotional price
   const handleSaveRate = (roomId) => {
     const newPrice = rateEdits[roomId];
-    if (!newPrice || isNaN(newPrice) || newPrice < 5000) {
-      alert("Please provide a valid price in Naira (minimum ₦5,000).");
+    if (!newPrice || isNaN(newPrice) || Number(newPrice) < 5000) {
+      alert("Please provide a valid standard base rate in Naira (minimum ₦5,000).");
       return;
     }
-    portalStore.updateRoomRate(roomId, newPrice);
+    const numPrice = Number(newPrice);
+    const promoRaw = promoPriceEdits[roomId];
+    const hasPromoVal = promoRaw !== '' && promoRaw !== null && promoRaw !== undefined && !isNaN(promoRaw) && Number(promoRaw) > 0;
+    const numPromo = hasPromoVal ? Number(promoRaw) : null;
+    const isPromoActive = Boolean(promoActiveEdits[roomId] && numPromo && numPromo < numPrice);
+
+    if (numPromo && numPromo >= numPrice) {
+      alert("Promo price must be strictly lower than the standard base price.");
+      return;
+    }
+
+    portalStore.updateRoomRate(roomId, numPrice, numPromo, isPromoActive);
     refreshData();
-    showToast(`Suite rate updated for ${roomId.toUpperCase()} to ₦${Number(newPrice).toLocaleString()}`);
+    showToast(`Suite rate saved for ${roomId.toUpperCase()}! Base: ₦${numPrice.toLocaleString()}${isPromoActive ? ` • Active Promo: ₦${numPromo.toLocaleString()} (-${Math.round(((numPrice - numPromo) / numPrice) * 100)}%)` : ''}`);
+  };
+
+  const handleClearPromoRate = (roomId) => {
+    const currentPrice = rateEdits[roomId] || rates.find(r => r.id === roomId)?.price || 30000;
+    portalStore.updateRoomRate(roomId, currentPrice, null, false);
+    setPromoPriceEdits(prev => ({ ...prev, [roomId]: '' }));
+    setPromoActiveEdits(prev => ({ ...prev, [roomId]: false }));
+    refreshData();
+    showToast(`Promo cleared for ${roomId.toUpperCase()}. Reverted to standard rate.`);
   };
 
   const handleSaveAllRates = () => {
     rates.forEach(r => {
-      if (rateEdits[r.id]) {
-        portalStore.updateRoomRate(r.id, rateEdits[r.id]);
-      }
+      const p = rateEdits[r.id] !== undefined ? rateEdits[r.id] : r.price;
+      const numPrice = Number(p) || r.price;
+      const promoRaw = promoPriceEdits[r.id] !== undefined ? promoPriceEdits[r.id] : r.promoPrice;
+      const hasPromoVal = promoRaw !== '' && promoRaw !== null && promoRaw !== undefined && !isNaN(promoRaw) && Number(promoRaw) > 0;
+      const numPromo = hasPromoVal ? Number(promoRaw) : null;
+      const isPromoActive = Boolean(promoActiveEdits[r.id] !== undefined ? promoActiveEdits[r.id] : r.isPromoActive) && numPromo && numPromo < numPrice;
+
+      portalStore.updateRoomRate(r.id, numPrice, numPromo, isPromoActive);
     });
     refreshData();
-    showToast("All suite rates updated live across the hotel website & booking engine!");
+    showToast("All suite rates & promotional prices saved live across the hotel website & booking engine!");
   };
 
-  // 1.1 Food & Drinks Menu Price Adjustment (ADMIN EXCLUSIVE CONTROL)
+  // 1.1 Food & Drinks Menu Price & Promo Adjustment (ADMIN EXCLUSIVE CONTROL)
   const handleSaveMenuItemPrice = (itemId) => {
     const newPrice = diningEdits[itemId];
     if (newPrice === undefined || isNaN(newPrice) || Number(newPrice) < 0) {
       alert("Please provide a valid price in Naira.");
       return;
     }
-    portalStore.updateMenuItemPrice(itemId, newPrice);
+    const numPrice = Number(newPrice);
+    const promoRaw = diningPromoEdits[itemId];
+    const hasPromoVal = promoRaw !== '' && promoRaw !== null && promoRaw !== undefined && !isNaN(promoRaw) && Number(promoRaw) > 0;
+    const numPromo = hasPromoVal ? Number(promoRaw) : null;
+    const isPromoActive = Boolean(diningPromoActiveEdits[itemId] && numPromo && numPromo < numPrice);
+
+    portalStore.updateMenuItemPrice(itemId, numPrice, numPromo, isPromoActive);
     refreshData();
     const item = diningMenu.find(i => i.id === itemId);
-    showToast(`Price updated for ${item?.name || itemId} to ₦${Number(newPrice).toLocaleString()}`);
+    showToast(`Price updated for ${item?.name || itemId}: ₦${numPrice.toLocaleString()}${isPromoActive ? ` • Promo: ₦${numPromo.toLocaleString()}` : ''}`);
+  };
+
+  const handleClearDiningPromo = (itemId) => {
+    const currentPrice = diningEdits[itemId] !== undefined ? diningEdits[itemId] : 0;
+    portalStore.updateMenuItemPrice(itemId, currentPrice, null, false);
+    setDiningPromoEdits(prev => ({ ...prev, [itemId]: '' }));
+    setDiningPromoActiveEdits(prev => ({ ...prev, [itemId]: false }));
+    refreshData();
+    showToast(`Promo cleared for menu item. Reverted to standard price.`);
   };
 
   const handleSaveAllDiningPrices = () => {
@@ -1424,9 +1480,25 @@ export default function AdminPortal({ onNavigate }) {
                       return (
                         <div key={suiteId} className="p-3 rounded-xl bg-[#0e0107] border border-white/10 flex items-center justify-between gap-2">
                           <div>
-                            <p className="text-xs font-bold text-white">{suiteName}</p>
-                            <p className="text-[10px] text-gray-400">
-                              Rate: <strong className="text-[#f3e5ab]">₦{suitePrice.toLocaleString()}/night</strong> &bull; {bookedCount}/{suiteRooms.length || '-'} Booked
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-xs font-bold text-white">{suiteName}</p>
+                              {suite.isPromoActive && suite.promoPrice && (
+                                <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[9px] font-mono font-bold">
+                                  PROMO
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                              Rate:{' '}
+                              {suite.isPromoActive && suite.promoPrice ? (
+                                <>
+                                  <span className="line-through text-gray-500 mr-1">₦{suitePrice.toLocaleString()}</span>
+                                  <strong className="text-emerald-400">₦{Number(suite.promoPrice).toLocaleString()}/night</strong>
+                                </>
+                              ) : (
+                                <strong className="text-[#f3e5ab]">₦{suitePrice.toLocaleString()}/night</strong>
+                              )}{' '}
+                              &bull; {bookedCount}/{suiteRooms.length || '-'} Booked
                             </p>
                           </div>
                           <div className="text-right">
@@ -1589,44 +1661,95 @@ export default function AdminPortal({ onNavigate }) {
         )}
 
         {/* ======================================================== */}
-        {/* 4. TAB CONTENT: LIVE SUITE RATE MANAGER */}
+        {/* 4. TAB CONTENT: LIVE SUITE RATE & PROMO PRICE MANAGER */}
         {/* ======================================================== */}
         {activeTab === 'rates' && (
           <div className="space-y-6">
             
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-[#16030c] border border-[#d4af37]/30">
+            {/* Top Toolbar & Promo Stats Banner */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-[#1d0511] via-[#16030c] to-[#120208] border border-[#d4af37]/40 shadow-xl">
               <div>
-                <h3 className="font-cinzel font-bold text-base text-white">
-                  Live Suite Pricing Engine
-                </h3>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Adjust base rates in Naira. Changes apply immediately to the public booking engine, guest pages, and front desk reception.
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-mono uppercase tracking-wider flex items-center gap-1.5 font-bold">
+                    <Flame size={12} className="text-emerald-400" />
+                    Live Suite Pricing &amp; Promo Engine
+                  </span>
+                  <h3 className="font-cinzel font-bold text-base sm:text-lg text-white">
+                    Suite Rate &amp; Promotional Pricing Manager
+                  </h3>
+                </div>
+                <p className="text-xs text-gray-300 mt-1 max-w-3xl">
+                  Adjust standard nightly rates and activate promo prices in Naira. Active promos immediately show on the public website, suite cards, and booking engine with strikethrough original prices and instant guest discounts.
                 </p>
+
+                {/* Quick Stats Pills */}
+                <div className="flex flex-wrap items-center gap-2 mt-3 text-xs font-mono">
+                  <span className="px-3 py-1 rounded-xl bg-white/5 border border-white/10 text-gray-300">
+                    Total Categories: <strong className="text-white">{rates.length}</strong>
+                  </span>
+                  <span className={`px-3 py-1 rounded-xl border flex items-center gap-1.5 font-bold ${
+                    rates.some(r => r.isPromoActive)
+                      ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                      : 'bg-white/5 border-white/10 text-gray-400'
+                  }`}>
+                    <Flame size={13} className={rates.some(r => r.isPromoActive) ? 'text-emerald-400 animate-pulse' : 'text-gray-400'} />
+                    <span>Active Promos: <strong>{rates.filter(r => r.isPromoActive).length}</strong></span>
+                  </span>
+                </div>
               </div>
 
-              <button
-                onClick={handleSaveAllRates}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold text-xs flex items-center gap-2 shadow-lg shadow-[#d4af37]/20 hover:scale-102 transition-all self-start sm:self-auto"
-              >
-                <Save size={15} />
-                <span>Save All Rates Live</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-auto">
+                <button
+                  onClick={handleSaveAllRates}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold text-xs flex items-center gap-2 shadow-lg shadow-[#d4af37]/25 hover:scale-102 transition-all cursor-pointer"
+                >
+                  <Save size={15} />
+                  <span>Save All Rates &amp; Promos Live</span>
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Suite Cards Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {rates.map((room) => {
                 const currentPrice = rateEdits[room.id] !== undefined ? rateEdits[room.id] : room.price;
+                const currentPromo = promoPriceEdits[room.id] !== undefined ? promoPriceEdits[room.id] : (room.promoPrice || '');
+                const isPromoToggled = promoActiveEdits[room.id] !== undefined ? promoActiveEdits[room.id] : Boolean(room.isPromoActive);
+
+                const numBase = Number(currentPrice) || 0;
+                const numPromo = (currentPromo !== '' && currentPromo !== null && currentPromo !== undefined && !isNaN(currentPromo) && Number(currentPromo) > 0) ? Number(currentPromo) : null;
+                const isValidDiscount = Boolean(numPromo && numBase > 0 && numPromo < numBase);
+                const discountPct = isValidDiscount ? Math.round(((numBase - numPromo) / numBase) * 100) : 0;
+                const savingsNaira = isValidDiscount ? (numBase - numPromo) : 0;
+                const isPromoActiveCurrently = Boolean(room.isPromoActive && room.promoPrice);
 
                 return (
                   <div
                     key={room.id}
-                    className="p-5 rounded-2xl bg-[#16030c] border border-white/10 hover:border-[#d4af37]/50 transition-all space-y-4"
+                    className={`p-5 rounded-2xl transition-all space-y-4 border ${
+                      isPromoActiveCurrently
+                        ? 'bg-gradient-to-br from-[#1a0512] via-[#16030c] to-[#0c1813] border-emerald-500/50 shadow-lg shadow-emerald-950/30'
+                        : 'bg-[#16030c] border-white/10 hover:border-[#d4af37]/50'
+                    }`}
                   >
-                    <div className="flex items-start justify-between">
+                    {/* Header: Suite Identity & Live Price Badge */}
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-[#d4af37] block">
-                          Suite ID: {room.id}
-                        </span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-[#d4af37] block">
+                            Suite ID: {room.id}
+                          </span>
+                          {isPromoActiveCurrently ? (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-mono font-bold flex items-center gap-1">
+                              <Flame size={10} className="text-emerald-400" />
+                              <span>PROMO ACTIVE (-{room.discountPercent || discountPct}%)</span>
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-[10px] font-mono">
+                              Standard Rate
+                            </span>
+                          )}
+                        </div>
                         <h4 className="font-cinzel font-bold text-base text-white mt-0.5">
                           {room.name}
                         </h4>
@@ -1634,37 +1757,160 @@ export default function AdminPortal({ onNavigate }) {
                           {room.description}
                         </p>
                       </div>
-                      
-                      <div className="text-right">
-                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">Current Live</span>
-                        <div className="font-mono font-bold text-base text-[#f3e5ab]">
-                          {room.priceFormatted}
-                        </div>
+
+                      {/* Current Live Display */}
+                      <div className="text-right flex-shrink-0">
+                        <span className="text-[10px] text-gray-400 uppercase tracking-wider block">Live Guest Price</span>
+                        {isPromoActiveCurrently ? (
+                          <div>
+                            <span className="line-through text-gray-500 text-xs font-mono block">
+                              {room.priceFormatted}
+                            </span>
+                            <div className="font-mono font-extrabold text-lg text-emerald-400 leading-tight">
+                              {room.promoPriceFormatted || `₦${Number(room.promoPrice).toLocaleString()}`}
+                            </div>
+                            <span className="text-[10px] text-gray-400 block">/ night</span>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="font-mono font-bold text-base text-[#f3e5ab]">
+                              {room.priceFormatted}
+                            </div>
+                            <span className="text-[10px] text-gray-400 block">/ night</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t border-white/10 flex items-center gap-3">
-                      <div className="relative flex-1">
-                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-[#d4af37]">
-                          ₦
-                        </span>
-                        <input
-                          type="number"
-                          step="5000"
-                          min="5000"
-                          value={currentPrice}
-                          onChange={(e) => setRateEdits({ ...rateEdits, [room.id]: e.target.value })}
-                          className="w-full pl-9 pr-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white font-mono text-sm focus:outline-none focus:border-[#d4af37]"
-                        />
+                    {/* Dual Inputs: Base Rate & Promo Price */}
+                    <div className="pt-3 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      
+                      {/* 1. Base Rate Input */}
+                      <div>
+                        <label className="text-[11px] font-semibold text-gray-300 block mb-1">
+                          Standard Base Rate (₦)
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#d4af37]">
+                            ₦
+                          </span>
+                          <input
+                            type="number"
+                            step="1000"
+                            min="5000"
+                            value={currentPrice}
+                            onChange={(e) => setRateEdits({ ...rateEdits, [room.id]: e.target.value })}
+                            className="w-full pl-8 pr-3 py-2 rounded-xl bg-black/60 border border-white/15 text-white font-mono text-sm focus:outline-none focus:border-[#d4af37]"
+                            placeholder="e.g. 50000"
+                          />
+                        </div>
+                        <span className="text-[10px] text-gray-500 mt-1 block">Default public rate per night</span>
                       </div>
 
-                      <button
-                        onClick={() => handleSaveRate(room.id)}
-                        className="px-4 py-2 rounded-xl bg-[#5c0725] hover:bg-[#770a31] text-[#f3e5ab] text-xs font-semibold border border-[#d4af37]/40 flex items-center gap-1.5 transition-all"
-                      >
-                        <Save size={13} />
-                        <span>Update</span>
-                      </button>
+                      {/* 2. Promo Price Input */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[11px] font-semibold text-emerald-300 flex items-center gap-1">
+                            <Flame size={12} className="text-emerald-400" />
+                            <span>Promo Price (₦)</span>
+                          </label>
+                          <span className="text-[10px] text-gray-400 font-mono">Optional</span>
+                        </div>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-400">
+                            ₦
+                          </span>
+                          <input
+                            type="number"
+                            step="1000"
+                            min="0"
+                            value={currentPromo}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setPromoPriceEdits({ ...promoPriceEdits, [room.id]: val });
+                              if (val && Number(val) > 0 && Number(val) < Number(currentPrice)) {
+                                setPromoActiveEdits({ ...promoActiveEdits, [room.id]: true });
+                              } else if (!val) {
+                                setPromoActiveEdits({ ...promoActiveEdits, [room.id]: false });
+                              }
+                            }}
+                            className="w-full pl-8 pr-3 py-2 rounded-xl bg-black/60 border border-emerald-500/40 text-emerald-200 font-mono text-sm focus:outline-none focus:border-emerald-400 placeholder-gray-600"
+                            placeholder="e.g. 42000 (Discounted)"
+                          />
+                        </div>
+                        <span className="text-[10px] text-gray-500 mt-1 block">Lower rate for promotions &amp; deals</span>
+                      </div>
+
+                    </div>
+
+                    {/* Promo Status Pill & Toggle Checkbox */}
+                    {isValidDiscount ? (
+                      <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                          <div>
+                            <p className="text-xs font-bold text-emerald-300 font-mono">
+                              Save ₦{savingsNaira.toLocaleString()} per night ({discountPct}% OFF)
+                            </p>
+                            <p className="text-[10px] text-gray-400">
+                              Guest pays <strong>₦{numPromo.toLocaleString()}</strong> instead of <s>₦{numBase.toLocaleString()}</s>
+                            </p>
+                          </div>
+                        </div>
+
+                        <label className="flex items-center gap-2 cursor-pointer self-start sm:self-auto bg-black/50 px-2.5 py-1.5 rounded-lg border border-emerald-500/30">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(isPromoToggled)}
+                            onChange={(e) => setPromoActiveEdits({ ...promoActiveEdits, [room.id]: e.target.checked })}
+                            className="rounded accent-emerald-500 w-3.5 h-3.5 cursor-pointer"
+                          />
+                          <span className="text-[11px] font-bold text-emerald-300">
+                            {isPromoToggled ? 'Promo Enabled' : 'Disabled (Paused)'}
+                          </span>
+                        </label>
+                      </div>
+                    ) : numPromo && numPromo >= numBase ? (
+                      <div className="p-2.5 rounded-xl bg-amber-950/40 border border-amber-500/30 flex items-center gap-2 text-xs text-amber-300">
+                        <AlertTriangle size={14} className="text-amber-400 flex-shrink-0" />
+                        <span>Promo price (₦{numPromo.toLocaleString()}) must be lower than standard rate (₦{numBase.toLocaleString()}).</span>
+                      </div>
+                    ) : null}
+
+                    {/* Action Buttons: Save & Clear */}
+                    <div className="pt-2 flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-[11px] text-gray-400">
+                        {isPromoActiveCurrently ? (
+                          <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                            <CheckCircle2 size={12} />
+                            <span>Promo is currently live on website</span>
+                          </span>
+                        ) : (
+                          <span className="text-gray-500">Standard rate active</span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {(currentPromo || isPromoActiveCurrently) && (
+                          <button
+                            type="button"
+                            onClick={() => handleClearPromoRate(room.id)}
+                            className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-red-300 text-xs font-semibold border border-white/10 transition-all cursor-pointer"
+                            title="Remove promo price and revert to standard rate"
+                          >
+                            Clear Promo
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleSaveRate(room.id)}
+                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] hover:brightness-105 text-black text-xs font-bold flex items-center gap-1.5 shadow-md shadow-[#d4af37]/20 transition-all cursor-pointer"
+                        >
+                          <Save size={13} className="text-black stroke-[2.5]" />
+                          <span>Update Suite &amp; Promo</span>
+                        </button>
+                      </div>
                     </div>
 
                   </div>
@@ -1834,29 +2080,78 @@ export default function AdminPortal({ onNavigate }) {
                         </p>
                       </div>
 
-                      {/* Price Edit Control */}
-                      <div className="pt-2.5 border-t border-white/10 flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#d4af37]">
-                            ₦
-                          </span>
-                          <input
-                            type="number"
-                            step="500"
-                            min="0"
-                            value={currentPrice}
-                            onChange={(e) => setDiningEdits({ ...diningEdits, [item.id]: e.target.value })}
-                            className="w-full pl-7 pr-2 py-1.5 rounded-xl bg-black/60 border border-white/15 text-white font-mono text-xs focus:outline-none focus:border-[#d4af37]"
-                          />
+                      {/* Price & Promo Edit Controls */}
+                      <div className="pt-2.5 border-t border-white/10 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] text-gray-400 block mb-0.5">Price (₦)</label>
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#d4af37]">
+                                ₦
+                              </span>
+                              <input
+                                type="number"
+                                step="500"
+                                min="0"
+                                value={currentPrice}
+                                onChange={(e) => setDiningEdits({ ...diningEdits, [item.id]: e.target.value })}
+                                className="w-full pl-6 pr-2 py-1.5 rounded-xl bg-black/60 border border-white/15 text-white font-mono text-xs focus:outline-none focus:border-[#d4af37]"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] text-emerald-400 block mb-0.5">Promo (₦)</label>
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-400">
+                                ₦
+                              </span>
+                              <input
+                                type="number"
+                                step="500"
+                                min="0"
+                                placeholder="Optional"
+                                value={diningPromoEdits[item.id] !== undefined ? diningPromoEdits[item.id] : (item.promoPrice || '')}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setDiningPromoEdits({ ...diningPromoEdits, [item.id]: val });
+                                  if (val && Number(val) > 0 && Number(val) < Number(currentPrice)) {
+                                    setDiningPromoActiveEdits({ ...diningPromoActiveEdits, [item.id]: true });
+                                  } else if (!val) {
+                                    setDiningPromoActiveEdits({ ...diningPromoActiveEdits, [item.id]: false });
+                                  }
+                                }}
+                                className="w-full pl-6 pr-2 py-1.5 rounded-xl bg-black/60 border border-emerald-500/30 text-emerald-200 font-mono text-xs focus:outline-none focus:border-emerald-400 placeholder-gray-600"
+                              />
+                            </div>
+                          </div>
                         </div>
 
-                        <button
-                          onClick={() => handleSaveMenuItemPrice(item.id)}
-                          className="px-3.5 py-1.5 rounded-xl bg-[#5c0725] hover:bg-[#770a31] text-[#f3e5ab] text-[11px] font-semibold border border-[#d4af37]/40 flex items-center gap-1 transition-all"
-                        >
-                          <Save size={12} />
-                          <span>Update</span>
-                        </button>
+                        {item.isPromoActive && item.promoPrice && (
+                          <div className="px-2 py-1 rounded bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-between text-[10px] text-emerald-300 font-mono">
+                            <span>🔥 Promo: ₦{Number(item.promoPrice).toLocaleString()}</span>
+                            <span>(-{item.discountPercent}%)</span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between gap-1 pt-1">
+                          {(item.promoPrice || item.isPromoActive) && (
+                            <button
+                              type="button"
+                              onClick={() => handleClearDiningPromo(item.id)}
+                              className="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-[10px] border border-white/10"
+                            >
+                              Clear
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleSaveMenuItemPrice(item.id)}
+                            className="flex-1 py-1.5 rounded-xl bg-[#5c0725] hover:bg-[#770a31] text-[#f3e5ab] text-[11px] font-semibold border border-[#d4af37]/40 flex items-center justify-center gap-1 transition-all cursor-pointer"
+                          >
+                            <Save size={12} />
+                            <span>Save Price &amp; Promo</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

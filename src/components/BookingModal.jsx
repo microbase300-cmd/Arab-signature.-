@@ -106,11 +106,14 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
   const rooms = portalStore.getRoomRates();
   const selectedRoom = rooms.find(r => r.id === roomId) || rooms[0];
 
-  // Calculate nights
+  // Calculate nights & effective promo rate
   const d1 = new Date(checkIn);
   const d2 = new Date(checkOut);
   const nights = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) || 1);
-  const totalAmount = selectedRoom.price * nights;
+  const effectiveNightlyRate = (selectedRoom.isPromoActive && selectedRoom.promoPrice > 0)
+    ? selectedRoom.promoPrice
+    : selectedRoom.price;
+  const totalAmount = effectiveNightlyRate * nights;
 
   // Handle saving new Paystack Public Key
   const handleSaveKey = () => {
@@ -354,7 +357,15 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                     >
                       <div className="font-semibold text-xs text-white truncate">{room.name}</div>
                       <div className="text-[10px] text-[#f3e5ab] truncate mt-0.5">{room.buildingLabel || ''}</div>
-                      <div className="text-xs text-[#d4af37] font-bold mt-1">{room.priceFormatted} <span className="text-[10px] text-gray-400 font-normal">/ nt</span></div>
+                      {room.isPromoActive && room.promoPrice ? (
+                        <div className="text-xs text-emerald-400 font-bold mt-1 flex items-center gap-1.5 flex-wrap">
+                          <span className="line-through text-gray-400 text-[10px]">₦{room.price.toLocaleString()}</span>
+                          <span>₦{room.promoPrice.toLocaleString()}</span>
+                          <span className="px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[8px] font-bold">PROMO</span>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-[#d4af37] font-bold mt-1">{room.priceFormatted} <span className="text-[10px] text-gray-400 font-normal">/ nt</span></div>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -400,10 +411,22 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                     <div className="text-2xl font-extrabold text-[#f3e5ab] font-cinzel mt-0.5">
                       ₦{totalAmount.toLocaleString()}
                     </div>
+                    {selectedRoom.isPromoActive && selectedRoom.promoPrice > 0 && (
+                      <span className="text-[11px] text-emerald-400 font-mono font-medium block mt-0.5">
+                        🔥 Promo Applied: Save ₦{((selectedRoom.price - selectedRoom.promoPrice) * nights).toLocaleString()} total!
+                      </span>
+                    )}
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] text-gray-400 uppercase tracking-wider block">Suite Rate</span>
-                    <span className="text-xs text-[#d4af37] font-semibold">₦{selectedRoom.price.toLocaleString()} / night</span>
+                    {selectedRoom.isPromoActive && selectedRoom.promoPrice > 0 ? (
+                      <div>
+                        <span className="line-through text-gray-400 text-[10px] block font-mono">₦{selectedRoom.price.toLocaleString()}</span>
+                        <span className="text-xs text-emerald-400 font-bold">₦{selectedRoom.promoPrice.toLocaleString()} / night</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-[#d4af37] font-semibold">₦{selectedRoom.price.toLocaleString()} / night</span>
+                    )}
                   </div>
                 </div>
 
