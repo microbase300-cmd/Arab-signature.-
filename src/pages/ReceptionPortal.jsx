@@ -278,6 +278,18 @@ export default function ReceptionPortal({ onNavigate }) {
       refreshData();
     });
 
+    // 1.1b Sync latest bookings ledger from Cloud (MantleDB & /api/bookings)
+    portalStore.syncBookingsFromCloud().then(() => {
+      refreshData();
+    });
+
+    // 1.1c Background sync for multi-device reservations (every 20s)
+    const cloudSyncInterval = setInterval(() => {
+      portalStore.syncBookingsFromCloud().then(() => {
+        refreshData();
+      });
+    }, 20000);
+
     // 1.2 Initialize Web Audio Unlocker
     initAudioUnlocker();
 
@@ -384,6 +396,7 @@ export default function ReceptionPortal({ onNavigate }) {
 
     return () => {
       clearInterval(timer);
+      clearInterval(cloudSyncInterval);
       unsubscribeBookings();
       window.removeEventListener('ash_rates_updated', handleLiveSync);
       window.removeEventListener('ash_rooms_updated', handleLiveSync);

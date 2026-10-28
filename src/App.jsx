@@ -40,8 +40,12 @@ export default function App() {
 
   // Synchronize multi-page navigation with browser URL hash & clean URL query parameters
   useEffect(() => {
-    // 1. Immediately clean up legacy query params (?design=..., ?theme=...)
-    if (window.location.search || window.location.hash === '#home') {
+    // 1. Pre-warm and sync cloud hotel registries in background (0-blocker)
+    portalStore.syncRoomsFromCloud().catch(() => {});
+    portalStore.syncBookingsFromCloud().catch(() => {});
+
+    // 2. Clean up only legacy demo params (?design=..., ?theme=...) while preserving real booking codes
+    if ((window.location.search && (window.location.search.includes('design=') || window.location.search.includes('theme='))) || window.location.hash === '#home') {
       const cleanPath = window.location.pathname;
       const initialHash = window.location.hash;
       const cleanHash = (initialHash === '#home' || !initialHash) ? '' : initialHash;

@@ -23,32 +23,44 @@ export default function CounterCheckInModal({
   const [codeInput, setCodeInput] = useState('');
   const [searchedBooking, setSearchedBooking] = useState(null);
   const [searchError, setSearchError] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const [selectedRoomNumber, setSelectedRoomNumber] = useState('');
   const [isCheckInSuccess, setIsCheckInSuccess] = useState(false);
   const [checkedInRecord, setCheckedInRecord] = useState(null);
   const [copiedCode, setCopiedCode] = useState(false);
   const [recentPendingBookings, setRecentPendingBookings] = useState([]);
 
-  // Load recent confirmed reservations awaiting check-in
+  // Load recent confirmed reservations awaiting check-in & sync from cloud
   useEffect(() => {
     if (isOpen) {
-      const allBookings = portalStore.getBookings();
-      const pending = allBookings
-        .filter(b => b.status === 'Confirmed')
-        .slice(0, 6);
-      setRecentPendingBookings(pending);
       setCodeInput('');
       setSearchedBooking(null);
       setSearchError('');
       setIsCheckInSuccess(false);
       setCheckedInRecord(null);
+
+      const allBookings = portalStore.getBookings();
+      const pending = allBookings
+        .filter(b => b.status === 'Confirmed')
+        .slice(0, 8);
+      setRecentPendingBookings(pending);
+
+      // Sync latest cloud reservations so bookings made on any mobile/desktop appear instantly
+      portalStore.syncBookingsFromCloud().then(synced => {
+        if (synced && Array.isArray(synced)) {
+          const freshPending = synced
+            .filter(b => b.status === 'Confirmed')
+            .slice(0, 8);
+          setRecentPendingBookings(freshPending);
+        }
+      });
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  // Handle Lookup by code or phone
-  const handleLookup = (codeToSearch = codeInput) => {
+  // Handle Lookup by code or phone (with asynchronous cloud registry lookup fallback)
+  const handleLookup = async (codeToSearch = codeInput) => {
     const query = (codeToSearch || '').trim();
     if (!query) {
       setSearchError('Please enter a booking code or guest phone number.');
@@ -57,29 +69,45 @@ export default function CounterCheckInModal({
     }
 
     setSearchError('');
-    const found = portalStore.findBookingByCode(query);
+    setIsSearching(true);
 
-    if (!found) {
-      setSearchError(`No reservation found matching "${query}". Please check the code from the customer's phone or email receipt.`);
+    try {
+      // 1. Check local store
+      let found = portalStore.findBookingByCode(query);
+
+      // 2. If not found locally, query cloud reservation registry
+      if (!found) {
+        found = await portalStore.fetchBookingFromCloud(query);
+      }
+
+      setIsSearching(false);
+
+      if (!found) {
+        setSearchError(`No reservation found matching "${query}". Please check the code from the customer's phone or email receipt.`);
+        setSearchedBooking(null);
+        return;
+      }
+
+      setSearchedBooking(found);
+      setIsCheckInSuccess(found.status === 'Checked In');
+
+      // Auto-select or suggest an available room number
+      if (found.roomNumber && found.roomNumber !== 'Unassigned') {
+        setSelectedRoomNumber(found.roomNumber);
+      } else {
+        // Find first available room of matching type in the designated building
+        const isExt = found.roomName?.toLowerCase().includes('ext') || found.id?.includes('EXT');
+        const targetBldg = isExt ? 'Extension Building' : 'Main Building';
+        const available = rooms.find(r => 
+          r.status === 'available' && 
+          (r.building === targetBldg || (isExt ? String(r.roomNumber).startsWith('1') : String(r.roomNumber).startsWith('6')))
+        );
+        setSelectedRoomNumber(available ? available.roomNumber : (isExt ? '101' : '601'));
+      }
+    } catch (err) {
+      setIsSearching(false);
+      setSearchError('Error connecting to hotel reservation database. Please try again.');
       setSearchedBooking(null);
-      return;
-    }
-
-    setSearchedBooking(found);
-    setIsCheckInSuccess(found.status === 'Checked In');
-
-    // Auto-select or suggest an available room number
-    if (found.roomNumber && found.roomNumber !== 'Unassigned') {
-      setSelectedRoomNumber(found.roomNumber);
-    } else {
-      // Find first available room of matching type in the designated building
-      const isExt = found.roomName?.toLowerCase().includes('ext') || found.id?.includes('EXT');
-      const targetBldg = isExt ? 'Extension Building' : 'Main Building';
-      const available = rooms.find(r => 
-        r.status === 'available' && 
-        (r.building === targetBldg || (isExt ? String(r.roomNumber).startsWith('1') : String(r.roomNumber).startsWith('6')))
-      );
-      setSelectedRoomNumber(available ? available.roomNumber : (isExt ? '101' : '601'));
     }
   };
 
@@ -187,15 +215,25 @@ export default function CounterCheckInModal({
               <button
                 type="button"
                 onClick={() => handleLookup()}
-                className="px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg transition-all cursor-pointer active:scale-95"
+                disabled={isSearching}
+                className="px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg transition-all cursor-pointer active:scale-95 disabled:opacity-60"
                 style={{
                   background: 'linear-gradient(135deg, #ffe58f 0%, #d4af37 50%, #b8860b 100%)',
                   color: '#000000',
                   fontWeight: '900'
                 }}
               >
-                <Search size={15} className="stroke-[2.5]" />
-                <span>Verify Code</span>
+                {isSearching ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    <span>Verifying...</span>
+                  </>
+                ) : (
+                  <>
+                    <Search size={15} className="stroke-[2.5]" />
+                    <span>Verify Code</span>
+                  </>
+                )}
               </button>
             </div>
 

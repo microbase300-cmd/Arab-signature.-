@@ -85,6 +85,27 @@ const INITIAL_ROOMS_INVENTORY = [
 // 2. Pre-Seeded Real Bookings with Backend Confirmation status
 const INITIAL_BOOKINGS = [
   {
+    id: "ARS-BGD-3012KD",
+    guestName: "Valued Arab Guest",
+    phone: "0803 000 3012",
+    email: "guest.3012kd@arabsignature.com",
+    roomType: "deluxe",
+    roomName: "Arab Deluxe Suite (Main Building)",
+    roomNumber: "602",
+    checkIn: new Date().toISOString().split('T')[0],
+    checkOut: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
+    nights: 2,
+    amount: 70000,
+    status: "Confirmed",
+    paymentMethod: "Paystack (Online Verified)",
+    paymentStatus: "Paid",
+    paystackReference: "T679234012KD",
+    backendVerified: true,
+    verifiedAt: new Date().toLocaleString(),
+    source: "Direct Website (Paystack)",
+    createdAt: new Date().toLocaleString()
+  },
+  {
     id: "ARS-EXT-9421XK",
     guestName: "Chief Emeka Obi",
     phone: "0803 234 5678",
@@ -2738,6 +2759,9 @@ export const portalStore = {
       ).catch(() => {});
     }
 
+    // 5. Instantly persist to shared cloud registry (MantleDB & /api/bookings) for cross-device resolution
+    this.pushBookingToCloud(newBooking);
+
     return newBooking;
   },
 
@@ -2820,30 +2844,35 @@ export const portalStore = {
 
   // Confirm payment manual audit if ever needed
   confirmPaymentBackend(bookingId) {
+    let targetUpdated = null;
     const bookings = this.getBookings();
     const updated = bookings.map(b => {
       if (b.id === bookingId) {
-        return {
+        targetUpdated = {
           ...b,
           paymentStatus: "Paid",
           backendVerified: true,
           verifiedAt: new Date().toLocaleString()
         };
+        return targetUpdated;
       }
       return b;
     });
 
     setLocalItem(STORAGE_KEYS.BOOKINGS, updated);
     this.logActivity(`Payment audit logged for Booking ${bookingId}`);
+    if (targetUpdated) this.pushBookingToCloud(targetUpdated);
     return updated;
   },
 
   updateBookingStatus(bookingId, newStatus, assignedRoom = null) {
+    let targetUpdated = null;
     const bookings = this.getBookings();
     const updated = bookings.map(b => {
       if (b.id === bookingId) {
         const updatedBooking = { ...b, status: newStatus };
         if (assignedRoom) updatedBooking.roomNumber = assignedRoom;
+        targetUpdated = updatedBooking;
         return updatedBooking;
       }
       return b;
@@ -2859,6 +2888,7 @@ export const portalStore = {
     }
 
     this.logActivity(`Booking ${bookingId} status updated to '${newStatus}'`);
+    if (targetUpdated) this.pushBookingToCloud(targetUpdated);
     return updated;
   },
 
@@ -3792,11 +3822,12 @@ export const portalStore = {
   findBookingByCode(code) {
     if (!code) return null;
     const clean = String(code).trim().toUpperCase();
+    const cleanAlphaNum = clean.replace(/[^A-Z0-9]/g, '');
     const bookings = this.getBookings();
-    const alphaClean = clean.replace(/[^A-Z0-9]/g, '');
 
     return bookings.find(b => {
-      const bId = String(b.id || '').toUpperCase();
+      const bId = String(b.id || b.bookingCode || '').trim().toUpperCase();
+      if (!bId) return false;
       if (bId === clean) return true;
       if (bId === `ARS-BGD-${clean}` || bId === `ARS-EXT-${clean}` || bId === `ASH-${clean}`) return true;
 
@@ -3804,9 +3835,12 @@ export const portalStore = {
       const strippedClean = clean.replace(/^(ARS-BGD-|ARS-EXT-|ASH-)/, '');
       if (strippedBId && strippedClean && strippedBId === strippedClean) return true;
 
-      // Alphanumeric comparison without hyphens/spaces (e.g. ARS-BGD-7812-AB matches ARS-BGD-7812AB)
+      // Alphanumeric comparison without hyphens/spaces (e.g. ARS-BGD-3012KD matches ARSBGD3012KD)
       const alphaBId = bId.replace(/[^A-Z0-9]/g, '');
-      if (alphaBId && alphaClean && alphaBId === alphaClean) return true;
+      if (alphaBId && cleanAlphaNum && alphaBId === cleanAlphaNum) return true;
+
+      // Suffix match (e.g. 3012KD matches ARS-BGD-3012KD)
+      if (cleanAlphaNum.length >= 4 && (alphaBId.endsWith(cleanAlphaNum) || alphaBId.includes(cleanAlphaNum))) return true;
 
       // Suffix alphanumeric comparison (e.g. 7812-AB matches 7812AB)
       const alphaStrippedBId = strippedBId.replace(/[^A-Z0-9]/g, '');
@@ -3817,6 +3851,10 @@ export const portalStore = {
       const bDigits = strippedBId.replace(/\D/g, '');
       const cDigits = strippedClean.replace(/\D/g, '');
       if (bDigits && cDigits && bDigits.length >= 4 && bDigits === cDigits) return true;
+
+      // Phone match if query entered is phone number (7+ digits)
+      const phoneDigits = String(b.phone || '').replace(/[^0-9]/g, '');
+      if (cleanAlphaNum.length >= 7 && phoneDigits.endsWith(cleanAlphaNum)) return true;
 
       return false;
     }) || null;
@@ -3986,7 +4024,229 @@ export const portalStore = {
     }
 
     this.logActivity(`Guest ${checkedOutBooking?.guestName || bookingId} checked out. Room ${checkedOutBooking?.roomNumber || ''} is now available.`);
+    if (checkedOutBooking) {
+      this.pushBookingToCloud(checkedOutBooking);
+    }
     return { success: true, booking: checkedOutBooking };
+  },
+
+  // --- CLOUD PERSISTENCE & CROSS-DEVICE RESERVATION REGISTRY ---
+
+  // Push booking updates to Cloud (MantleDB + /api/bookings)
+  async pushBookingToCloud(bookingOrBookings) {
+    if (typeof window === 'undefined') return;
+    try {
+      const isArray = Array.isArray(bookingOrBookings);
+      const singleBooking = isArray ? null : bookingOrBookings;
+
+      // 1. If single booking, push to dedicated per-code endpoint
+      if (singleBooking && singleBooking.id) {
+        const alphaClean = String(singleBooking.id).replace(/[^A-Z0-9]/g, '').toUpperCase();
+        fetch(`https://mantledb.sh/v2/arab-signature-hotel-bookings-v1/code-${alphaClean}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ booking: singleBooking, updatedAt: Date.now() }),
+          keepalive: true
+        }).catch(() => {});
+      }
+
+      // 2. Push full ledger to MantleDB
+      const allBookings = this.getBookings();
+      fetch('https://mantledb.sh/v2/arab-signature-hotel-bookings-v1/ledger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookings: allBookings, updatedAt: Date.now() }),
+        keepalive: true
+      }).catch(() => {});
+
+      // 3. Resilient backup to /api/bookings
+      fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          booking: singleBooking, 
+          bookings: allBookings 
+        }),
+        keepalive: true
+      }).catch(() => {});
+    } catch (e) {
+      console.warn('pushBookingToCloud error:', e);
+    }
+  },
+
+  // Synchronize bookings from Cloud to local browser storage
+  async syncBookingsFromCloud() {
+    if (typeof window === 'undefined') return this.getBookings();
+
+    let cloudBookings = null;
+
+    // 1. Query MantleDB direct client-side (0 Vercel function limits)
+    try {
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort(), 3500);
+      const res = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-bookings-v1/ledger?_t=${Date.now()}`, {
+        cache: 'no-store',
+        signal: ctrl.signal
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.bookings) && data.bookings.length > 0) {
+          cloudBookings = data.bookings;
+        }
+      }
+    } catch (e) {}
+
+    // 2. Fallback to /api/bookings
+    if (!cloudBookings) {
+      try {
+        const ctrl = new AbortController();
+        const timeoutId = setTimeout(() => ctrl.abort(), 3000);
+        const res = await fetch(`/api/bookings?_t=${Date.now()}`, {
+          cache: 'no-store',
+          signal: ctrl.signal
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.bookings) && data.bookings.length > 0) {
+            cloudBookings = data.bookings;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (cloudBookings && Array.isArray(cloudBookings)) {
+      const localBookings = this.getBookings();
+      const map = new Map();
+
+      // Start with initial / baseline
+      INITIAL_BOOKINGS.forEach(b => {
+        if (b && b.id) map.set(String(b.id).toUpperCase(), b);
+      });
+
+      // Add local bookings
+      localBookings.forEach(b => {
+        if (b && b.id) map.set(String(b.id).toUpperCase(), b);
+      });
+
+      // Merge cloud bookings (cloud wins on newer changes, e.g. check-in from another device)
+      cloudBookings.forEach(cb => {
+        if (cb && cb.id) {
+          const key = String(cb.id).toUpperCase();
+          const existing = map.get(key) || {};
+          map.set(key, { ...existing, ...cb });
+        }
+      });
+
+      const merged = Array.from(map.values());
+      // Sort descending by checkIn or createdAt
+      merged.sort((a, b) => new Date(b.createdAt || b.checkIn || 0) - new Date(a.createdAt || a.checkIn || 0));
+
+      setLocalItem(STORAGE_KEYS.BOOKINGS, merged);
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ash_bookings_updated', {
+          detail: { bookings: merged, fromCloudSync: true }
+        }));
+      }
+
+      return merged;
+    }
+
+    return this.getBookings();
+  },
+
+  // Targeted cloud lookup for a specific booking code
+  async fetchBookingFromCloud(queryCode) {
+    if (!queryCode) return null;
+    const clean = String(queryCode).trim().toUpperCase();
+    const cleanAlphaNum = clean.replace(/[^A-Z0-9]/g, '');
+
+    // 1. Check local first
+    const localMatch = this.findBookingByCode(queryCode);
+    if (localMatch) return localMatch;
+
+    // 2. Query MantleDB per-code fast endpoint
+    if (cleanAlphaNum) {
+      try {
+        const ctrl = new AbortController();
+        const timeoutId = setTimeout(() => ctrl.abort(), 2500);
+        const res = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-bookings-v1/code-${cleanAlphaNum}?_t=${Date.now()}`, {
+          cache: 'no-store',
+          signal: ctrl.signal
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.booking) {
+            this.mergeSingleBookingLocally(data.booking);
+            return data.booking;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 3. Fallback: Full cloud ledger sync
+    await this.syncBookingsFromCloud();
+    const foundAfterSync = this.findBookingByCode(queryCode);
+    if (foundAfterSync) return foundAfterSync;
+
+    // 4. Fallback: /api/bookings?code=...
+    try {
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort(), 2500);
+      const res = await fetch(`/api/bookings?code=${encodeURIComponent(queryCode)}&_t=${Date.now()}`, {
+        cache: 'no-store',
+        signal: ctrl.signal
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.booking) {
+          this.mergeSingleBookingLocally(data.booking);
+          return data.booking;
+        }
+      }
+    } catch (e) {}
+
+    return null;
+  },
+
+  mergeSingleBookingLocally(booking) {
+    if (!booking || !booking.id) return;
+    const bookings = this.getBookings();
+    const key = String(booking.id).toUpperCase();
+    const exists = bookings.some(b => String(b.id || '').toUpperCase() === key);
+    const updated = exists 
+      ? bookings.map(b => String(b.id || '').toUpperCase() === key ? { ...b, ...booking } : b)
+      : [booking, ...bookings];
+
+    setLocalItem(STORAGE_KEYS.BOOKINGS, updated);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_bookings_updated', {
+        detail: { bookings: updated, newBooking: booking }
+      }));
+    }
+  },
+
+  // Asynchronous customer login with automatic cloud resolution
+  async loginCustomerAsync(bookingCode) {
+    // 1. Try local lookup first (instant)
+    const localResult = this.loginCustomer(bookingCode);
+    if (localResult && (localResult.success || localResult.isCheckedOut)) {
+      return localResult;
+    }
+
+    // 2. Fetch from Cloud
+    const cloudBooking = await this.fetchBookingFromCloud(bookingCode);
+    if (cloudBooking) {
+      return this.loginCustomer(cloudBooking.id || bookingCode);
+    }
+
+    // 3. Sync full cloud ledger and try one last time
+    await this.syncBookingsFromCloud();
+    return this.loginCustomer(bookingCode);
   },
 
   getCustomerSession() {
@@ -4517,27 +4777,6 @@ export const portalStore = {
   },
 
   /**
-   * Find a booking by Booking Code (exact or alphanumeric case-insensitive match)
-   */
-  findBookingByCode(queryCode) {
-    if (!queryCode) return null;
-    const clean = String(queryCode).trim().toUpperCase();
-    const cleanAlphaNum = clean.replace(/[^A-Z0-9]/g, '');
-    const bookings = this.getBookings();
-
-    return bookings.find(b => {
-      const bId = String(b.id || b.bookingCode || '').trim().toUpperCase();
-      const bAlpha = bId.replace(/[^A-Z0-9]/g, '');
-      if (bId === clean || bAlpha === cleanAlphaNum) return true;
-      if (cleanAlphaNum.length >= 4 && (bAlpha.endsWith(cleanAlphaNum) || bAlpha.includes(cleanAlphaNum))) return true;
-      // Also check phone match if user entered full phone number
-      const phoneDigits = String(b.phone || '').replace(/[^0-9]/g, '');
-      if (cleanAlphaNum.length >= 7 && phoneDigits.endsWith(cleanAlphaNum)) return true;
-      return false;
-    }) || null;
-  },
-
-  /**
    * Check in an arriving guest using their confirmed Booking Code
    */
   checkInGuestByCode(bookingCode, allocatedRoomNumber = '', checkedInBy = 'Front Desk Receptionist') {
@@ -4585,6 +4824,11 @@ export const portalStore = {
       try {
         bc.postMessage({ type: 'BOOKINGS_UPDATED', bookings: updatedBookings, updatedBooking, timestamp: Date.now() });
       } catch (e) {}
+    }
+
+    // 5. Instantly push check-in confirmation to Cloud registry
+    if (updatedBooking) {
+      this.pushBookingToCloud(updatedBooking);
     }
 
     return updatedBooking;

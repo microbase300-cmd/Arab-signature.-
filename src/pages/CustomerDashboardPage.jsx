@@ -90,6 +90,15 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
       setReceiptStay(current.primaryBooking);
     }
 
+    // Sync latest bookings ledger from cloud in background
+    portalStore.syncBookingsFromCloud().then(() => {
+      const fresh = portalStore.getCustomerSession();
+      if (fresh) {
+        setCustomerProfile(fresh);
+        if (fresh.primaryBooking) setReceiptStay(fresh.primaryBooking);
+      }
+    });
+
     // Load initial dining menu & subscribe to real-time updates
     setDiningItems(portalStore.getDiningMenu());
     const unsubMenu = portalStore.subscribeDiningMenu((updatedMenu) => {
@@ -102,9 +111,18 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
       setFolioTick((t) => t + 1);
     });
 
+    const unsubBookings = portalStore.subscribeBookings(() => {
+      const fresh = portalStore.getCustomerSession();
+      if (fresh) {
+        setCustomerProfile({ ...fresh });
+        if (fresh.primaryBooking) setReceiptStay(fresh.primaryBooking);
+      }
+    });
+
     return () => {
       unsubMenu();
       unsubDiningOrders();
+      unsubBookings();
     };
   }, []);
 
@@ -168,9 +186,9 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
   };
 
   // -------------------------------------------------------------
-  // LOGIN LOGIC WITH BOOKING NUMBER
+  // LOGIN LOGIC WITH BOOKING NUMBER (Async with Cloud Registry Fallback)
   // -------------------------------------------------------------
-  const executeLogin = (code) => {
+  const executeLogin = async (code) => {
     setLoginError('');
     setCheckedOutData(null);
     setLogoutNotice(false);
@@ -187,11 +205,11 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const res = portalStore.loginCustomer(code);
+    try {
+      const res = await portalStore.loginCustomerAsync(code);
       setIsSubmitting(false);
 
-      if (res.success) {
+      if (res && res.success) {
         setCustomerProfile(res.profile);
         setReceiptStay(res.profile.primaryBooking);
         setCheckedOutData(null);
@@ -203,7 +221,7 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
         setIntroStage('typing');
         setIntroExiting(false);
         setShowVipIntro(true);
-      } else if (res.isCheckedOut) {
+      } else if (res && res.isCheckedOut) {
         // Explicit checked-out notice: "This user has checked out"
         setCheckedOutData({
           booking: res.booking,
@@ -214,9 +232,12 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
         setReceiptStay(null);
       } else {
         setCheckedOutData(null);
-        setLoginError(res.error);
+        setLoginError(res?.error || `Booking code '${code}' was not found in our central reservation registry.`);
       }
-    }, 350);
+    } catch (err) {
+      setIsSubmitting(false);
+      setLoginError('Unable to connect to reservation registry. Please check your network and try again.');
+    }
   };
 
   const handleLoginSubmit = (e) => {
