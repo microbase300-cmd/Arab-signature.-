@@ -67,6 +67,7 @@ export default function ReceptionPortal({ onNavigate }) {
 
   // Front Desk Counter Check-In & Booking Code Verification Modal
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
+  const [checkInInitialCode, setCheckInInitialCode] = useState('');
 
   // Front Desk Intercom Chat State
   const [chatMessages, setChatMessages] = useState([]);
@@ -278,17 +279,41 @@ export default function ReceptionPortal({ onNavigate }) {
       refreshData();
     });
 
-    // 1.1b Sync latest bookings ledger from Cloud (MantleDB & /api/bookings)
+    // 1.1b Sync latest bookings ledger from Cloud
     portalStore.syncBookingsFromCloud().then(() => {
       refreshData();
     });
 
-    // 1.1c Background sync for multi-device reservations (every 20s)
+    // 1.1c Background sync for multi-device reservations (every 8s)
     const cloudSyncInterval = setInterval(() => {
       portalStore.syncBookingsFromCloud().then(() => {
         refreshData();
       });
-    }, 20000);
+    }, 8000);
+
+    // 1.1d Real-Time Server-Sent Events (SSE) stream via ntfy.sh (<100ms instant sync)
+    let sseSource = null;
+    try {
+      if (typeof window !== 'undefined' && window.EventSource) {
+        sseSource = new EventSource('https://ntfy.sh/arab-signature-hotel-bookings-sync-v1/sse');
+        sseSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data && data.event === 'message' && data.message) {
+              const newBooking = JSON.parse(data.message);
+              if (newBooking && newBooking.id) {
+                portalStore.mergeSingleBookingLocally(newBooking);
+                refreshData();
+                if (!isMutedRef.current) {
+                  playLoudReservationAlert();
+                }
+                setIncomingAlert(newBooking);
+              }
+            }
+          } catch (e) {}
+        };
+      }
+    } catch (e) {}
 
     // 1.2 Initialize Web Audio Unlocker
     initAudioUnlocker();
@@ -397,6 +422,9 @@ export default function ReceptionPortal({ onNavigate }) {
     return () => {
       clearInterval(timer);
       clearInterval(cloudSyncInterval);
+      if (sseSource) {
+        try { sseSource.close(); } catch (e) {}
+      }
       unsubscribeBookings();
       window.removeEventListener('ash_rates_updated', handleLiveSync);
       window.removeEventListener('ash_rooms_updated', handleLiveSync);
@@ -451,6 +479,16 @@ export default function ReceptionPortal({ onNavigate }) {
     if (!query) {
       setOrderLookupError('Please enter a valid order code (e.g. ARB-FDD-XXXXX or ARB-DRK-XXXXX).');
       setVerifiedOrder(null);
+      return;
+    }
+
+    // Smart Auto-Redirect: If query is a Room Reservation Code, seamlessly route to Counter Check-In!
+    const isRoomCode = query.startsWith('ARS-') || query.includes('BGD') || query.includes('EXT') || portalStore.findBookingByCode(query);
+    if (isRoomCode) {
+      setIsOrderLookupModalOpen(false);
+      setCheckInInitialCode(query);
+      setIsCheckInModalOpen(true);
+      showToast(`Detected Room Reservation Code! Opening Room Check-In Terminal...`);
       return;
     }
 
@@ -1742,8 +1780,44 @@ export default function ReceptionPortal({ onNavigate }) {
                 <tbody className="divide-y divide-white/5">
                   {filteredBookings.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="py-8 text-center text-gray-500">
-                        No reservations found matching your criteria.
+                      <td colSpan="7" className="py-10 text-center text-gray-400">
+                        <div className="max-w-md mx-auto space-y-3">
+                          <p className="text-sm text-gray-300">
+                            No reservations found locally matching your search or filters.
+                          </p>
+                          {searchQuery.trim() && (
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  showToast(`Querying cloud registry for "${searchQuery}"...`);
+                                  const cloudFound = await portalStore.fetchBookingFromCloud(searchQuery);
+                                  if (cloudFound) {
+                                    refreshData();
+                                    showToast(`Found reservation for ${cloudFound.guestName}!`);
+                                  } else {
+                                    showToast(`Code "${searchQuery}" not found in cloud. Try Counter Check-In.`);
+                                  }
+                                }}
+                                className="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-[#f3e5ab] border border-amber-500/40 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2"
+                              >
+                                <Search size={14} className="text-[#d4af37]" />
+                                <span>Fetch "{searchQuery}" from Cloud</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCheckInInitialCode(searchQuery.trim());
+                                  setIsCheckInModalOpen(true);
+                                }}
+                                className="px-3.5 py-2 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2"
+                              >
+                                <Key size={14} />
+                                <span>Verify in Counter Check-In</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ) : (
@@ -4186,10 +4260,14 @@ export default function ReceptionPortal({ onNavigate }) {
       {/* Front Desk Counter Check-In & Booking Code Verification Modal */}
       <CounterCheckInModal
         isOpen={isCheckInModalOpen}
-        onClose={() => setIsCheckInModalOpen(false)}
+        onClose={() => {
+          setIsCheckInModalOpen(false);
+          setCheckInInitialCode('');
+        }}
         deskBuilding={getDeskBuilding()}
         currentStaffName={currentUser?.name || 'Front Desk Receptionist'}
         rooms={rooms}
+        initialCode={checkInInitialCode}
         onOpenReceipt={(b) => setSelectedReceiptBooking(b)}
       />
 

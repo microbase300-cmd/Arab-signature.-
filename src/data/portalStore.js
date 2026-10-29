@@ -4032,42 +4032,75 @@ export const portalStore = {
 
   // --- CLOUD PERSISTENCE & CROSS-DEVICE RESERVATION REGISTRY ---
 
-  // Push booking updates to Cloud (MantleDB + /api/bookings)
+  // Push booking updates to Cloud (ntfy.sh real-time SSE + restful-api.dev + /api/bookings)
   async pushBookingToCloud(bookingOrBookings) {
     if (typeof window === 'undefined') return;
     try {
       const isArray = Array.isArray(bookingOrBookings);
       const singleBooking = isArray ? null : bookingOrBookings;
 
-      // 1. If single booking, push to dedicated per-code endpoint
-      if (singleBooking && singleBooking.id) {
-        const alphaClean = String(singleBooking.id).replace(/[^A-Z0-9]/g, '').toUpperCase();
-        fetch(`https://mantledb.sh/v2/arab-signature-hotel-bookings-v1/code-${alphaClean}`, {
+      // 1. Sanitize payload: strip heavy Base64 image strings so the payload is tiny (<3KB)
+      const sanitize = (b) => {
+        if (!b) return null;
+        const copy = { ...b };
+        if (copy.proofOfPaymentImage && copy.proofOfPaymentImage.length > 500) {
+          copy.proofOfPaymentImage = '[Image Uploaded to Server]';
+        }
+        return copy;
+      };
+
+      const cleanSingle = sanitize(singleBooking);
+      const allBookings = this.getBookings().map(sanitize);
+
+      // 2. High-Speed Push 1: ntfy.sh instant pub/sub topic for real-time SSE push to all open reception portals (<150ms)
+      if (cleanSingle && cleanSingle.id) {
+        const alphaClean = String(cleanSingle.id).replace(/[^A-Z0-9]/g, '').toLowerCase();
+        const suffixClean = alphaClean.replace(/^(arsbgd|arsext|ash)/, '');
+
+        // Broadcast to general hotel topic
+        fetch('https://ntfy.sh/arab-signature-hotel-bookings-sync-v1', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ booking: singleBooking, updatedAt: Date.now() }),
-          keepalive: true
+          body: JSON.stringify(cleanSingle)
         }).catch(() => {});
+
+        // Store to dedicated per-code topic for instant single lookup
+        fetch(`https://ntfy.sh/arab-signature-hotel-code-${alphaClean}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cleanSingle)
+        }).catch(() => {});
+
+        if (suffixClean && suffixClean !== alphaClean) {
+          fetch(`https://ntfy.sh/arab-signature-hotel-code-${suffixClean}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cleanSingle)
+          }).catch(() => {});
+        }
       }
 
-      // 2. Push full ledger to MantleDB
-      const allBookings = this.getBookings();
-      fetch('https://mantledb.sh/v2/arab-signature-hotel-bookings-v1/ledger', {
-        method: 'POST',
+      // 3. High-Speed Push 2: restful-api.dev permanent cloud ledger (object ff808181a09d98f701a187be010f4d86)
+      fetch('https://api.restful-api.dev/objects/ff808181a09d98f701a187be010f4d86', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookings: allBookings, updatedAt: Date.now() }),
-        keepalive: true
+        body: JSON.stringify({
+          name: 'arab_signature_hotel_ledger_v1',
+          data: {
+            bookings: allBookings,
+            updatedAt: Date.now()
+          }
+        })
       }).catch(() => {});
 
-      // 3. Resilient backup to /api/bookings
+      // 4. Backup Push 3: Vercel Serverless /api/bookings
       fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          booking: singleBooking, 
-          bookings: allBookings 
-        }),
-        keepalive: true
+        body: JSON.stringify({
+          booking: cleanSingle,
+          bookings: allBookings
+        })
       }).catch(() => {});
     } catch (e) {
       console.warn('pushBookingToCloud error:', e);
@@ -4080,25 +4113,53 @@ export const portalStore = {
 
     let cloudBookings = null;
 
-    // 1. Query MantleDB direct client-side (0 Vercel function limits)
+    // 1. Primary: Query restful-api.dev master cloud ledger
     try {
       const ctrl = new AbortController();
       const timeoutId = setTimeout(() => ctrl.abort(), 3500);
-      const res = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-bookings-v1/ledger?_t=${Date.now()}`, {
+      const res = await fetch(`https://api.restful-api.dev/objects/ff808181a09d98f701a187be010f4d86?_t=${Date.now()}`, {
         cache: 'no-store',
         signal: ctrl.signal
       });
       clearTimeout(timeoutId);
       if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.bookings) && data.bookings.length > 0) {
-          cloudBookings = data.bookings;
+        const json = await res.json();
+        if (json?.data?.bookings && Array.isArray(json.data.bookings) && json.data.bookings.length > 0) {
+          cloudBookings = json.data.bookings;
         }
       }
     } catch (e) {}
 
-    // 2. Fallback to /api/bookings
-    if (!cloudBookings) {
+    // 2. Secondary: Poll ntfy.sh general topic for recent bookings
+    try {
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort(), 2500);
+      const res = await fetch(`https://ntfy.sh/arab-signature-hotel-bookings-sync-v1/json?poll=1&since=all`, {
+        signal: ctrl.signal
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const text = await res.text();
+        const lines = text.trim().split('\n').filter(Boolean);
+        const streamedBookings = [];
+        for (const line of lines) {
+          try {
+            const msgObj = JSON.parse(line);
+            if (msgObj.event === 'message' && msgObj.message) {
+              const b = JSON.parse(msgObj.message);
+              if (b && b.id) streamedBookings.push(b);
+            }
+          } catch (e) {}
+        }
+        if (streamedBookings.length > 0) {
+          if (!cloudBookings) cloudBookings = [];
+          cloudBookings = [...streamedBookings, ...cloudBookings];
+        }
+      }
+    } catch (e) {}
+
+    // 3. Fallback: /api/bookings
+    if (!cloudBookings || cloudBookings.length === 0) {
       try {
         const ctrl = new AbortController();
         const timeoutId = setTimeout(() => ctrl.abort(), 3000);
@@ -4117,85 +4178,151 @@ export const portalStore = {
     }
 
     if (cloudBookings && Array.isArray(cloudBookings)) {
-      const localBookings = this.getBookings();
-      const map = new Map();
-
-      // Start with initial / baseline
-      INITIAL_BOOKINGS.forEach(b => {
-        if (b && b.id) map.set(String(b.id).toUpperCase(), b);
-      });
-
-      // Add local bookings
-      localBookings.forEach(b => {
-        if (b && b.id) map.set(String(b.id).toUpperCase(), b);
-      });
-
-      // Merge cloud bookings (cloud wins on newer changes, e.g. check-in from another device)
-      cloudBookings.forEach(cb => {
-        if (cb && cb.id) {
-          const key = String(cb.id).toUpperCase();
-          const existing = map.get(key) || {};
-          map.set(key, { ...existing, ...cb });
-        }
-      });
-
-      const merged = Array.from(map.values());
-      // Sort descending by checkIn or createdAt
-      merged.sort((a, b) => new Date(b.createdAt || b.checkIn || 0) - new Date(a.createdAt || a.checkIn || 0));
-
-      setLocalItem(STORAGE_KEYS.BOOKINGS, merged);
-
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('ash_bookings_updated', {
-          detail: { bookings: merged, fromCloudSync: true }
-        }));
-      }
-
-      return merged;
+      return this.mergeCloudBookings(cloudBookings);
     }
 
     return this.getBookings();
   },
 
-  // Targeted cloud lookup for a specific booking code
+  mergeCloudBookings(cloudBookings) {
+    if (!cloudBookings || !Array.isArray(cloudBookings)) return this.getBookings();
+    const localBookings = this.getBookings();
+    const map = new Map();
+
+    INITIAL_BOOKINGS.forEach(b => {
+      if (b && b.id) map.set(String(b.id).toUpperCase(), b);
+    });
+
+    localBookings.forEach(b => {
+      if (b && b.id) map.set(String(b.id).toUpperCase(), b);
+    });
+
+    cloudBookings.forEach(cb => {
+      if (cb && cb.id) {
+        const key = String(cb.id).toUpperCase();
+        const existing = map.get(key) || {};
+        map.set(key, { ...existing, ...cb });
+      }
+    });
+
+    const merged = Array.from(map.values());
+    merged.sort((a, b) => new Date(b.createdAt || b.checkIn || 0) - new Date(a.createdAt || a.checkIn || 0));
+
+    setLocalItem(STORAGE_KEYS.BOOKINGS, merged);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_bookings_updated', {
+        detail: { bookings: merged, fromCloudSync: true }
+      }));
+    }
+
+    return merged;
+  },
+
+  // Targeted cloud lookup for a specific booking code or guest phone number
   async fetchBookingFromCloud(queryCode) {
     if (!queryCode) return null;
     const clean = String(queryCode).trim().toUpperCase();
-    const cleanAlphaNum = clean.replace(/[^A-Z0-9]/g, '');
+    const cleanAlphaNum = clean.replace(/[^A-Z0-9]/g, '').toLowerCase();
+    const suffixAlpha = cleanAlphaNum.replace(/^(arsbgd|arsext|ash)/, '');
 
     // 1. Check local first
     const localMatch = this.findBookingByCode(queryCode);
     if (localMatch) return localMatch;
 
-    // 2. Query MantleDB per-code fast endpoint
+    // Helper to test if a candidate booking matches query
+    const isMatch = (b) => {
+      if (!b) return false;
+      const bId = String(b.id || b.bookingCode || '').toUpperCase();
+      const bAlpha = bId.replace(/[^A-Z0-9]/g, '').toLowerCase();
+      if (bId === clean || bAlpha === cleanAlphaNum) return true;
+      if (cleanAlphaNum.length >= 4 && (bAlpha.endsWith(cleanAlphaNum) || bAlpha.includes(cleanAlphaNum))) return true;
+      if (suffixAlpha.length >= 4 && bAlpha.endsWith(suffixAlpha)) return true;
+      const phoneDigits = String(b.phone || '').replace(/[^0-9]/g, '');
+      if (cleanAlphaNum.length >= 7 && phoneDigits.endsWith(cleanAlphaNum)) return true;
+      return false;
+    };
+
+    // 2. High-Speed Lookup 1: ntfy.sh per-code topic (<200ms)
     if (cleanAlphaNum) {
       try {
         const ctrl = new AbortController();
-        const timeoutId = setTimeout(() => ctrl.abort(), 2500);
-        const res = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-bookings-v1/code-${cleanAlphaNum}?_t=${Date.now()}`, {
-          cache: 'no-store',
+        const timeoutId = setTimeout(() => ctrl.abort(), 2000);
+        const res = await fetch(`https://ntfy.sh/arab-signature-hotel-code-${cleanAlphaNum}/json?poll=1&since=all`, {
           signal: ctrl.signal
         });
         clearTimeout(timeoutId);
         if (res.ok) {
-          const data = await res.json();
-          if (data && data.booking) {
-            this.mergeSingleBookingLocally(data.booking);
-            return data.booking;
+          const text = await res.text();
+          const lines = text.trim().split('\n').filter(Boolean);
+          for (let i = lines.length - 1; i >= 0; i--) {
+            try {
+              const msgObj = JSON.parse(lines[i]);
+              if (msgObj.event === 'message' && msgObj.message) {
+                const parsed = JSON.parse(msgObj.message);
+                if (isMatch(parsed)) {
+                  this.mergeSingleBookingLocally(parsed);
+                  return parsed;
+                }
+              }
+            } catch (e) {}
           }
         }
       } catch (e) {}
     }
 
-    // 3. Fallback: Full cloud ledger sync
-    await this.syncBookingsFromCloud();
-    const foundAfterSync = this.findBookingByCode(queryCode);
-    if (foundAfterSync) return foundAfterSync;
+    // 3. High-Speed Lookup 2: restful-api.dev master ledger (<1200ms)
+    try {
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort(), 3000);
+      const res = await fetch(`https://api.restful-api.dev/objects/ff808181a09d98f701a187be010f4d86?_t=${Date.now()}`, {
+        signal: ctrl.signal
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const json = await res.json();
+        const cloudList = json?.data?.bookings || [];
+        const match = cloudList.find(isMatch);
+        if (match) {
+          this.mergeSingleBookingLocally(match);
+          return match;
+        }
+        if (cloudList.length > 0) {
+          this.mergeCloudBookings(cloudList);
+        }
+      }
+    } catch (e) {}
 
-    // 4. Fallback: /api/bookings?code=...
+    // 4. High-Speed Lookup 3: ntfy.sh general topic recent poll
     try {
       const ctrl = new AbortController();
       const timeoutId = setTimeout(() => ctrl.abort(), 2500);
+      const res = await fetch(`https://ntfy.sh/arab-signature-hotel-bookings-sync-v1/json?poll=1&since=all`, {
+        signal: ctrl.signal
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const text = await res.text();
+        const lines = text.trim().split('\n').filter(Boolean);
+        for (let i = lines.length - 1; i >= 0; i--) {
+          try {
+            const msgObj = JSON.parse(lines[i]);
+            if (msgObj.event === 'message' && msgObj.message) {
+              const parsed = JSON.parse(msgObj.message);
+              if (isMatch(parsed)) {
+                this.mergeSingleBookingLocally(parsed);
+                return parsed;
+              }
+            }
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+
+    // 5. Fallback 4: /api/bookings?code=...
+    try {
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort(), 3000);
       const res = await fetch(`/api/bookings?code=${encodeURIComponent(queryCode)}&_t=${Date.now()}`, {
         cache: 'no-store',
         signal: ctrl.signal
@@ -4203,7 +4330,7 @@ export const portalStore = {
       clearTimeout(timeoutId);
       if (res.ok) {
         const data = await res.json();
-        if (data && data.booking) {
+        if (data && data.booking && isMatch(data.booking)) {
           this.mergeSingleBookingLocally(data.booking);
           return data.booking;
         }

@@ -18,7 +18,8 @@ export default function CounterCheckInModal({
   deskBuilding = 'Main Building',
   currentStaffName = 'Front Desk Receptionist',
   rooms = [],
-  onOpenReceipt = null
+  onOpenReceipt = null,
+  initialCode = ''
 }) {
   const [codeInput, setCodeInput] = useState('');
   const [searchedBooking, setSearchedBooking] = useState(null);
@@ -33,7 +34,8 @@ export default function CounterCheckInModal({
   // Load recent confirmed reservations awaiting check-in & sync from cloud
   useEffect(() => {
     if (isOpen) {
-      setCodeInput('');
+      const startCode = initialCode || '';
+      setCodeInput(startCode);
       setSearchedBooking(null);
       setSearchError('');
       setIsCheckInSuccess(false);
@@ -54,8 +56,12 @@ export default function CounterCheckInModal({
           setRecentPendingBookings(freshPending);
         }
       });
+
+      if (startCode) {
+        handleLookup(startCode);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, initialCode]);
 
   if (!isOpen) return null;
 

@@ -1,10 +1,9 @@
-// Vercel Serverless Function: Real-Time Shared Hotel Bookings Registry
-// Backed by persistent cloud storage (MantleDB) for instant cross-device sync between Mobile, Desktop & Front Desk Portals.
+// Vercel Serverless Function: High-Speed Multi-Device Shared Hotel Bookings Registry
+// Backed by persistent cloud ledger (restful-api.dev ff808181a09d98f701a187be010f4d86) + ntfy real-time pub/sub.
 
-const MANTLE_LEDGER_ENDPOINT = 'https://mantledb.sh/v2/arab-signature-hotel-bookings-v1/ledger';
-const MANTLE_CODE_PREFIX = 'https://mantledb.sh/v2/arab-signature-hotel-bookings-v1/code-';
+const RESTFUL_API_LEDGER_URL = 'https://api.restful-api.dev/objects/ff808181a09d98f701a187be010f4d86';
+const NTFY_TOPIC_URL = 'https://ntfy.sh/arab-signature-hotel-bookings-sync-v1';
 
-// Fallback baseline reservations
 const INITIAL_BOOKINGS = [
   {
     id: "ARS-BGD-3012KD",
@@ -72,6 +71,15 @@ const INITIAL_BOOKINGS = [
 let memoryCache = [...INITIAL_BOOKINGS];
 let lastSyncTimestamp = null;
 
+function sanitizeBooking(b) {
+  if (!b) return null;
+  const copy = { ...b };
+  if (copy.proofOfPaymentImage && copy.proofOfPaymentImage.length > 500) {
+    copy.proofOfPaymentImage = '[Image Uploaded to Server]';
+  }
+  return copy;
+}
+
 function matchBooking(b, query) {
   if (!b || !query) return false;
   const cleanQuery = String(query).trim().toUpperCase();
@@ -89,8 +97,48 @@ function matchBooking(b, query) {
   return false;
 }
 
+// Fetch master ledger from restful-api.dev with timeout
+async function fetchCloudLedger() {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 3000);
+    const res = await fetch(RESTFUL_API_LEDGER_URL, {
+      headers: { 'Accept': 'application/json' },
+      signal: ctrl.signal
+    });
+    clearTimeout(t);
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.data?.bookings && Array.isArray(data.data.bookings) && data.data.bookings.length > 0) {
+        return data.data.bookings;
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Persist master ledger to restful-api.dev with timeout
+async function persistCloudLedger(bookings) {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 3500);
+    await fetch(RESTFUL_API_LEDGER_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'arab_signature_hotel_ledger_v1',
+        data: {
+          bookings,
+          updatedAt: Date.now()
+        }
+      }),
+      signal: ctrl.signal
+    });
+    clearTimeout(t);
+  } catch (e) {}
+}
+
 export default async function handler(req, res) {
-  // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -104,7 +152,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // POST: Save or update booking(s) to cloud registry
+  // POST: Save or update booking(s)
   if (req.method === 'POST') {
     try {
       let body = req.body;
@@ -115,14 +163,18 @@ export default async function handler(req, res) {
       }
 
       const { booking, bookings } = body || {};
-      const incomingList = bookings || (booking ? [booking] : []);
+      const incomingList = (bookings || (booking ? [booking] : [])).map(sanitizeBooking).filter(Boolean);
 
       if (incomingList.length > 0) {
         lastSyncTimestamp = Date.now();
 
-        // Merge incoming into memory cache
+        // 1. First fetch latest cloud ledger to prevent wiping out other devices' reservations
+        const remoteBookings = await fetchCloudLedger();
+        const baseList = remoteBookings || memoryCache;
+
+        // 2. Merge incoming into base
         const map = new Map();
-        memoryCache.forEach(b => {
+        baseList.forEach(b => {
           if (b && b.id) map.set(String(b.id).toUpperCase(), b);
         });
         incomingList.forEach(b => {
@@ -135,29 +187,17 @@ export default async function handler(req, res) {
 
         memoryCache = Array.from(map.values());
 
-        // Save to MantleDB ledger
-        try {
-          await fetch(MANTLE_LEDGER_ENDPOINT, {
+        // 3. Persist asynchronously to restful-api.dev
+        persistCloudLedger(memoryCache).catch(() => {});
+
+        // 4. Broadcast to ntfy.sh for instant real-time SSE delivery (<100ms)
+        const primarySingle = incomingList[0];
+        if (primarySingle) {
+          fetch(NTFY_TOPIC_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bookings: memoryCache, updatedAt: lastSyncTimestamp }),
-            signal: AbortSignal.timeout(3500)
-          });
-        } catch (storageErr) {
-          console.warn('MantleDB write warning in /api/bookings ledger:', storageErr);
-        }
-
-        // Also save individual per-code key for ultra-fast single lookup
-        if (booking && booking.id) {
-          const alphaClean = String(booking.id).replace(/[^A-Z0-9]/g, '').toUpperCase();
-          try {
-            await fetch(`${MANTLE_CODE_PREFIX}${alphaClean}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ booking, updatedAt: lastSyncTimestamp }),
-              signal: AbortSignal.timeout(2500)
-            });
-          } catch (e) {}
+            body: JSON.stringify(primarySingle)
+          }).catch(() => {});
         }
 
         return res.status(200).json({
@@ -177,12 +217,10 @@ export default async function handler(req, res) {
   // GET: Fetch booking by code (?code=...) or all bookings
   const queryCode = req.query.code;
 
-  // 1. If querying specific code
   if (queryCode) {
     const cleanQuery = String(queryCode).trim();
-    const alphaQuery = cleanQuery.replace(/[^A-Z0-9]/g, '').toUpperCase();
 
-    // Check memory cache first
+    // 1. Check memory cache
     const memoryMatch = memoryCache.find(b => matchBooking(b, cleanQuery));
     if (memoryMatch) {
       return res.status(200).json({
@@ -192,76 +230,30 @@ export default async function handler(req, res) {
       });
     }
 
-    // Try MantleDB direct code endpoint
-    try {
-      const codeRes = await fetch(`${MANTLE_CODE_PREFIX}${alphaQuery}?_t=${Date.now()}`, {
-        headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(2500)
-      });
-      if (codeRes.ok) {
-        const data = await codeRes.json();
-        if (data && data.booking) {
-          // Cache it
-          memoryCache = [data.booking, ...memoryCache.filter(b => b.id !== data.booking.id)];
-          return res.status(200).json({
-            success: true,
-            booking: data.booking,
-            source: 'mantledb_direct_code'
-          });
-        }
-      }
-    } catch (e) {}
-
-    // Try MantleDB full ledger
-    try {
-      const ledgerRes = await fetch(`${MANTLE_LEDGER_ENDPOINT}?_t=${Date.now()}`, {
-        headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(3000)
-      });
-      if (ledgerRes.ok) {
-        const data = await ledgerRes.json();
-        if (data && Array.isArray(data.bookings)) {
-          memoryCache = data.bookings;
-          const found = data.bookings.find(b => matchBooking(b, cleanQuery));
-          if (found) {
-            return res.status(200).json({
-              success: true,
-              booking: found,
-              source: 'mantledb_ledger'
-            });
-          }
-        }
-      }
-    } catch (e) {}
-
-    return res.status(404).json({
-      success: false,
-      error: `Booking code '${cleanQuery}' was not found in central registry.`
-    });
-  }
-
-  // 2. Fetch full list of bookings
-  try {
-    const ledgerRes = await fetch(`${MANTLE_LEDGER_ENDPOINT}?_t=${Date.now()}`, {
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(3000)
-    });
-    if (ledgerRes.ok) {
-      const data = await ledgerRes.json();
-      if (data && Array.isArray(data.bookings) && data.bookings.length > 0) {
-        memoryCache = data.bookings;
-        lastSyncTimestamp = data.updatedAt || Date.now();
+    // 2. Check cloud ledger
+    const cloudBookings = await fetchCloudLedger();
+    if (cloudBookings) {
+      memoryCache = cloudBookings;
+      const found = cloudBookings.find(b => matchBooking(b, cleanQuery));
+      if (found) {
         return res.status(200).json({
           success: true,
-          bookings: data.bookings,
-          count: data.bookings.length,
-          updatedAt: lastSyncTimestamp,
-          source: 'mantledb_ledger'
+          booking: found,
+          source: 'cloud_ledger'
         });
       }
     }
-  } catch (err) {
-    console.warn('MantleDB read warning in /api/bookings GET:', err);
+
+    return res.status(404).json({
+      success: false,
+      error: `Booking code '${cleanQuery}' was not found in central reservation registry.`
+    });
+  }
+
+  // Return all bookings
+  const cloudBookings = await fetchCloudLedger();
+  if (cloudBookings && cloudBookings.length > 0) {
+    memoryCache = cloudBookings;
   }
 
   return res.status(200).json({
@@ -269,6 +261,6 @@ export default async function handler(req, res) {
     bookings: memoryCache,
     count: memoryCache.length,
     updatedAt: lastSyncTimestamp || Date.now(),
-    source: 'memory_cache'
+    source: cloudBookings ? 'cloud_ledger' : 'memory_cache'
   });
 }
