@@ -52,9 +52,11 @@ export default function App() {
       window.history.replaceState({}, document.title, cleanPath + cleanHash);
     }
 
-    // 2. Handle hash-based page transitions & route guards
+    // 2. Handle hash-based and pathname page transitions & route guards
     const handleHashChange = () => {
-      const rawHash = window.location.hash.replace('#', '').toLowerCase();
+      const pathSlug = window.location.pathname.replace(/^\/+/, '').toLowerCase();
+      const hashSlug = window.location.hash.replace(/^#+/, '').toLowerCase();
+      const rawHash = hashSlug || pathSlug;
       
       // If on home or empty, keep URL completely clean without #home
       if (rawHash === 'home' || !rawHash) {
@@ -65,87 +67,50 @@ export default function App() {
         return;
       }
 
-      // Security Protocol: Block all legacy predictable staff URLs
-      const legacyPortalHashes = [
-        'admin', 'admin-login', 'reception', 'reception-login', 
-        'accountant', 'accountant-login', 'portal-login'
+      // 1. Receptionist Front Desk Access (Supports #reception, #reception-login, #desk-600m, #desk-100e, /reception)
+      const receptionAliases = [
+        'reception', 'reception-login', 'receptionist', 'reception-portal',
+        'desk-600m', 'desk-100e', 'desk-600m-gate', 'desk-100e-gate'
       ];
-      if (legacyPortalHashes.includes(rawHash)) {
-        setCurrentPage('decommissioned-portal-gate');
+      if (receptionAliases.includes(rawHash)) {
+        const user = portalStore.getCurrentUser();
+        // If already logged in as reception or admin, open the receptionist portal
+        if (user && ['reception', 'admin'].includes(user.role)) {
+          const target = (user.buildingAccess === 'Extension Building' || rawHash.includes('100') || rawHash.includes('ext'))
+            ? SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_PORTAL
+            : SECURE_PORTAL_ROUTES.MAIN_RECEPTION_PORTAL;
+          setCurrentPage(target);
+          return;
+        }
+        // If not logged in, open the reception login gate
+        const targetGate = (rawHash.includes('100') || rawHash.includes('ext'))
+          ? SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_LOGIN
+          : SECURE_PORTAL_ROUTES.MAIN_RECEPTION_LOGIN;
+        setCurrentPage(targetGate);
         return;
       }
 
-      // 1. Obfuscated Staff Login Gates
-      // 1.1 Main Reception Gate (#desk-600m-gate)
-      if (rawHash === SECURE_PORTAL_ROUTES.MAIN_RECEPTION_LOGIN) {
-        setCurrentPage(SECURE_PORTAL_ROUTES.MAIN_RECEPTION_LOGIN);
-        return;
-      }
-
-      // 1.2 Extension Reception Gate (#desk-100e-gate)
-      if (rawHash === SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_LOGIN) {
-        setCurrentPage(SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_LOGIN);
-        return;
-      }
-
-      // 1.3 Chief Accountant 2-Step Financial Vault (#vault-finance-77a)
-      if (rawHash === SECURE_PORTAL_ROUTES.ACCOUNTANT_LOGIN) {
-        setCurrentPage(SECURE_PORTAL_ROUTES.ACCOUNTANT_LOGIN);
-        return;
-      }
-
-      // 1.4 General Manager Executive Admin Core Gate (#exec-core-99x)
-      if (rawHash === SECURE_PORTAL_ROUTES.ADMIN_LOGIN) {
+      // 2. Executive Admin Access (Supports #admin, #admin-login, #exec-core, /admin)
+      const adminAliases = ['admin', 'admin-login', 'exec-core', 'exec-core-99x'];
+      if (adminAliases.includes(rawHash)) {
+        const user = portalStore.getCurrentUser();
+        if (user && user.role === 'admin') {
+          setCurrentPage(SECURE_PORTAL_ROUTES.ADMIN_PORTAL);
+          return;
+        }
         setCurrentPage(SECURE_PORTAL_ROUTES.ADMIN_LOGIN);
         return;
       }
 
-      // 2. Authenticated Staff Operations Portals (Strict Route Guards)
-      // 2.1 Main Building Front Desk (#desk-600m)
-      if (rawHash === SECURE_PORTAL_ROUTES.MAIN_RECEPTION_PORTAL) {
+      // 3. Chief Accountant Access (Supports #accountant, #accountant-login, #vault-finance, /accountant)
+      const accountantAliases = ['accountant', 'accountant-login', 'vault-finance', 'vault-finance-77a'];
+      if (accountantAliases.includes(rawHash)) {
         const user = portalStore.getCurrentUser();
-        if (!user || !['reception', 'admin'].includes(user.role)) {
-          setCurrentPage(SECURE_PORTAL_ROUTES.MAIN_RECEPTION_LOGIN);
-          window.location.hash = SECURE_PORTAL_ROUTES.MAIN_RECEPTION_LOGIN;
+        if (user && ['accountant', 'admin'].includes(user.role)) {
+          setCurrentPage(SECURE_PORTAL_ROUTES.ACCOUNTANT_PORTAL);
           return;
         }
-        setCurrentPage(SECURE_PORTAL_ROUTES.MAIN_RECEPTION_PORTAL);
-        return;
-      }
-
-      // 2.2 Extension Wing Front Desk (#desk-100e)
-      if (rawHash === SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_PORTAL) {
-        const user = portalStore.getCurrentUser();
-        if (!user || !['reception', 'admin'].includes(user.role)) {
-          setCurrentPage(SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_LOGIN);
-          window.location.hash = SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_LOGIN;
-          return;
-        }
-        setCurrentPage(SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_PORTAL);
-        return;
-      }
-
-      // 2.3 Financial Accountant Vault & Audit Portal (#vault-finance)
-      if (rawHash === SECURE_PORTAL_ROUTES.ACCOUNTANT_PORTAL) {
-        const user = portalStore.getCurrentUser();
-        if (!user || !['accountant', 'admin'].includes(user.role)) {
-          setCurrentPage(SECURE_PORTAL_ROUTES.ACCOUNTANT_LOGIN);
-          window.location.hash = SECURE_PORTAL_ROUTES.ACCOUNTANT_LOGIN;
-          return;
-        }
-        setCurrentPage(SECURE_PORTAL_ROUTES.ACCOUNTANT_PORTAL);
-        return;
-      }
-
-      // 2.4 General Manager Executive Admin Core (#exec-core)
-      if (rawHash === SECURE_PORTAL_ROUTES.ADMIN_PORTAL) {
-        const user = portalStore.getCurrentUser();
-        if (!user || user.role !== 'admin') {
-          setCurrentPage(SECURE_PORTAL_ROUTES.ADMIN_LOGIN);
-          window.location.hash = SECURE_PORTAL_ROUTES.ADMIN_LOGIN;
-          return;
-        }
-        setCurrentPage(SECURE_PORTAL_ROUTES.ADMIN_PORTAL);
+        setCurrentPage(SECURE_PORTAL_ROUTES.ACCOUNTANT_LOGIN);
         return;
       }
 
@@ -203,19 +168,33 @@ export default function App() {
     SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_PORTAL,
     SECURE_PORTAL_ROUTES.ACCOUNTANT_PORTAL,
     SECURE_PORTAL_ROUTES.ADMIN_PORTAL,
+    'reception',
+    'reception-login',
+    'receptionist',
+    'admin',
+    'admin-login',
+    'accountant',
+    'accountant-login',
     'decommissioned-portal-gate'
   ].includes(currentPage);
 
   // Render the appropriate dedicated page
   const renderCurrentPage = () => {
     switch (currentPage) {
-      // Secret Login Gates
+      // Front Desk & Staff Gates
+      case 'reception':
+      case 'reception-login':
+      case 'receptionist':
       case SECURE_PORTAL_ROUTES.MAIN_RECEPTION_LOGIN:
         return <ReceptionLogin onNavigate={handleNavigate} initialDesk="Main Building" />;
       case SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_LOGIN:
         return <ReceptionLogin onNavigate={handleNavigate} initialDesk="Extension Building" />;
+      case 'accountant':
+      case 'accountant-login':
       case SECURE_PORTAL_ROUTES.ACCOUNTANT_LOGIN:
         return <AccountantLogin onNavigate={handleNavigate} />;
+      case 'admin':
+      case 'admin-login':
       case SECURE_PORTAL_ROUTES.ADMIN_LOGIN:
         return <AdminLogin onNavigate={handleNavigate} />;
 

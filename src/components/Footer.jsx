@@ -117,6 +117,14 @@ export default function Footer({ onNavigate, onOpenBooking }) {
             <Clock size={13} className="text-gray-400" />
             <span>Check-in: 2:00 PM • Check-out: 12:00 PM</span>
           </div>
+          <div className="pt-1">
+            <button
+              onClick={() => handleNav('reception')}
+              className="inline-flex items-center gap-1.5 text-[11px] text-[#f3e5ab]/60 hover:text-[#d4af37] font-semibold transition-colors"
+            >
+              <span>🔑 Front Desk Shift Login</span>
+            </button>
+          </div>
         </div>
 
       </div>

@@ -4,8 +4,8 @@ import { KeyRound, Lock, User, Eye, EyeOff, ArrowRight, ArrowLeft, AlertCircle, 
 
 export default function ReceptionLogin({ onNavigate, initialDesk = 'Main Building' }) {
   const [selectedDesk, setSelectedDesk] = useState(initialDesk); // 'Main Building' | 'Extension Building'
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('main@arabsignature.com');
+  const [password, setPassword] = useState('reception2026');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -13,6 +13,37 @@ export default function ReceptionLogin({ onNavigate, initialDesk = 'Main Buildin
   const handleSelectDesk = (desk) => {
     setSelectedDesk(desk);
     setError('');
+    if (desk === 'Main Building') {
+      setUsername('main@arabsignature.com');
+      setPassword('reception2026');
+    } else {
+      setUsername('extension@arabsignature.com');
+      setPassword('extension2026');
+    }
+  };
+
+  const handleQuickLogin = (desk = 'Main Building') => {
+    setError('');
+    setIsLoading(true);
+    const u = desk === 'Main Building' ? 'main@arabsignature.com' : 'extension@arabsignature.com';
+    const p = desk === 'Main Building' ? 'reception2026' : 'extension2026';
+    setSelectedDesk(desk);
+    setUsername(u);
+    setPassword(p);
+
+    setTimeout(() => {
+      try {
+        portalStore.loginReception(u, p, desk);
+        setIsLoading(false);
+        const targetRoute = desk === 'Main Building' 
+          ? SECURE_PORTAL_ROUTES.MAIN_RECEPTION_PORTAL 
+          : SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_PORTAL;
+        onNavigate(targetRoute);
+      } catch (err) {
+        setIsLoading(false);
+        setError(err.message || 'Access Denied: Invalid Front Desk Reception credentials.');
+      }
+    }, 200);
   };
 
   const handleLogin = (e) => {
@@ -127,6 +158,30 @@ export default function ReceptionLogin({ onNavigate, initialDesk = 'Main Buildin
             ) : (
               <span>🏛️ <strong>Extension Desk:</strong> Shift control for <strong>Rooms 101–114</strong> with live view-only visibility of Main Building rooms.</span>
             )}
+          </div>
+        </div>
+
+        {/* Quick Shift Access */}
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center justify-between text-[11px] text-gray-400">
+            <span>Instant Shift Access:</span>
+            <span className="text-[#d4af37] text-[10px] font-mono">1-Click Sign-In</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => handleQuickLogin('Main Building')}
+              className="py-2.5 px-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+            >
+              <span>⚡ Main Desk (601–620)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickLogin('Extension Building')}
+              className="py-2.5 px-2 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-sky-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+            >
+              <span>⚡ Extension Desk (101–114)</span>
+            </button>
           </div>
         </div>
 
