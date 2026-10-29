@@ -21,19 +21,19 @@ const STORAGE_KEYS = {
   AUTH: 'ash_portal_auth_user_v3',
   USERS: 'ash_portal_staff_users_v6',
   LOGIN_LOGS: 'ash_portal_login_attempts',
-  BOOKINGS: 'ash_portal_bookings_v10',
+  BOOKINGS: 'ash_portal_bookings_v11',
   DINING_ORDERS: 'ash_portal_dining_orders_v1',
   EXPENSES: 'ash_portal_expenses_v1',
-  ROOMS: 'ash_portal_rooms_inventory_v9',
+  ROOMS: 'ash_portal_rooms_inventory_v10',
   ROOM_RATES: 'ash_portal_room_rates_v3',
   DINING_MENU: 'ash_portal_dining_menu_v6',
   HOTEL_CONFIG: 'ash_portal_hotel_config',
   HOTEL_EVENTS: 'ash_portal_hotel_events_v1',
   ACTIVITY_LOG: 'ash_portal_activity_log',
   INTERCOM_CHAT: 'ash_portal_intercom_chat_v1',
-  CANCELLATION_NOTIFICATIONS: 'ash_portal_cancellation_notifications_v1',
-  GUEST_SESSION: 'ash_active_guest_session_v2',
-  CUSTOMER_SESSION: 'ash_customer_portal_session_v1',
+  CANCELLATION_NOTIFICATIONS: 'ash_portal_cancellation_notifications_v2',
+  GUEST_SESSION: 'ash_active_guest_session_v3',
+  CUSTOMER_SESSION: 'ash_customer_portal_session_v2',
 };
 
 // 1. Initial Room Inventory (34 Authentic Rooms Across 2 Buildings in Nsugbe, Onitsha - All Available for Production)
@@ -83,151 +83,8 @@ const INITIAL_ROOMS_INVENTORY = [
   { roomNumber: "114", building: "Extension Building", floor: "Extension Building", type: "suites", name: "Diplomatic Suite", price: 120000, status: "available", currentGuest: null, checkOut: null }
 ];
 
-// 2. Pre-Seeded Real Bookings with Backend Confirmation status
-const INITIAL_BOOKINGS = [
-  {
-    id: "ARS-BGD-3012KD",
-    guestName: "Valued Arab Guest",
-    phone: "0803 000 3012",
-    email: "guest.3012kd@arabsignature.com",
-    roomType: "deluxe",
-    roomName: "Arab Deluxe Suite (Main Building)",
-    roomNumber: "602",
-    checkIn: new Date().toISOString().split('T')[0],
-    checkOut: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
-    nights: 2,
-    amount: 70000,
-    status: "Confirmed",
-    paymentMethod: "Paystack (Online Verified)",
-    paymentStatus: "Paid",
-    paystackReference: "T679234012KD",
-    backendVerified: true,
-    verifiedAt: new Date().toLocaleString(),
-    source: "Direct Website (Paystack)",
-    createdAt: new Date().toLocaleString()
-  },
-  {
-    id: "ARS-EXT-9421XK",
-    guestName: "Chief Emeka Obi",
-    phone: "0803 234 5678",
-    email: "emeka.obi@nigerdelta.org",
-    roomType: "suites",
-    roomName: "Diplomatic Suite (Extension Building)",
-    roomNumber: "107",
-    checkIn: "2026-10-20",
-    checkOut: "2026-10-24",
-    nights: 4,
-    amount: 480000,
-    status: "Checked In",
-    paymentMethod: "Paystack (Online)",
-    paymentStatus: "Paid", // Confirmed by backend
-    backendVerified: true,
-    verifiedAt: "2026-10-20 08:31",
-    source: "Direct Website",
-    createdAt: "2026-10-20 08:30"
-  },
-  {
-    id: "ARS-BGD-1840EM",
-    guestName: "Chief Emeka Obi",
-    phone: "0803 234 5678",
-    email: "emeka.obi@nigerdelta.org",
-    roomType: "executive",
-    roomName: "Executive Room (Main Building)",
-    roomNumber: "601",
-    checkIn: "2026-10-10",
-    checkOut: "2026-10-14",
-    nights: 4,
-    amount: 200000,
-    status: "Checked Out",
-    checkedOutAt: "2026-10-14 11:30",
-    paymentMethod: "Paystack (Online)",
-    paymentStatus: "Paid",
-    backendVerified: true,
-    verifiedAt: "2026-10-10 11:20",
-    source: "Direct Website",
-    createdAt: "2026-10-10 11:15"
-  },
-  {
-    id: "ARS-BGD-7812AB",
-    guestName: "Alhaji Ibrahim Musa",
-    phone: "0812 578 6875",
-    email: "ibrahim.musa@example.com",
-    roomType: "executive",
-    roomName: "Executive Room (Main Building)",
-    roomNumber: "601",
-    checkIn: "2026-10-20",
-    checkOut: "2026-10-23",
-    nights: 3,
-    amount: 150000,
-    status: "Confirmed",
-    paymentMethod: "Paystack (Online)",
-    paymentStatus: "Paid", // Confirmed by backend
-    backendVerified: true,
-    verifiedAt: "2026-10-20 09:16",
-    source: "Direct Website",
-    createdAt: "2026-10-20 09:15"
-  },
-  {
-    id: "ARS-BGD-6204NW",
-    guestName: "Senator Chuka Nwosu",
-    phone: "0802 999 1122",
-    email: "nwosu.chuka@assembly.gov.ng",
-    roomType: "super-executive",
-    roomName: "Super Executive Room (Main Building)",
-    roomNumber: "605",
-    checkIn: "2026-10-19",
-    checkOut: "2026-10-23",
-    nights: 4,
-    amount: 240000,
-    status: "Checked In",
-    paymentMethod: "Bank Transfer (Approved by GM)",
-    paymentStatus: "Paid", // Confirmed by backend
-    backendVerified: true,
-    verifiedAt: "2026-10-19 16:45",
-    source: "Front Desk Walk-In",
-    createdAt: "2026-10-19 16:40"
-  },
-  {
-    id: "ARS-EXT-4109DA",
-    guestName: "Dr. Ngozi Adeleke",
-    phone: "0806 555 4321",
-    email: "dr.adeleke@medspecialist.com",
-    roomType: "superior",
-    roomName: "Superior Room (Extension Building)",
-    roomNumber: "101",
-    checkIn: "2026-10-20",
-    checkOut: "2026-10-22",
-    nights: 2,
-    amount: 80000,
-    status: "Checked In",
-    paymentMethod: "POS Terminal (Front Desk)",
-    paymentStatus: "Paid", // Confirmed by backend
-    backendVerified: true,
-    verifiedAt: "2026-10-20 07:12",
-    source: "Front Desk Walk-In",
-    createdAt: "2026-10-20 07:10"
-  },
-  {
-    id: "ARS-BGD-3105KI",
-    guestName: "Arc. Kenneth Igwe",
-    phone: "0814 888 2345",
-    email: "kenneth.igwe@architects.ng",
-    roomType: "deluxe",
-    roomName: "Deluxe Room (Main Building)",
-    roomNumber: "602",
-    checkIn: "2026-10-21",
-    checkOut: "2026-10-22",
-    nights: 1,
-    amount: 35000,
-    status: "Confirmed",
-    paymentMethod: "Paystack (Online Auto-Confirmed)",
-    paymentStatus: "Paid",
-    backendVerified: true,
-    verifiedAt: "2026-10-21 10:16",
-    source: "Direct Website",
-    createdAt: "2026-10-21 10:15"
-  }
-];
+// 2. Production Room Bookings Ledger (Clean slate — zero active bookings)
+const INITIAL_BOOKINGS = [];
 
 // 3. Initial Staff Users (Two Dedicated Reception Desks + Executive Admin)
 const INITIAL_USERS = [
@@ -2835,6 +2692,42 @@ export const portalStore = {
     return cleanRooms;
   },
 
+  // Clear all booked rooms, wipe bookings ledger and reset all 34 rooms to 100% available
+  clearAllBookingsAndResetRooms() {
+    const cleanRooms = this.resetAllRoomsToAvailable();
+    setLocalItem(STORAGE_KEYS.BOOKINGS, []);
+    setLocalItem(STORAGE_KEYS.CANCELLATION_NOTIFICATIONS, []);
+    
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem(STORAGE_KEYS.CUSTOMER_SESSION);
+        sessionStorage.removeItem(STORAGE_KEYS.GUEST_SESSION);
+        localStorage.removeItem(STORAGE_KEYS.CUSTOMER_SESSION);
+        localStorage.removeItem(STORAGE_KEYS.GUEST_SESSION);
+      } catch (e) {}
+
+      window.dispatchEvent(new CustomEvent('ash_bookings_updated', { detail: { bookings: [] } }));
+      window.dispatchEvent(new CustomEvent('ash_customer_session_updated', { detail: null }));
+
+      // Clear cloud ledger in MantleDB
+      fetch('https://mantledb.sh/v2/arab-signature-hotel-bookings-prod-v1/ledger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookings: [], updatedAt: Date.now() })
+      }).catch(() => {});
+
+      // Clear /api/bookings
+      fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookings: [] })
+      }).catch(() => {});
+    }
+
+    this.logActivity('All booked rooms cleared. All 34 rooms reset to AVAILABLE for fresh testing.');
+    return { success: true, rooms: cleanRooms, bookings: [] };
+  },
+
   // Reset rooms for a specific building (Main Building or Extension Building)
   resetRoomsByBuilding(buildingName) {
     const current = this.getRooms();
@@ -3170,23 +3063,27 @@ export const portalStore = {
 
   // --- ROOMS INVENTORY ---
   getRooms() {
-    // One-time migration to v6 (34 total luxury rooms & suites in Nsugbe, Onitsha)
+    // One-time fresh reset migration: ensure all booked rooms are cleared and all 34 rooms are 100% available
     if (typeof localStorage !== 'undefined') {
       try {
-        if (!localStorage.getItem('ash_portal_rooms_v6_migrated')) {
+        if (!localStorage.getItem('ash_fresh_reset_20261029_done')) {
+          localStorage.removeItem('ash_portal_bookings_v10');
+          localStorage.removeItem('ash_portal_bookings_v9');
+          localStorage.removeItem('ash_portal_bookings_v8');
+          localStorage.removeItem('ash_portal_rooms_inventory_v9');
+          localStorage.removeItem('ash_portal_rooms_inventory_v8');
           localStorage.removeItem('ash_portal_rooms_inventory');
-          localStorage.removeItem('ash_portal_rooms_inventory_v2');
-          localStorage.removeItem('ash_portal_rooms_inventory_v3');
-          localStorage.removeItem('ash_portal_rooms_inventory_v4');
-          localStorage.removeItem('ash_portal_rooms_inventory_v5');
-          localStorage.setItem('ash_portal_rooms_v6_migrated', 'true');
+          localStorage.removeItem('ash_portal_cancellation_notifications_v1');
+          localStorage.removeItem('ash_active_guest_session_v2');
+          localStorage.removeItem('ash_customer_portal_session_v1');
+          localStorage.setItem('ash_fresh_reset_20261029_done', 'true');
         }
       } catch (e) {
         // ignore
       }
     }
-    const v7Rooms = getLocalItem(STORAGE_KEYS.ROOMS, null);
-    if (v7Rooms && Array.isArray(v7Rooms) && v7Rooms.length === 34) return v7Rooms;
+    const v10Rooms = getLocalItem(STORAGE_KEYS.ROOMS, null);
+    if (v10Rooms && Array.isArray(v10Rooms) && v10Rooms.length === 34) return v10Rooms;
     return INITIAL_ROOMS_INVENTORY;
   },
 
@@ -4362,7 +4259,17 @@ export const portalStore = {
         }
       }
 
-      // 3. High-Speed Push 2: restful-api.dev permanent cloud ledger (object ff808181a09d98f701a187be010f4d86)
+      // 3. High-Speed Push 2: MantleDB persistent cloud ledger (0 rate limits, instant)
+      fetch('https://mantledb.sh/v2/arab-signature-hotel-bookings-prod-v1/ledger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookings: allBookings,
+          updatedAt: Date.now()
+        })
+      }).catch(() => {});
+
+      // 4. Backup Push 3: restful-api.dev permanent cloud ledger (object ff808181a09d98f701a187be010f4d86)
       fetch('https://api.restful-api.dev/objects/ff808181a09d98f701a187be010f4d86', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -4375,7 +4282,7 @@ export const portalStore = {
         })
       }).catch(() => {});
 
-      // 4. Backup Push 3: Vercel Serverless /api/bookings
+      // 5. Backup Push 4: Vercel Serverless /api/bookings
       fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -4395,22 +4302,41 @@ export const portalStore = {
 
     let cloudBookings = null;
 
-    // 1. Primary: Query restful-api.dev master cloud ledger
+    // 1. Primary: Query MantleDB master cloud ledger (instant, persistent, 0 rate limit)
     try {
       const ctrl = new AbortController();
-      const timeoutId = setTimeout(() => ctrl.abort(), 3500);
-      const res = await fetch(`https://api.restful-api.dev/objects/ff808181a09d98f701a187be010f4d86?_t=${Date.now()}`, {
+      const timeoutId = setTimeout(() => ctrl.abort(), 3000);
+      const res = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-bookings-prod-v1/ledger?_t=${Date.now()}`, {
         cache: 'no-store',
         signal: ctrl.signal
       });
       clearTimeout(timeoutId);
       if (res.ok) {
         const json = await res.json();
-        if (json?.data?.bookings && Array.isArray(json.data.bookings) && json.data.bookings.length > 0) {
-          cloudBookings = json.data.bookings;
+        if (json?.bookings && Array.isArray(json.bookings)) {
+          cloudBookings = json.bookings;
         }
       }
     } catch (e) {}
+
+    // 2. Secondary: Query restful-api.dev master cloud ledger
+    if (!cloudBookings) {
+      try {
+        const ctrl = new AbortController();
+        const timeoutId = setTimeout(() => ctrl.abort(), 2000);
+        const res = await fetch(`https://api.restful-api.dev/objects/ff808181a09d98f701a187be010f4d86?_t=${Date.now()}`, {
+          cache: 'no-store',
+          signal: ctrl.signal
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.data?.bookings && Array.isArray(json.data.bookings) && json.data.bookings.length > 0) {
+            cloudBookings = json.data.bookings;
+          }
+        }
+      } catch (e) {}
+    }
 
     // 2. Secondary: Poll ntfy.sh general topic for recent bookings
     try {
@@ -4559,10 +4485,33 @@ export const portalStore = {
       } catch (e) {}
     }
 
-    // 3. High-Speed Lookup 2: restful-api.dev master ledger (<1200ms)
+    // 3. High-Speed Lookup 2: MantleDB master cloud ledger (<300ms, 0 rate limits)
     try {
       const ctrl = new AbortController();
-      const timeoutId = setTimeout(() => ctrl.abort(), 3000);
+      const timeoutId = setTimeout(() => ctrl.abort(), 2500);
+      const res = await fetch(`https://mantledb.sh/v2/arab-signature-hotel-bookings-prod-v1/ledger?_t=${Date.now()}`, {
+        cache: 'no-store',
+        signal: ctrl.signal
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const json = await res.json();
+        const cloudList = json?.bookings || [];
+        const match = cloudList.find(isMatch);
+        if (match) {
+          this.mergeSingleBookingLocally(match);
+          return match;
+        }
+        if (cloudList.length > 0) {
+          this.mergeCloudBookings(cloudList);
+        }
+      }
+    } catch (e) {}
+
+    // 4. Backup Lookup: restful-api.dev master ledger
+    try {
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort(), 2000);
       const res = await fetch(`https://api.restful-api.dev/objects/ff808181a09d98f701a187be010f4d86?_t=${Date.now()}`, {
         signal: ctrl.signal
       });

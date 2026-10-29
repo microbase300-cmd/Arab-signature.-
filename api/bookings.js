@@ -1,72 +1,12 @@
 // Vercel Serverless Function: High-Speed Multi-Device Shared Hotel Bookings Registry
-// Backed by persistent cloud ledger (restful-api.dev ff808181a09d98f701a187be010f4d86) + ntfy real-time pub/sub.
+// Backed by persistent cloud ledger (MantleDB + restful-api.dev) + ntfy real-time pub/sub.
 
+const MANTLE_LEDGER_URL = 'https://mantledb.sh/v2/arab-signature-hotel-bookings-prod-v1/ledger';
 const RESTFUL_API_LEDGER_URL = 'https://api.restful-api.dev/objects/ff808181a09d98f701a187be010f4d86';
 const NTFY_TOPIC_URL = 'https://ntfy.sh/arab-signature-hotel-bookings-sync-v1';
 
-const INITIAL_BOOKINGS = [
-  {
-    id: "ARS-BGD-3012KD",
-    guestName: "Valued Arab Guest",
-    phone: "0803 000 3012",
-    email: "guest.3012kd@arabsignature.com",
-    roomType: "deluxe",
-    roomName: "Arab Deluxe Suite (Main Building)",
-    roomNumber: "602",
-    checkIn: new Date().toISOString().split('T')[0],
-    checkOut: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
-    nights: 2,
-    amount: 70000,
-    status: "Confirmed",
-    paymentMethod: "Paystack (Online Verified)",
-    paymentStatus: "Paid",
-    paystackReference: "T679234012KD",
-    backendVerified: true,
-    verifiedAt: new Date().toLocaleString(),
-    source: "Direct Website (Paystack)",
-    createdAt: new Date().toLocaleString()
-  },
-  {
-    id: "ARS-EXT-9421XK",
-    guestName: "Chief Emeka Obi",
-    phone: "0803 234 5678",
-    email: "emeka.obi@nigerdelta.org",
-    roomType: "suites",
-    roomName: "Diplomatic Suite (Extension Building)",
-    roomNumber: "107",
-    checkIn: "2026-10-20",
-    checkOut: "2026-10-24",
-    nights: 4,
-    amount: 480000,
-    status: "Checked In",
-    paymentMethod: "Paystack (Online)",
-    paymentStatus: "Paid",
-    backendVerified: true,
-    verifiedAt: "2026-10-20 08:31",
-    source: "Direct Website",
-    createdAt: "2026-10-20 08:30"
-  },
-  {
-    id: "ARS-BGD-7812AB",
-    guestName: "Alhaji Ibrahim Musa",
-    phone: "0812 578 6875",
-    email: "ibrahim.musa@example.com",
-    roomType: "executive",
-    roomName: "Executive Room (Main Building)",
-    roomNumber: "601",
-    checkIn: "2026-10-20",
-    checkOut: "2026-10-23",
-    nights: 3,
-    amount: 150000,
-    status: "Confirmed",
-    paymentMethod: "Paystack (Online)",
-    paymentStatus: "Paid",
-    backendVerified: true,
-    verifiedAt: "2026-10-20 09:16",
-    source: "Direct Website",
-    createdAt: "2026-10-20 09:15"
-  }
-];
+// Production Clean Slate: 0 active demo bookings
+const INITIAL_BOOKINGS = [];
 
 let memoryCache = [...INITIAL_BOOKINGS];
 let lastSyncTimestamp = null;
@@ -105,11 +45,29 @@ function matchBooking(b, query) {
   return false;
 }
 
-// Fetch master ledger from restful-api.dev with timeout
+// Fetch master ledger from MantleDB (with restful-api.dev fallback)
 async function fetchCloudLedger() {
+  // 1. Primary: MantleDB
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 3000);
+    const res = await fetch(`${MANTLE_LEDGER_URL}?_t=${Date.now()}`, {
+      headers: { 'Accept': 'application/json' },
+      signal: ctrl.signal
+    });
+    clearTimeout(t);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.bookings)) {
+        return data.bookings;
+      }
+    }
+  } catch (e) {}
+
+  // 2. Secondary fallback: restful-api.dev
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 2000);
     const res = await fetch(RESTFUL_API_LEDGER_URL, {
       headers: { 'Accept': 'application/json' },
       signal: ctrl.signal
@@ -117,19 +75,37 @@ async function fetchCloudLedger() {
     clearTimeout(t);
     if (res.ok) {
       const data = await res.json();
-      if (data?.data?.bookings && Array.isArray(data.data.bookings) && data.data.bookings.length > 0) {
+      if (data?.data?.bookings && Array.isArray(data.data.bookings)) {
         return data.data.bookings;
       }
     }
   } catch (e) {}
+
   return null;
 }
 
-// Persist master ledger to restful-api.dev with timeout
+// Persist master ledger to MantleDB and restful-api.dev
 async function persistCloudLedger(bookings) {
+  // 1. Primary: MantleDB
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 3500);
+    await fetch(MANTLE_LEDGER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bookings,
+        updatedAt: Date.now()
+      }),
+      signal: ctrl.signal
+    });
+    clearTimeout(t);
+  } catch (e) {}
+
+  // 2. Secondary: restful-api.dev (if within rate limits)
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 2500);
     await fetch(RESTFUL_API_LEDGER_URL, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -160,7 +136,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // POST: Save or update booking(s)
+  // POST: Save or update booking(s), or clear ledger if empty array passed
   if (req.method === 'POST') {
     try {
       let body = req.body;
@@ -171,6 +147,20 @@ export default async function handler(req, res) {
       }
 
       const { booking, bookings } = body || {};
+
+      // Explicit clear ledger command
+      if (Array.isArray(bookings) && bookings.length === 0 && !booking) {
+        lastSyncTimestamp = Date.now();
+        memoryCache = [];
+        await persistCloudLedger([]);
+        return res.status(200).json({
+          success: true,
+          count: 0,
+          cleared: true,
+          updatedAt: lastSyncTimestamp
+        });
+      }
+
       const incomingList = (bookings || (booking ? [booking] : [])).map(sanitizeBooking).filter(Boolean);
 
       if (incomingList.length > 0) {
@@ -195,7 +185,7 @@ export default async function handler(req, res) {
 
         memoryCache = Array.from(map.values());
 
-        // 3. Persist asynchronously to restful-api.dev
+        // 3. Persist asynchronously to MantleDB
         persistCloudLedger(memoryCache).catch(() => {});
 
         // 4. Broadcast to ntfy.sh for instant real-time SSE delivery (<100ms)
@@ -260,7 +250,7 @@ export default async function handler(req, res) {
 
   // Return all bookings
   const cloudBookings = await fetchCloudLedger();
-  if (cloudBookings && cloudBookings.length > 0) {
+  if (cloudBookings) {
     memoryCache = cloudBookings;
   }
 

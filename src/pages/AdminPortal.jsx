@@ -13,7 +13,7 @@ import {
   Sparkles, KeyRound, Clock, Edit3, ChevronRight, UserCheck, 
   AlertCircle, ShieldAlert, Key, Check, Eye, EyeOff, Utensils,
   Wine, Plus, Trash2, Search, X, Flame, GlassWater, Beer, CreditCard, ExternalLink, Calculator, Image as ImageIcon, Copy,
-  Building2, Package, BellRing, Layers, BarChart3, Tag, Percent, Calendar, Camera, PartyPopper, Upload
+  Building2, Package, BellRing, Layers, BarChart3, Tag, Percent, Calendar, Camera, PartyPopper, Upload, RotateCcw
 } from 'lucide-react';
 import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
 import { compressImage } from '../utils/imageCompressor';
@@ -390,6 +390,14 @@ export default function AdminPortal({ onNavigate }) {
     setPromoActiveEdits(prev => ({ ...prev, [roomId]: false }));
     refreshData();
     showToast(`Promo cleared for ${roomId.toUpperCase()}. Reverted to standard rate.`);
+  };
+
+  const handleClearAllBookedRooms = () => {
+    if (window.confirm("Are you sure you want to clear ALL booked rooms? This will set all 34 rooms in Main Building and Extension Building to 'Available' and clear the booking ledger so you can start testing completely fresh.")) {
+      portalStore.clearAllBookingsAndResetRooms();
+      refreshData();
+      showToast("All booked rooms cleared! All 34 rooms are now 100% available.");
+    }
   };
 
   const handleSaveAllRates = () => {
@@ -1449,9 +1457,19 @@ export default function AdminPortal({ onNavigate }) {
                         Instant room-by-room occupancy across both buildings
                       </p>
                     </div>
-                    <span className="px-2.5 py-1 rounded-lg bg-[#d4af37]/15 border border-[#d4af37]/30 text-[#f3e5ab] text-xs font-mono font-bold">
-                      {totalRoomsBooked} / {rooms.length || 34} Booked
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2.5 py-1 rounded-lg bg-[#d4af37]/15 border border-[#d4af37]/30 text-[#f3e5ab] text-xs font-mono font-bold">
+                        {totalRoomsBooked} / {rooms.length || 34} Booked
+                      </span>
+                      <button
+                        onClick={handleClearAllBookedRooms}
+                        className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 hover:text-white text-[11px] font-semibold transition-all flex items-center gap-1.5 shadow-sm"
+                        title="Clear all booked rooms and reset all 34 rooms to available for fresh testing"
+                      >
+                        <RotateCcw size={12} />
+                        <span>Clear All Booked Rooms</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Main Building 600 Wing Grid */}
