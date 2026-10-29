@@ -2648,15 +2648,36 @@ export const portalStore = {
     const existingBookings = this.getBookings();
     const existingCodes = new Set(existingBookings.map(b => String(b.id || '').toUpperCase()));
 
-    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    // High-entropy alphabet: 31 chars (excludes 0/O, 1/I/L for visual clarity)
+    // 8 characters = 31^8 = 852,891,037,441 (>852 Billion combinations)
+    // Guessing collision probability: < 0.0000001% (virtually zero)
+    const CHARS = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+    const generateToken = (length = 8) => {
+      let token = '';
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        const bytes = new Uint8Array(length * 4);
+        crypto.getRandomValues(bytes);
+        let i = 0;
+        while (token.length < length && i < bytes.length) {
+          const b = bytes[i++];
+          if (b < 248) { // 31 * 8 = 248 (zero modulo bias)
+            token += CHARS.charAt(b % CHARS.length);
+          }
+        }
+      }
+      while (token.length < length) {
+        token += CHARS.charAt(Math.floor(Math.random() * CHARS.length));
+      }
+      return token;
+    };
+
     let code = '';
     let attempts = 0;
     do {
-      // 4-digit random sequence (1000 - 9999) + 2 random uppercase letters at the back
-      const randNum = Math.floor(1000 + Math.random() * 9000);
-      const letter1 = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
-      const letter2 = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
-      code = `${prefix}${randNum}${letter1}${letter2}`;
+      const token = generateToken(8);
+      const chunk1 = token.slice(0, 4);
+      const chunk2 = token.slice(4, 8);
+      code = `${prefix}${chunk1}-${chunk2}`;
       attempts++;
     } while (existingCodes.has(code) && attempts < 10000);
 
@@ -3822,42 +3843,48 @@ export const portalStore = {
   findBookingByCode(code) {
     if (!code) return null;
     const clean = String(code).trim().toUpperCase();
+    if (!clean) return null;
+
     const cleanAlphaNum = clean.replace(/[^A-Z0-9]/g, '');
     const bookings = this.getBookings();
 
-    return bookings.find(b => {
+    // 1. Direct and Exact Alphanumeric Matching (No substring guessing)
+    for (const b of bookings) {
       const bId = String(b.id || b.bookingCode || '').trim().toUpperCase();
-      if (!bId) return false;
-      if (bId === clean) return true;
-      if (bId === `ARS-BGD-${clean}` || bId === `ARS-EXT-${clean}` || bId === `ASH-${clean}`) return true;
+      if (!bId) continue;
 
+      // Exact string match (e.g. "ARS-BGD-7K9P-4X2M" or legacy "ARS-BGD-3012KD")
+      if (bId === clean) return b;
+
+      // With standard prefix prepended if omitted by user
+      if (bId === `ARS-BGD-${clean}` || bId === `ARS-EXT-${clean}` || bId === `ASH-${clean}`) return b;
+
+      // Alphanumeric exact match without hyphens/spaces (e.g. ARSBGD7K9P4X2M === ARS-BGD-7K9P-4X2M)
+      const alphaBId = bId.replace(/[^A-Z0-9]/g, '');
+      if (alphaBId && cleanAlphaNum && alphaBId === cleanAlphaNum) return b;
+
+      // Suffix exact match: If the user entered only the random suffix token (e.g. 7K9P-4X2M, 7K9P4X2M, or legacy 3012KD)
       const strippedBId = bId.replace(/^(ARS-BGD-|ARS-EXT-|ASH-)/, '');
       const strippedClean = clean.replace(/^(ARS-BGD-|ARS-EXT-|ASH-)/, '');
-      if (strippedBId && strippedClean && strippedBId === strippedClean) return true;
+      if (strippedBId && strippedClean && strippedBId === strippedClean) return b;
 
-      // Alphanumeric comparison without hyphens/spaces (e.g. ARS-BGD-3012KD matches ARSBGD3012KD)
-      const alphaBId = bId.replace(/[^A-Z0-9]/g, '');
-      if (alphaBId && cleanAlphaNum && alphaBId === cleanAlphaNum) return true;
-
-      // Suffix match (e.g. 3012KD matches ARS-BGD-3012KD)
-      if (cleanAlphaNum.length >= 4 && (alphaBId.endsWith(cleanAlphaNum) || alphaBId.includes(cleanAlphaNum))) return true;
-
-      // Suffix alphanumeric comparison (e.g. 7812-AB matches 7812AB)
       const alphaStrippedBId = strippedBId.replace(/[^A-Z0-9]/g, '');
       const alphaStrippedClean = strippedClean.replace(/[^A-Z0-9]/g, '');
-      if (alphaStrippedBId && alphaStrippedClean && alphaStrippedBId === alphaStrippedClean) return true;
+      if (alphaStrippedBId && alphaStrippedClean && alphaStrippedBId === alphaStrippedClean) return b;
+    }
 
-      // Digits-only base comparison for backward compatibility
-      const bDigits = strippedBId.replace(/\D/g, '');
-      const cDigits = strippedClean.replace(/\D/g, '');
-      if (bDigits && cDigits && bDigits.length >= 4 && bDigits === cDigits) return true;
+    // 2. Strict Phone Match: ONLY if the user entered a full phone number (>= 10 digits)
+    const queryDigits = clean.replace(/\D/g, '');
+    if (queryDigits.length >= 10) {
+      const normQueryPhone = this.normalizePhone(queryDigits);
+      for (const b of bookings) {
+        if (!b.phone) continue;
+        const normBPhone = this.normalizePhone(b.phone);
+        if (normBPhone && normBPhone === normQueryPhone) return b;
+      }
+    }
 
-      // Phone match if query entered is phone number (7+ digits)
-      const phoneDigits = String(b.phone || '').replace(/[^0-9]/g, '');
-      if (cleanAlphaNum.length >= 7 && phoneDigits.endsWith(cleanAlphaNum)) return true;
-
-      return false;
-    }) || null;
+    return null;
   },
 
   getCustomerHistoryByBookingCode(bookingCode) {
@@ -4233,13 +4260,19 @@ export const portalStore = {
     // Helper to test if a candidate booking matches query
     const isMatch = (b) => {
       if (!b) return false;
-      const bId = String(b.id || b.bookingCode || '').toUpperCase();
+      const bId = String(b.id || b.bookingCode || '').trim().toUpperCase();
       const bAlpha = bId.replace(/[^A-Z0-9]/g, '').toLowerCase();
       if (bId === clean || bAlpha === cleanAlphaNum) return true;
-      if (cleanAlphaNum.length >= 4 && (bAlpha.endsWith(cleanAlphaNum) || bAlpha.includes(cleanAlphaNum))) return true;
-      if (suffixAlpha.length >= 4 && bAlpha.endsWith(suffixAlpha)) return true;
+
+      // Suffix exact match
+      const strippedBId = bId.replace(/^(ARS-BGD-|ARS-EXT-|ASH-)/, '');
+      const strippedClean = clean.replace(/^(ARS-BGD-|ARS-EXT-|ASH-)/, '');
+      if (strippedBId && strippedClean && strippedBId === strippedClean) return true;
+      if (suffixAlpha && suffixAlpha.length >= 6 && bAlpha.endsWith(suffixAlpha)) return true;
+
+      // Strict Phone match only if 10+ digits
       const phoneDigits = String(b.phone || '').replace(/[^0-9]/g, '');
-      if (cleanAlphaNum.length >= 7 && phoneDigits.endsWith(cleanAlphaNum)) return true;
+      if (cleanAlphaNum.length >= 10 && phoneDigits.endsWith(cleanAlphaNum)) return true;
       return false;
     };
 
@@ -4450,14 +4483,36 @@ export const portalStore = {
     const existingOrders = this.getDiningOrders();
     const existingCodes = new Set(existingOrders.map(o => String(o.id || '').toUpperCase()));
 
-    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    // High-entropy alphabet: 31 chars (excludes 0/O, 1/I/L)
+    // 8 characters = 31^8 = 852,891,037,441 (>852 Billion combinations)
+    // Guessing collision probability: < 0.0000001% (virtually zero)
+    const CHARS = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+    const generateToken = (length = 8) => {
+      let token = '';
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        const bytes = new Uint8Array(length * 4);
+        crypto.getRandomValues(bytes);
+        let i = 0;
+        while (token.length < length && i < bytes.length) {
+          const b = bytes[i++];
+          if (b < 248) { // 31 * 8 = 248 (zero modulo bias)
+            token += CHARS.charAt(b % CHARS.length);
+          }
+        }
+      }
+      while (token.length < length) {
+        token += CHARS.charAt(Math.floor(Math.random() * CHARS.length));
+      }
+      return token;
+    };
+
     let code = '';
     let attempts = 0;
     do {
-      const randNum = Math.floor(1000 + Math.random() * 9000);
-      const letter1 = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
-      const letter2 = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
-      code = `${prefix}${randNum}${letter1}${letter2}`;
+      const token = generateToken(8);
+      const chunk1 = token.slice(0, 4);
+      const chunk2 = token.slice(4, 8);
+      code = `${prefix}${chunk1}-${chunk2}`;
       attempts++;
     } while (existingCodes.has(code) && attempts < 10000);
 
@@ -4467,15 +4522,31 @@ export const portalStore = {
   findDiningOrderByCode(code) {
     if (!code) return null;
     const clean = String(code).trim().toUpperCase();
+    if (!clean) return null;
+
     const alphaClean = clean.replace(/[^A-Z0-9]/g, '');
     const orders = this.getDiningOrders();
 
-    return orders.find(o => {
-      const oId = String(o.id || '').toUpperCase();
-      if (oId === clean) return true;
-      if (oId.replace(/[^A-Z0-9]/g, '') === alphaClean) return true;
-      return false;
-    }) || null;
+    for (const o of orders) {
+      const oId = String(o.id || '').trim().toUpperCase();
+      if (!oId) continue;
+
+      if (oId === clean) return o;
+      if (oId === `ARB-FDD-${clean}` || oId === `ARB-DRK-${clean}`) return o;
+
+      const alphaOId = oId.replace(/[^A-Z0-9]/g, '');
+      if (alphaOId && alphaClean && alphaOId === alphaClean) return o;
+
+      const strippedOId = oId.replace(/^(ARB-FDD-|ARB-DRK-)/, '');
+      const strippedClean = clean.replace(/^(ARB-FDD-|ARB-DRK-)/, '');
+      if (strippedOId && strippedClean && strippedOId === strippedClean) return o;
+
+      const alphaStrippedOId = strippedOId.replace(/[^A-Z0-9]/g, '');
+      const alphaStrippedClean = strippedClean.replace(/[^A-Z0-9]/g, '');
+      if (alphaStrippedOId && alphaStrippedClean && alphaStrippedOId === alphaStrippedClean) return o;
+    }
+
+    return null;
   },
 
   /**
@@ -4814,14 +4885,7 @@ export const portalStore = {
   },
 
   getDiningOrderByCode(code) {
-    if (!code) return null;
-    const clean = String(code).trim().toUpperCase();
-    const cleanAlphaNum = clean.replace(/[^A-Z0-9]/g, '');
-    const orders = this.getDiningOrders();
-    return orders.find(o => {
-      const oId = String(o.id || '').trim().toUpperCase();
-      return oId === clean || oId.replace(/[^A-Z0-9]/g, '') === cleanAlphaNum;
-    }) || null;
+    return this.findDiningOrderByCode(code);
   },
 
   _broadcastDiningOrdersUpdate(updatedOrders, newOrder = null) {

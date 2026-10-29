@@ -30,6 +30,8 @@ export default function CounterCheckInModal({
   const [checkedInRecord, setCheckedInRecord] = useState(null);
   const [copiedCode, setCopiedCode] = useState(false);
   const [recentPendingBookings, setRecentPendingBookings] = useState([]);
+  const [isIdVerified, setIsIdVerified] = useState(false);
+  const [idVerificationError, setIdVerificationError] = useState('');
 
   // Load recent confirmed reservations awaiting check-in & sync from cloud
   useEffect(() => {
@@ -38,6 +40,8 @@ export default function CounterCheckInModal({
       setCodeInput(startCode);
       setSearchedBooking(null);
       setSearchError('');
+      setIsIdVerified(false);
+      setIdVerificationError('');
       setIsCheckInSuccess(false);
       setCheckedInRecord(null);
 
@@ -75,6 +79,8 @@ export default function CounterCheckInModal({
     }
 
     setSearchError('');
+    setIsIdVerified(false);
+    setIdVerificationError('');
     setIsSearching(true);
 
     try {
@@ -95,6 +101,8 @@ export default function CounterCheckInModal({
       }
 
       setSearchedBooking(found);
+      setIsIdVerified(false);
+      setIdVerificationError('');
       setIsCheckInSuccess(found.status === 'Checked In');
 
       // Auto-select or suggest an available room number
@@ -120,6 +128,15 @@ export default function CounterCheckInModal({
   // Perform Check-In
   const handleConfirmCheckIn = () => {
     if (!searchedBooking) return;
+
+    // Strict Receptionist Security Protocol: Cross-check customer physical ID against registered name
+    if (!isIdVerified) {
+      setIdVerificationError(
+        `MANDATORY PROTOCOL: Please ask the guest for physical Government ID, confirm the full name matches "${searchedBooking.guestName}", and tick the verification confirmation box above before issuing keycards.`
+      );
+      return;
+    }
+
     if (!selectedRoomNumber) {
       setSearchError('Please select a room number to allocate keycard.');
       return;
@@ -371,6 +388,83 @@ export default function CounterCheckInModal({
                 </div>
               )}
 
+              {/* MANDATORY FRONT DESK IDENTITY CROSS-CHECK NOTICE */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#2a1705] via-[#3d2005] to-[#1c0f03] border-2 border-amber-400/80 shadow-2xl space-y-3 relative overflow-hidden">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <div className="w-9 h-9 rounded-full bg-amber-500/20 border border-amber-400 flex items-center justify-center text-amber-300">
+                      <ShieldCheck size={20} className="stroke-[2.5]" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-mono font-black tracking-widest text-amber-300 uppercase block">
+                        MANDATORY FRONT DESK PROTOCOL
+                      </span>
+                      <h4 className="text-sm sm:text-base font-cinzel font-bold text-white">
+                        Physical ID &amp; Customer Name Cross-Check
+                      </h4>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50">
+                    IDENTITY VERIFICATION
+                  </span>
+                </div>
+
+                {/* Customer Name Highlight Box */}
+                <div className="p-3 sm:p-3.5 rounded-xl bg-black/70 border border-amber-400/40 flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <span className="text-[10px] uppercase font-mono tracking-wider text-gray-400 block font-semibold">
+                      Registered Customer Full Name
+                    </span>
+                    <span className="text-lg sm:text-xl font-cinzel font-black text-[#f3e5ab] tracking-wide flex items-center gap-1.5 mt-0.5">
+                      <User size={18} className="text-[#d4af37]" />
+                      {searchedBooking.guestName}
+                    </span>
+                  </div>
+                  {searchedBooking.phone && (
+                    <div className="text-right">
+                      <span className="text-[10px] uppercase font-mono tracking-wider text-gray-400 block font-semibold">
+                        Registered Mobile
+                      </span>
+                      <span className="text-xs sm:text-sm font-mono font-bold text-gray-200">
+                        {searchedBooking.phone}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Strict Instructions */}
+                <p className="text-xs text-amber-100/90 leading-relaxed">
+                  ⚠️ <strong>Receptionist Instruction:</strong> Before issuing an RFID room keycard or confirming check-in, request the guest's <strong>physical Government-Issued ID</strong> (NIN Slip, Driver's License, International Passport, or Voter's Card) and physically cross-check that the bearer's full name matches <strong className="text-white underline decoration-[#d4af37]">"{searchedBooking.guestName}"</strong>.
+                </p>
+
+                {/* Interactive Verification Checkbox */}
+                <label className={`flex items-start gap-2.5 p-3 rounded-xl border transition-all cursor-pointer select-none ${
+                  isIdVerified 
+                    ? 'bg-emerald-950/50 border-emerald-400 text-emerald-200 shadow-lg' 
+                    : 'bg-black/50 border-amber-400/50 text-amber-100 hover:bg-black/70'
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={isIdVerified}
+                    onChange={(e) => {
+                      setIsIdVerified(e.target.checked);
+                      if (e.target.checked) setIdVerificationError('');
+                    }}
+                    className="mt-0.5 w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                  />
+                  <span className="text-xs leading-snug">
+                    <strong>Identity Verified:</strong> I have physically inspected the customer's government ID and confirmed the full name matches <strong>"{searchedBooking.guestName}"</strong>.
+                  </span>
+                </label>
+
+                {idVerificationError && (
+                  <div className="p-2.5 rounded-lg bg-rose-950/80 border border-rose-500/60 text-rose-200 text-xs flex items-center gap-2 animate-fadeIn">
+                    <AlertCircle size={15} className="text-rose-400 shrink-0" />
+                    <span>{idVerificationError}</span>
+                  </div>
+                )}
+              </div>
+
               {/* 2-Column Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 
@@ -492,16 +586,24 @@ export default function CounterCheckInModal({
                 onClick={handleConfirmCheckIn}
                 className="w-full py-3.5 rounded-xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-2xl transition-all cursor-pointer active:scale-[0.99] hover:brightness-110"
                 style={{
-                  background: 'linear-gradient(135deg, #059669 0%, #10b981 50%, #047857 100%)',
+                  background: isIdVerified
+                    ? 'linear-gradient(135deg, #059669 0%, #10b981 50%, #047857 100%)'
+                    : 'linear-gradient(135deg, #854d0e 0%, #ca8a04 50%, #a16207 100%)',
                   color: '#ffffff',
-                  border: '2px solid #a7f3d0',
-                  boxShadow: '0 6px 20px rgba(16, 185, 129, 0.45)',
+                  border: isIdVerified ? '2px solid #a7f3d0' : '2px solid #fde047',
+                  boxShadow: isIdVerified
+                    ? '0 6px 20px rgba(16, 185, 129, 0.45)'
+                    : '0 6px 20px rgba(202, 138, 4, 0.35)',
                   fontWeight: '900',
                   letterSpacing: '0.04em'
                 }}
               >
                 <CheckCircle2 size={18} className="stroke-[2.5]" />
-                <span>Confirm Booking Code &amp; Check In Guest</span>
+                <span>
+                  {isIdVerified
+                    ? 'Confirm Booking Code & Check In Guest'
+                    : 'Verify Customer ID & Complete Check-In'}
+                </span>
               </button>
             </div>
           )}

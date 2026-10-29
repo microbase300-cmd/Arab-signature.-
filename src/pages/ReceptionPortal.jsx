@@ -4187,6 +4187,17 @@ export default function ReceptionPortal({ onNavigate }) {
                   </span>
                 </div>
 
+                {/* Front Desk Customer Identity Cross-Check Notice */}
+                <div className="p-2.5 rounded-lg bg-amber-950/40 border border-amber-500/40 text-amber-200 text-xs flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck size={16} className="text-amber-400 shrink-0" />
+                    <span>
+                      <strong>Handover Protocol:</strong> Cross-check customer name: <strong className="text-white underline decoration-[#d4af37]">{verifiedOrder.guestName}</strong>
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider font-bold">Cross-Check ID</span>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-[10px] font-mono uppercase text-gray-400 block">Customer</span>

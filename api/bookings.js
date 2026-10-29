@@ -88,11 +88,19 @@ function matchBooking(b, query) {
   const bAlpha = bId.replace(/[^A-Z0-9]/g, '');
 
   if (bId === cleanQuery || bAlpha === alphaQuery) return true;
-  if (alphaQuery.length >= 4 && (bAlpha.endsWith(alphaQuery) || bAlpha.includes(alphaQuery))) return true;
 
-  // Phone match
+  // Suffix exact match
+  const strippedBId = bId.replace(/^(ARS-BGD-|ARS-EXT-|ASH-)/, '');
+  const strippedClean = cleanQuery.replace(/^(ARS-BGD-|ARS-EXT-|ASH-)/, '');
+  if (strippedBId && strippedClean && strippedBId === strippedClean) return true;
+
+  const alphaStrippedBId = strippedBId.replace(/[^A-Z0-9]/g, '');
+  const alphaStrippedClean = strippedClean.replace(/[^A-Z0-9]/g, '');
+  if (alphaStrippedBId && alphaStrippedClean && alphaStrippedBId === alphaStrippedClean) return true;
+
+  // Strict Phone match (full number: 10+ digits)
   const phoneDigits = String(b.phone || '').replace(/[^0-9]/g, '');
-  if (alphaQuery.length >= 7 && phoneDigits.endsWith(alphaQuery)) return true;
+  if (alphaQuery.length >= 10 && phoneDigits.endsWith(alphaQuery)) return true;
 
   return false;
 }
