@@ -129,10 +129,10 @@ export default function CounterCheckInModal({
   const handleConfirmCheckIn = () => {
     if (!searchedBooking) return;
 
-    // Strict Receptionist Security Protocol: Cross-check customer physical ID against registered name
+    // Strict Receptionist Security Protocol: Cross-check customer name against registered reservation
     if (!isIdVerified) {
       setIdVerificationError(
-        `MANDATORY PROTOCOL: Please ask the guest for physical Government ID, confirm the full name matches "${searchedBooking.guestName}", and tick the verification confirmation box above before issuing keycards.`
+        `Please confirm with the arriving guest that their name matches "${searchedBooking.guestName}", and tick the name confirmation box above before issuing keycards.`
       );
       return;
     }
@@ -388,7 +388,7 @@ export default function CounterCheckInModal({
                 </div>
               )}
 
-              {/* MANDATORY FRONT DESK IDENTITY CROSS-CHECK NOTICE */}
+              {/* FRONT DESK CUSTOMER NAME CROSS-CHECK NOTICE */}
               <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#2a1705] via-[#3d2005] to-[#1c0f03] border-2 border-amber-400/80 shadow-2xl space-y-3 relative overflow-hidden">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
@@ -397,15 +397,15 @@ export default function CounterCheckInModal({
                     </div>
                     <div>
                       <span className="text-[10px] font-mono font-black tracking-widest text-amber-300 uppercase block">
-                        MANDATORY FRONT DESK PROTOCOL
+                        FRONT DESK PROTOCOL
                       </span>
                       <h4 className="text-sm sm:text-base font-cinzel font-bold text-white">
-                        Physical ID &amp; Customer Name Cross-Check
+                        Customer Name Confirmation
                       </h4>
                     </div>
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50">
-                    IDENTITY VERIFICATION
+                    NAME VERIFICATION
                   </span>
                 </div>
 
@@ -432,9 +432,9 @@ export default function CounterCheckInModal({
                   )}
                 </div>
 
-                {/* Strict Instructions */}
+                {/* Instructions */}
                 <p className="text-xs text-amber-100/90 leading-relaxed">
-                  ⚠️ <strong>Receptionist Instruction:</strong> Before issuing an RFID room keycard or confirming check-in, request the guest's <strong>physical Government-Issued ID</strong> (NIN Slip, Driver's License, International Passport, or Voter's Card) and physically cross-check that the bearer's full name matches <strong className="text-white underline decoration-[#d4af37]">"{searchedBooking.guestName}"</strong>.
+                  ⚠️ <strong>Receptionist Instruction:</strong> Please cross-check and confirm with the customer that their full name matches <strong className="text-white underline decoration-[#d4af37]">"{searchedBooking.guestName}"</strong> before issuing an RFID room keycard or confirming check-in.
                 </p>
 
                 {/* Interactive Verification Checkbox */}
@@ -453,7 +453,7 @@ export default function CounterCheckInModal({
                     className="mt-0.5 w-4 h-4 accent-amber-500 rounded cursor-pointer"
                   />
                   <span className="text-xs leading-snug">
-                    <strong>Identity Verified:</strong> I have physically inspected the customer's government ID and confirmed the full name matches <strong>"{searchedBooking.guestName}"</strong>.
+                    <strong>Name Confirmed:</strong> I have confirmed with the arriving guest that their name matches <strong>"{searchedBooking.guestName}"</strong>.
                   </span>
                 </label>
 
@@ -602,7 +602,7 @@ export default function CounterCheckInModal({
                 <span>
                   {isIdVerified
                     ? 'Confirm Booking Code & Check In Guest'
-                    : 'Verify Customer ID & Complete Check-In'}
+                    : 'Confirm Customer Name & Complete Check-In'}
                 </span>
               </button>
             </div>

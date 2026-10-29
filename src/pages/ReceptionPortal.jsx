@@ -5,7 +5,8 @@ import {
   Search, Filter, Plus, Printer, MessageSquare, LogOut, ArrowLeft, ArrowRight, 
   Sparkles, RefreshCw, Key, ShieldCheck, Check, AlertCircle, X, ChevronRight,
   TrendingUp, DoorOpen, Sparkle, Utensils, Lock, Wine, Bell, BellRing, Eye, Volume2, VolumeX,
-  Copy, Receipt, CreditCard, MapPin, Heart, Image as ImageIcon, Upload, Trash2, Download
+  Copy, Receipt, CreditCard, MapPin, Heart, Image as ImageIcon, Upload, Trash2, Download,
+  XCircle, Send
 } from 'lucide-react';
 import { compressImage, formatFileSize } from '../utils/imageCompressor';
 import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
@@ -68,6 +69,12 @@ export default function ReceptionPortal({ onNavigate }) {
   // Front Desk Counter Check-In & Booking Code Verification Modal
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
   const [checkInInitialCode, setCheckInInitialCode] = useState('');
+
+  // Formal Reservation Cancellation Request Modal
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelReasonInput, setCancelReasonInput] = useState('');
+  const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
 
   // Front Desk Intercom Chat State
   const [chatMessages, setChatMessages] = useState([]);
@@ -535,6 +542,61 @@ export default function ReceptionPortal({ onNavigate }) {
     portalStore.updateRoomStatus(roomNumber, newStatus, guestName);
     refreshData();
     showToast(`Room ${roomNumber} updated to ${newStatus.toUpperCase()}`);
+  };
+
+  // Reservation Cancellation Request Handlers (Dispatches alert to CEO & Accountant for confirmation)
+  const handlePromptCancelReservation = (room) => {
+    const activeBooking = bookings.find(b => 
+      String(b.roomNumber) === String(room.roomNumber) && 
+      ['Confirmed', 'Reservation Hold', 'Cancellation Pending'].includes(b.status)
+    );
+    setCancelTarget({
+      bookingId: activeBooking?.id || `ROOM-${room.roomNumber}`,
+      roomNumber: room.roomNumber,
+      guestName: activeBooking?.guestName || room.currentGuest || 'Reserved Guest',
+      amount: activeBooking?.amount || room.price || 0,
+      building: room.building || getDeskBuilding(),
+      booking: activeBooking
+    });
+    setCancelReasonInput('');
+    setIsCancelModalOpen(true);
+  };
+
+  const handlePromptCancelBooking = (booking) => {
+    setCancelTarget({
+      bookingId: booking.id,
+      roomNumber: booking.roomNumber,
+      guestName: booking.guestName,
+      amount: booking.amount,
+      building: getBookingBuilding(booking),
+      booking: booking
+    });
+    setCancelReasonInput('');
+    setIsCancelModalOpen(true);
+  };
+
+  const handleSubmitCancellationRequest = () => {
+    if (!cancelTarget) return;
+    setIsSubmittingCancel(true);
+
+    try {
+      portalStore.requestReservationCancellation({
+        bookingId: cancelTarget.bookingId,
+        roomNumber: cancelTarget.roomNumber,
+        reason: cancelReasonInput.trim() || 'Customer requested reservation cancellation',
+        requestedBy: `${currentUser?.name || 'Front Desk'} (${getDeskBuilding()})`
+      });
+
+      setIsSubmittingCancel(false);
+      setIsCancelModalOpen(false);
+      refreshData();
+      showToast(
+        `Cancellation request dispatched to CEO & Chief Accountant! Reservation will be cancelled once Accountant confirms.`
+      );
+    } catch (err) {
+      setIsSubmittingCancel(false);
+      alert(err.message || 'Could not submit cancellation request.');
+    }
   };
 
   // Check In / Check Out from ledger (Enforces Building Operational Permissions)
@@ -1519,6 +1581,7 @@ export default function ReceptionPortal({ onNavigate }) {
                       const isAvailable = room.status === 'available';
                       const isCleaning = room.status === 'cleaning';
                       const isReserved = room.status === 'reserved';
+                      const isCancellationPending = room.status === 'cancellation_pending';
 
                       let borderClass = 'border-white/10';
                       let bgCard = 'bg-[#16030c]';
@@ -1540,6 +1603,10 @@ export default function ReceptionPortal({ onNavigate }) {
                         borderClass = 'border-sky-500/50 hover:border-sky-400';
                         bgCard = 'bg-gradient-to-br from-[#16030c] to-[#04152b]';
                         badgeColor = 'bg-sky-500/20 text-sky-400 border-sky-500/40';
+                      } else if (isCancellationPending) {
+                        borderClass = 'border-amber-400/80 shadow-amber-500/20';
+                        bgCard = 'bg-gradient-to-br from-[#16030c] to-[#361705]';
+                        badgeColor = 'bg-amber-500/30 text-amber-300 border-amber-400/60 animate-pulse';
                       }
 
                       return (
@@ -1649,6 +1716,13 @@ export default function ReceptionPortal({ onNavigate }) {
                                 </div>
                               )}
 
+                              {isCancellationPending && (
+                                <div className="w-full py-2 px-2.5 rounded-lg bg-amber-950/70 border border-amber-500/50 text-amber-200 text-[10px] font-mono font-bold text-center flex items-center justify-center gap-1.5 shadow-sm">
+                                  <Clock size={12} className="text-amber-400 animate-spin" />
+                                  <span>Cancellation Pending Accountant Approval</span>
+                                </div>
+                              )}
+
                               {isReserved && (
                                 <div className="flex items-center gap-1.5">
                                   <button
@@ -1658,11 +1732,12 @@ export default function ReceptionPortal({ onNavigate }) {
                                     Check In
                                   </button>
                                   <button
-                                    onClick={() => handleUpdateRoomStatus(room.roomNumber, 'available')}
-                                    className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 text-[11px] font-semibold transition-all flex items-center justify-center gap-1"
+                                    onClick={() => handlePromptCancelReservation(room)}
+                                    className="flex-1 py-1.5 px-2 rounded-lg bg-rose-950/70 hover:bg-rose-900 border border-rose-500/50 text-rose-200 text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                                    title="Cancel reservation (Dispatches cancellation request to CEO & Accountant)"
                                   >
-                                    <Check size={11} />
-                                    <span>Make Available</span>
+                                    <XCircle size={12} className="text-rose-400" />
+                                    <span>Cancel Reservation</span>
                                   </button>
                                 </div>
                               )}
@@ -1682,9 +1757,11 @@ export default function ReceptionPortal({ onNavigate }) {
                                     ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                                     : isCleaning
                                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                    : isCancellationPending
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
                                     : 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
                                 }`}>
-                                  {isAvailable ? 'VACANT & READY' : room.status.toUpperCase()}
+                                  {isAvailable ? 'VACANT & READY' : isCancellationPending ? 'CANCELLATION PENDING' : room.status.toUpperCase()}
                                 </span>
                               </div>
                             </div>
@@ -1974,13 +2051,21 @@ export default function ReceptionPortal({ onNavigate }) {
                           {/* Status */}
                           <td className="py-3.5 px-4">
                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border ${
-                              isCheckedIn
+                              b.status === 'Cancellation Pending'
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-400/50 animate-pulse font-mono'
+                                : b.status === 'Cancelled'
+                                ? 'bg-gray-500/20 text-gray-400 border-gray-500/40 font-mono'
+                                : isCheckedIn
                                 ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
                                 : b.paymentStatus === 'Paid'
                                 ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
                                 : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                             }`}>
-                              {b.paymentStatus === 'Paid' ? b.status : 'Awaiting Payment Audit'}
+                              {b.status === 'Cancellation Pending'
+                                ? 'Cancellation Pending Audit'
+                                : b.paymentStatus === 'Paid'
+                                ? b.status
+                                : 'Awaiting Payment Audit'}
                             </span>
                           </td>
 
@@ -2003,13 +2088,33 @@ export default function ReceptionPortal({ onNavigate }) {
                                   )}
 
                                   {isConfirmed && b.paymentStatus === 'Paid' && (
-                                    <button
-                                      onClick={() => handleToggleBookingStatus(b)}
-                                      className="px-2.5 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white text-[11px] font-semibold transition-all flex items-center gap-1"
+                                    <>
+                                      <button
+                                        onClick={() => handleToggleBookingStatus(b)}
+                                        className="px-2.5 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white text-[11px] font-semibold transition-all flex items-center gap-1"
+                                      >
+                                        <Key size={12} />
+                                        <span>Check In</span>
+                                      </button>
+                                      <button
+                                        onClick={() => handlePromptCancelBooking(b)}
+                                        className="px-2.5 py-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900 border border-rose-500/40 text-rose-300 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                                        title="Cancel reservation (Dispatches cancellation request to CEO & Accountant)"
+                                      >
+                                        <XCircle size={11} className="text-rose-400" />
+                                        <span>Cancel Res</span>
+                                      </button>
+                                    </>
+                                  )}
+
+                                  {b.status === 'Cancellation Pending' && (
+                                    <span
+                                      className="px-2.5 py-1 rounded-lg bg-amber-950/60 border border-amber-400/50 text-amber-300 text-[10px] font-mono font-bold flex items-center gap-1 animate-pulse"
+                                      title="Cancellation request sent to CEO & Accountant. Awaiting Chief Accountant confirmation."
                                     >
-                                      <Key size={12} />
-                                      <span>Check In</span>
-                                    </button>
+                                      <Clock size={11} />
+                                      <span>Pending Audit</span>
+                                    </span>
                                   )}
 
                                   {isConfirmed && b.paymentStatus !== 'Paid' && (
@@ -4195,7 +4300,7 @@ export default function ReceptionPortal({ onNavigate }) {
                       <strong>Handover Protocol:</strong> Cross-check customer name: <strong className="text-white underline decoration-[#d4af37]">{verifiedOrder.guestName}</strong>
                     </span>
                   </div>
-                  <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider font-bold">Cross-Check ID</span>
+                  <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider font-bold">Confirm Name</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
@@ -4281,6 +4386,105 @@ export default function ReceptionPortal({ onNavigate }) {
         initialCode={checkInInitialCode}
         onOpenReceipt={(b) => setSelectedReceiptBooking(b)}
       />
+
+      {/* RESERVATION CANCELLATION REQUEST MODAL */}
+      {isCancelModalOpen && cancelTarget && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="relative w-full max-w-lg bg-[#16030c] border-2 border-rose-500/70 rounded-3xl shadow-2xl overflow-hidden">
+            
+            {/* Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-rose-950 via-[#3a0818] to-[#1a020a] border-b border-rose-500/30 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-400 flex items-center justify-center text-rose-300">
+                  <XCircle size={22} className="stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="font-cinzel text-base sm:text-lg font-bold text-white">
+                    Cancel Reservation Request
+                  </h3>
+                  <p className="text-[11px] text-rose-200/80">
+                    Dispatches formal notification to CEO &amp; Chief Accountant
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCancelModalOpen(false)}
+                className="p-1.5 text-gray-400 hover:text-white rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4 text-xs">
+              
+              {/* Reservation summary */}
+              <div className="p-3.5 rounded-xl bg-black/60 border border-white/10 space-y-2 font-mono">
+                <div className="flex items-center justify-between text-[#f3e5ab] font-bold text-sm">
+                  <span>{cancelTarget.bookingId}</span>
+                  <span className="text-emerald-400">₦{Number(cancelTarget.amount || 0).toLocaleString()}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-gray-300 text-[11px] pt-1 border-t border-white/10 font-sans">
+                  <div>
+                    <span className="text-gray-400 text-[10px] block">Guest:</span>
+                    <strong className="text-white">{cancelTarget.guestName}</strong>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 text-[10px] block">Suite / Wing:</span>
+                    <strong className="text-[#d4af37]">Room #{cancelTarget.roomNumber || 'Unassigned'} ({cancelTarget.building})</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Financial Accountability Protocol Notice */}
+              <div className="p-3.5 rounded-xl bg-amber-950/50 border border-amber-500/50 text-amber-200 text-xs flex items-start gap-2.5">
+                <ShieldCheck size={18} className="text-amber-400 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  <strong>Financial Protocol:</strong> Once submitted, a formal alert is dispatched directly to the <strong>CEO</strong> and <strong>Chief Accountant</strong>. The <strong>Chief Accountant must audit and confirm the cancellation</strong> in the Finance Portal before the reservation is cancelled and the room marked available.
+                </p>
+              </div>
+
+              {/* Reason Input */}
+              <div className="space-y-1.5">
+                <label className="block text-[11px] uppercase tracking-wider text-gray-300 font-bold">
+                  Reason for Reservation Cancellation:
+                </label>
+                <textarea
+                  value={cancelReasonInput}
+                  onChange={(e) => setCancelReasonInput(e.target.value)}
+                  placeholder="e.g. Customer requested cancellation due to travel schedule change..."
+                  rows={3}
+                  className="w-full bg-black/70 border border-white/20 rounded-xl p-3 text-white text-xs focus:border-rose-400 focus:outline-none placeholder:text-gray-500 resize-none font-sans"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCancelModalOpen(false)}
+                  className="py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-gray-300 font-semibold text-xs transition-colors cursor-pointer"
+                >
+                  Abort / Keep Active
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSubmitCancellationRequest}
+                  disabled={isSubmittingCancel}
+                  className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-700 to-rose-600 hover:from-rose-600 hover:to-rose-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Send size={13} />
+                  <span>{isSubmittingCancel ? 'Dispatching...' : 'Submit to CEO & Accountant'}</span>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

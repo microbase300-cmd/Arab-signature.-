@@ -3,7 +3,8 @@ import { portalStore } from '../data/portalStore';
 import {
   Calculator, Building2, Utensils, Wine, TrendingUp, Receipt,
   CheckCircle2, AlertCircle, Search, Printer, Download, Plus, Trash2,
-  LogOut, ArrowLeft, RefreshCw, ShieldCheck, CreditCard, FileText, Sparkles, Image as ImageIcon
+  LogOut, ArrowLeft, RefreshCw, ShieldCheck, CreditCard, FileText, Sparkles, Image as ImageIcon,
+  ShieldAlert, XCircle, Check, X
 } from 'lucide-react';
 import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
 
@@ -92,6 +93,8 @@ export default function AccountantPortal({ onNavigate }) {
     } catch {}
   }, [rowOverrides]);
 
+  const [pendingCancellations, setPendingCancellations] = useState([]);
+
   const showToast = (msg) => {
     setFeedbackMsg(msg);
     setTimeout(() => setFeedbackMsg(''), 4000);
@@ -100,6 +103,27 @@ export default function AccountantPortal({ onNavigate }) {
   const refreshAll = () => {
     setBookings(portalStore.getBookings());
     setDiningOrders(portalStore.getDiningOrders());
+    setPendingCancellations(portalStore.getPendingCancellations());
+  };
+
+  const handleConfirmCancellation = (bookingId) => {
+    const accountantName = currentUser?.name || 'Chief Accountant';
+    const notes = window.prompt("Accountant Audit Notes for Cancellation Approval:", "Payment settlement & cancellation audited by Finance.");
+    if (notes === null) return; // User cancelled prompt
+
+    portalStore.confirmReservationCancellation(bookingId, accountantName, notes);
+    refreshAll();
+    showToast(`✓ Cancellation approved for ${bookingId}. The room is now officially available for booking.`);
+  };
+
+  const handleRejectCancellation = (bookingId) => {
+    const accountantName = currentUser?.name || 'Chief Accountant';
+    const reason = window.prompt("Reason for Rejecting Cancellation (sent to Front Desk & CEO):", "Payment already finalized or guest confirmed arrival.");
+    if (reason === null) return;
+
+    portalStore.rejectReservationCancellation(bookingId, accountantName, reason);
+    refreshAll();
+    showToast(`Reservation ${bookingId} cancellation rejected. Reservation remains active.`);
   };
 
   useEffect(() => {
@@ -117,11 +141,15 @@ export default function AccountantPortal({ onNavigate }) {
 
     const handleSync = () => refreshAll();
     window.addEventListener('ash_bookings_updated', handleSync);
+    window.addEventListener('ash_cancellation_requested', handleSync);
+    window.addEventListener('ash_cancellation_confirmed', handleSync);
     const unsubDining = portalStore.subscribeDiningOrders(handleSync);
 
     return () => {
       clearInterval(clock);
       window.removeEventListener('ash_bookings_updated', handleSync);
+      window.removeEventListener('ash_cancellation_requested', handleSync);
+      window.removeEventListener('ash_cancellation_confirmed', handleSync);
       unsubDining();
     };
   }, []);
@@ -688,6 +716,93 @@ export default function AccountantPortal({ onNavigate }) {
             </span>
           </div>
         </div>
+
+        {/* PENDING CANCELLATIONS AUDIT & CONFIRMATION DESK (CHIEF ACCOUNTANT EXCLUSIVE) */}
+        {pendingCancellations.length > 0 && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#2e0915] via-[#3a0c1b] to-[#1a040b] border-2 border-rose-500 shadow-2xl space-y-4 animate-fadeIn">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-400 flex items-center justify-center text-rose-300">
+                  <ShieldAlert size={22} className="stroke-[2.5]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono font-black tracking-widest text-rose-300 uppercase bg-rose-500/25 px-2 py-0.5 rounded border border-rose-500/40">
+                      ACTION REQUIRED &bull; {pendingCancellations.length} PENDING CANCELLATION{pendingCancellations.length > 1 ? 'S' : ''}
+                    </span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-cinzel font-bold text-white mt-0.5">
+                    Reservation Cancellation Approvals
+                  </h3>
+                </div>
+              </div>
+              <p className="text-xs text-rose-200/90 max-w-md">
+                Front Desk submitted reservation cancellation requests. As Chief Accountant, you must audit payment settlement &amp; confirm cancellation before the room is officially released as Available.
+              </p>
+            </div>
+
+            {/* List of Pending Cancellations */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {pendingCancellations.map((pc) => (
+                <div key={pc.id} className="p-4 rounded-xl bg-black/60 border border-rose-500/40 space-y-3">
+                  <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
+                    <span className="font-mono font-bold text-sm text-[#f3e5ab]">{pc.id}</span>
+                    <span className="font-mono font-bold text-xs text-emerald-400">
+                      ₦{Number(pc.amount || 0).toLocaleString()} ({pc.paymentStatus})
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-[10px] text-gray-400 uppercase block">Guest Name</span>
+                      <strong className="text-white text-sm">{pc.guestName}</strong>
+                      <span className="text-[10px] text-gray-400 font-mono block">{pc.phone}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-400 uppercase block">Suite / Wing</span>
+                      <strong className="text-[#d4af37]">Room #{pc.roomNumber || 'Unassigned'}</strong>
+                      <span className="text-[10px] text-gray-400 block">{pc.roomName || 'Suite'}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-white/[0.03] border border-white/10 text-xs">
+                    <span className="text-[10px] text-rose-300 font-bold uppercase block">
+                      Front Desk Cancellation Request:
+                    </span>
+                    <p className="text-gray-200 text-[11px] mt-0.5 italic">
+                      "{pc.cancellationRequest?.reason || 'Customer requested reservation cancellation'}"
+                    </p>
+                    <div className="text-[10px] text-gray-400 mt-1 flex items-center justify-between font-mono">
+                      <span>By: {pc.cancellationRequest?.requestedBy || 'Front Desk'}</span>
+                      <span>{pc.cancellationRequest?.requestedAt || ''}</span>
+                    </div>
+                  </div>
+
+                  {/* Accountant Decision Buttons */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmCancellation(pc.id)}
+                      className="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
+                    >
+                      <Check size={14} className="stroke-[2.5]" />
+                      <span>✓ Confirm &amp; Release Room</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRejectCancellation(pc.id)}
+                      className="py-2 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-gray-300 hover:text-white font-medium text-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
+                    >
+                      <X size={14} />
+                      <span>Reject</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* NAVIGATION TABS & SEARCH */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/10 pb-4 print:hidden">
@@ -1522,19 +1637,44 @@ export default function AccountantPortal({ onNavigate }) {
                         ₦{Number(b.amount).toLocaleString()}
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        <button
-                          onClick={() => {
-                            portalStore.auditRecordByAccountant('room', b.id, currentUser?.name);
-                            refreshAll();
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold border transition-all ${
-                            b.accountantAudited
-                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
-                              : 'bg-white/5 hover:bg-white/10 text-gray-300 border-white/15 cursor-pointer'
-                          }`}
-                        >
-                          {b.accountantAudited ? '✓ Audited' : 'Stamp Audit'}
-                        </button>
+                        {b.status === 'Cancellation Pending' ? (
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-[9px] font-mono font-bold text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded border border-rose-500/40 animate-pulse">
+                              Cancellation Requested
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleConfirmCancellation(b.id)}
+                                className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold shadow-md cursor-pointer flex items-center gap-1"
+                                title="Confirm Cancellation & Release Room to Available"
+                              >
+                                <Check size={11} />
+                                <span>Confirm Cancel</span>
+                              </button>
+                              <button
+                                onClick={() => handleRejectCancellation(b.id)}
+                                className="px-2 py-1 rounded bg-white/10 hover:bg-white/15 text-gray-300 hover:text-white text-[10px] cursor-pointer"
+                                title="Reject Cancellation Request"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              portalStore.auditRecordByAccountant('room', b.id, currentUser?.name);
+                              refreshAll();
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold border transition-all ${
+                              b.accountantAudited
+                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
+                                : 'bg-white/5 hover:bg-white/10 text-gray-300 border-white/15 cursor-pointer'
+                            }`}
+                          >
+                            {b.accountantAudited ? '✓ Audited' : 'Stamp Audit'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

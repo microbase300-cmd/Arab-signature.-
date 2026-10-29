@@ -31,6 +31,7 @@ const STORAGE_KEYS = {
   HOTEL_EVENTS: 'ash_portal_hotel_events_v1',
   ACTIVITY_LOG: 'ash_portal_activity_log',
   INTERCOM_CHAT: 'ash_portal_intercom_chat_v1',
+  CANCELLATION_NOTIFICATIONS: 'ash_portal_cancellation_notifications_v1',
   GUEST_SESSION: 'ash_active_guest_session_v2',
   CUSTOMER_SESSION: 'ash_customer_portal_session_v1',
 };
@@ -2911,6 +2912,260 @@ export const portalStore = {
     this.logActivity(`Booking ${bookingId} status updated to '${newStatus}'`);
     if (targetUpdated) this.pushBookingToCloud(targetUpdated);
     return updated;
+  },
+
+  // --- RESERVATION CANCELLATION & AUDIT CONFIRMATION SYSTEM ---
+  getCancellationNotifications() {
+    return getLocalItem(STORAGE_KEYS.CANCELLATION_NOTIFICATIONS, []);
+  },
+
+  addCancellationNotification(notif) {
+    const list = this.getCancellationNotifications();
+    const item = {
+      id: `CAN-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      createdAt: new Date().toISOString(),
+      timestampStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      dateStr: new Date().toLocaleDateString(),
+      readByCeo: false,
+      readByAccountant: false,
+      status: 'pending', // 'pending' | 'approved' | 'rejected'
+      ...notif
+    };
+    const updated = [item, ...list].slice(0, 50);
+    setLocalItem(STORAGE_KEYS.CANCELLATION_NOTIFICATIONS, updated);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_cancellation_notifications_updated', { detail: updated }));
+    }
+    return item;
+  },
+
+  getPendingCancellations() {
+    const bookings = this.getBookings();
+    return bookings.filter(b => 
+      b.status === 'Cancellation Pending' || 
+      (b.cancellationRequest && b.cancellationRequest.pendingApproval === true)
+    );
+  },
+
+  requestReservationCancellation({ bookingId, roomNumber, reason, requestedBy }) {
+    const bookings = this.getBookings();
+    let targetBooking = null;
+
+    if (bookingId) {
+      targetBooking = bookings.find(b => b.id === bookingId);
+    }
+    if (!targetBooking && roomNumber) {
+      targetBooking = bookings.find(b => 
+        String(b.roomNumber) === String(roomNumber) && 
+        ['Confirmed', 'Reservation Hold'].includes(b.status)
+      );
+    }
+
+    const effectiveRoom = targetBooking?.roomNumber || roomNumber;
+    const effectiveGuest = targetBooking?.guestName || 'Reserved Guest';
+    const effectiveId = targetBooking?.id || `ROOM-${effectiveRoom}`;
+    const staffName = requestedBy || 'Front Desk Receptionist';
+    const reasonText = reason || 'Customer requested reservation cancellation';
+
+    // 1. Update Booking Status to 'Cancellation Pending'
+    if (targetBooking) {
+      const updatedBookings = bookings.map(b => {
+        if (b.id === targetBooking.id) {
+          return {
+            ...b,
+            status: 'Cancellation Pending',
+            cancellationRequest: {
+              requestedBy: staffName,
+              requestedAt: new Date().toLocaleString(),
+              reason: reasonText,
+              pendingApproval: true
+            }
+          };
+        }
+        return b;
+      });
+      setLocalItem(STORAGE_KEYS.BOOKINGS, updatedBookings);
+      this.pushBookingToCloud({
+        ...targetBooking,
+        status: 'Cancellation Pending',
+        cancellationRequest: {
+          requestedBy: staffName,
+          requestedAt: new Date().toLocaleString(),
+          reason: reasonText,
+          pendingApproval: true
+        }
+      });
+    }
+
+    // 2. Put Room under 'cancellation_pending' holding lock so it cannot be booked
+    if (effectiveRoom) {
+      this.updateRoomStatus(effectiveRoom, 'cancellation_pending', effectiveGuest);
+    }
+
+    // 3. Add High-Priority System Notification for CEO & Accountant
+    this.addCancellationNotification({
+      bookingId: effectiveId,
+      guestName: effectiveGuest,
+      phone: targetBooking?.phone || '',
+      roomNumber: effectiveRoom,
+      amount: targetBooking?.amount || 0,
+      requestedBy: staffName,
+      reason: reasonText
+    });
+
+    // 4. Intercom Broadcast to CEO and Chief Accountant
+    this.sendIntercomMessage({
+      senderName: staffName,
+      senderBadge: 'RECEPTION',
+      text: `🚨 CANCELLATION REQUESTED: Reservation ${effectiveId} (${effectiveGuest}, Room #${effectiveRoom || 'N/A'}) requested for cancellation. Reason: "${reasonText}". Sent to CEO & Chief Accountant for audit confirmation.`,
+      recipient: 'all'
+    });
+
+    // 5. Activity Log & Window Events
+    this.logActivity(`⚠️ RESERVATION CANCELLATION REQUESTED: ${effectiveId} (${effectiveGuest}, Room #${effectiveRoom}) by ${staffName}. Awaiting Chief Accountant confirmation.`);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_cancellation_requested', {
+        detail: { bookingId: effectiveId, roomNumber: effectiveRoom, requestedBy: staffName, reason: reasonText }
+      }));
+      window.dispatchEvent(new CustomEvent('ash_bookings_updated', { detail: { bookings: this.getBookings() } }));
+    }
+
+    return { success: true, bookingId: effectiveId };
+  },
+
+  confirmReservationCancellation(bookingId, accountantName = 'Chief Accountant', notes = '') {
+    const bookings = this.getBookings();
+    let targetBooking = bookings.find(b => b.id === bookingId);
+    let targetRoomNum = targetBooking?.roomNumber;
+
+    if (!targetBooking && bookingId.startsWith('ROOM-')) {
+      targetRoomNum = bookingId.replace('ROOM-', '');
+      targetBooking = bookings.find(b => String(b.roomNumber) === String(targetRoomNum));
+    }
+
+    const updatedBookings = bookings.map(b => {
+      if ((targetBooking && b.id === targetBooking.id) || (targetRoomNum && String(b.roomNumber) === String(targetRoomNum) && b.status === 'Cancellation Pending')) {
+        return {
+          ...b,
+          status: 'Cancelled',
+          cancelledAt: new Date().toLocaleString(),
+          cancelledBy: accountantName,
+          cancellationRequest: {
+            ...(b.cancellationRequest || {}),
+            pendingApproval: false,
+            approvedAt: new Date().toLocaleString(),
+            approvedBy: accountantName,
+            accountantNotes: notes
+          }
+        };
+      }
+      return b;
+    });
+
+    setLocalItem(STORAGE_KEYS.BOOKINGS, updatedBookings);
+
+    // Release the Room Inventory -> Mark Available!
+    if (targetRoomNum) {
+      this.updateRoomStatus(targetRoomNum, 'available', null);
+    }
+
+    // Update notification status
+    const notifs = this.getCancellationNotifications().map(n => {
+      if (n.bookingId === bookingId || n.roomNumber === targetRoomNum) {
+        return { ...n, status: 'approved', approvedBy: accountantName, approvedAt: new Date().toLocaleString() };
+      }
+      return n;
+    });
+    setLocalItem(STORAGE_KEYS.CANCELLATION_NOTIFICATIONS, notifs);
+
+    // Intercom Announcement
+    const guestLabel = targetBooking?.guestName || 'Guest';
+    this.sendIntercomMessage({
+      senderName: accountantName,
+      senderBadge: 'FINANCE',
+      text: `✅ CANCELLATION APPROVED: Chief Accountant ${accountantName} confirmed cancellation of Reservation ${bookingId} (${guestLabel}). Room #${targetRoomNum || 'N/A'} is now officially VACANT & AVAILABLE for booking.`,
+      recipient: 'all'
+    });
+
+    this.logActivity(`✅ RESERVATION CANCELLATION CONFIRMED: ${bookingId} (${guestLabel}) approved by Chief Accountant ${accountantName}. Room #${targetRoomNum} is now AVAILABLE.`);
+
+    if (targetBooking) {
+      this.pushBookingToCloud({
+        ...targetBooking,
+        status: 'Cancelled',
+        cancelledAt: new Date().toLocaleString(),
+        cancelledBy: accountantName
+      });
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_cancellation_confirmed', {
+        detail: { bookingId, roomNumber: targetRoomNum, accountantName }
+      }));
+      window.dispatchEvent(new CustomEvent('ash_bookings_updated', { detail: { bookings: updatedBookings } }));
+    }
+
+    return { success: true };
+  },
+
+  rejectReservationCancellation(bookingId, accountantName = 'Chief Accountant', reason = '') {
+    const bookings = this.getBookings();
+    let targetBooking = bookings.find(b => b.id === bookingId);
+    let targetRoomNum = targetBooking?.roomNumber;
+
+    if (!targetBooking && bookingId.startsWith('ROOM-')) {
+      targetRoomNum = bookingId.replace('ROOM-', '');
+      targetBooking = bookings.find(b => String(b.roomNumber) === String(targetRoomNum));
+    }
+
+    const updatedBookings = bookings.map(b => {
+      if ((targetBooking && b.id === targetBooking.id) || (targetRoomNum && String(b.roomNumber) === String(targetRoomNum) && b.status === 'Cancellation Pending')) {
+        return {
+          ...b,
+          status: 'Confirmed',
+          cancellationRequest: {
+            ...(b.cancellationRequest || {}),
+            pendingApproval: false,
+            rejectedAt: new Date().toLocaleString(),
+            rejectedBy: accountantName,
+            rejectionReason: reason
+          }
+        };
+      }
+      return b;
+    });
+
+    setLocalItem(STORAGE_KEYS.BOOKINGS, updatedBookings);
+
+    // Revert room back to reserved
+    if (targetRoomNum) {
+      this.updateRoomStatus(targetRoomNum, 'reserved', targetBooking?.guestName || 'Reserved Guest');
+    }
+
+    // Update notifications
+    const notifs = this.getCancellationNotifications().map(n => {
+      if (n.bookingId === bookingId || n.roomNumber === targetRoomNum) {
+        return { ...n, status: 'rejected', rejectedBy: accountantName, rejectionReason: reason };
+      }
+      return n;
+    });
+    setLocalItem(STORAGE_KEYS.CANCELLATION_NOTIFICATIONS, notifs);
+
+    const guestLabel = targetBooking?.guestName || 'Guest';
+    this.sendIntercomMessage({
+      senderName: accountantName,
+      senderBadge: 'FINANCE',
+      text: `❌ CANCELLATION REJECTED: Chief Accountant ${accountantName} rejected cancellation for ${bookingId} (${guestLabel}). Reason: "${reason || 'Reservation remains valid'}". Reservation remains CONFIRMED.`,
+      recipient: 'all'
+    });
+
+    this.logActivity(`❌ RESERVATION CANCELLATION REJECTED: ${bookingId} (${guestLabel}) by Chief Accountant ${accountantName}. Reservation remains CONFIRMED.`);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_bookings_updated', { detail: { bookings: updatedBookings } }));
+    }
+
+    return { success: true };
   },
 
   // --- ROOMS INVENTORY ---

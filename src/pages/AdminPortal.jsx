@@ -131,6 +131,7 @@ export default function AdminPortal({ onNavigate }) {
   const [adminPaystackKey, setAdminPaystackKey] = useState(getPaystackPublicKey());
   const [adminPaystackStatus, setAdminPaystackStatus] = useState(getPaystackMode());
   const [paystackSaveSuccess, setPaystackSaveSuccess] = useState(false);
+  const [pendingCancellations, setPendingCancellations] = useState([]);
 
   const handleAdminSavePaystackKey = () => {
     setPaystackPublicKey(adminPaystackKey.trim());
@@ -158,6 +159,7 @@ export default function AdminPortal({ onNavigate }) {
   const refreshData = () => {
     const currentRooms = portalStore.getRooms();
     const currentBookings = portalStore.getBookings();
+    setPendingCancellations(portalStore.getPendingCancellations());
     const currentRates = portalStore.getRoomRates();
     const currentConfig = portalStore.getHotelConfig();
     const currentLogs = portalStore.getActivityLogs();
@@ -245,6 +247,8 @@ export default function AdminPortal({ onNavigate }) {
 
     const handleLiveSync = () => refreshData();
     window.addEventListener('ash_bookings_updated', handleLiveSync);
+    window.addEventListener('ash_cancellation_requested', handleLiveSync);
+    window.addEventListener('ash_cancellation_confirmed', handleLiveSync);
     window.addEventListener('ash_rates_updated', handleLiveSync);
     window.addEventListener('ash_rooms_updated', handleLiveSync);
     window.addEventListener('ash_menu_updated', handleLiveSync);
@@ -268,6 +272,8 @@ export default function AdminPortal({ onNavigate }) {
 
     return () => {
       window.removeEventListener('ash_bookings_updated', handleLiveSync);
+      window.removeEventListener('ash_cancellation_requested', handleLiveSync);
+      window.removeEventListener('ash_cancellation_confirmed', handleLiveSync);
       window.removeEventListener('ash_rates_updated', handleLiveSync);
       window.removeEventListener('ash_rooms_updated', handleLiveSync);
       window.removeEventListener('ash_menu_updated', handleLiveSync);
@@ -596,7 +602,8 @@ export default function AdminPortal({ onNavigate }) {
     const s = String(r.status || '').toLowerCase();
     return s === 'cleaning' || s === 'maintenance';
   };
-  const isRoomAvailable = (r) => !isRoomOccupied(r) && !isRoomReserved(r) && !isRoomCleaning(r);
+  const isRoomCancellationPending = (r) => String(r.status || '').toLowerCase() === 'cancellation_pending';
+  const isRoomAvailable = (r) => !isRoomOccupied(r) && !isRoomReserved(r) && !isRoomCleaning(r) && !isRoomCancellationPending(r);
 
   const totalOccupied = rooms.filter(isRoomOccupied).length;
   const totalReserved = rooms.filter(isRoomReserved).length;
@@ -1021,6 +1028,37 @@ export default function AdminPortal({ onNavigate }) {
         {/* ======================================================== */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
+
+            {/* CEO Urgent Alert: Pending Reservation Cancellations Awaiting Chief Accountant Confirmation */}
+            {pendingCancellations.length > 0 && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-rose-950 via-[#3a0c1b] to-[#1a040b] border-2 border-rose-500 shadow-xl flex items-center justify-between gap-4 flex-wrap animate-fadeIn">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-400 flex items-center justify-center text-rose-300 flex-shrink-0">
+                    <ShieldAlert size={22} className="stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono font-black tracking-widest text-rose-300 uppercase bg-rose-500/30 px-2 py-0.5 rounded border border-rose-500/50">
+                        CEO NOTICE &bull; {pendingCancellations.length} PENDING CANCELLATION{pendingCancellations.length > 1 ? 'S' : ''}
+                      </span>
+                    </div>
+                    <h4 className="font-cinzel font-bold text-white text-sm sm:text-base mt-0.5">
+                      Front Desk Reservation Cancellation Under Review
+                    </h4>
+                    <p className="text-xs text-rose-200/90 mt-0.5">
+                      Reception submitted reservation cancellation. Chief Accountant must verify financial records &amp; confirm cancellation before room is released.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {pendingCancellations.map((pc) => (
+                    <span key={pc.id} className="px-2.5 py-1 rounded-lg bg-black/60 border border-rose-400/40 text-xs font-mono text-[#f3e5ab]">
+                      {pc.id} ({pc.guestName} &bull; Room #{pc.roomNumber || 'N/A'})
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Executive Welcome & Live Operations Banner */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-[#1d0511] via-[#16030c] to-[#120208] border border-[#d4af37]/40 shadow-lg">
