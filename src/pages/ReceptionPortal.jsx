@@ -60,6 +60,12 @@ export default function ReceptionPortal({ onNavigate }) {
   const [inspectedDiningOrder, setInspectedDiningOrder] = useState(null);
   const [feedbackMsg, setFeedbackMsg] = useState('');
 
+  // Flash feedback toast (hoisted for early lifecycle & subscription access)
+  const showToast = (msg) => {
+    setFeedbackMsg(msg);
+    setTimeout(() => setFeedbackMsg(''), 4000);
+  };
+
   // Front Desk Order Code Lookup & Instant Handover Confirmation
   const [orderCodeInput, setOrderCodeInput] = useState('');
   const [verifiedOrder, setVerifiedOrder] = useState(null);
@@ -167,20 +173,23 @@ export default function ReceptionPortal({ onNavigate }) {
 
   // Helper to determine which building a booking belongs to
   const getBookingBuilding = (b) => {
+    if (!b) return 'Main Building';
     if (b.roomNumber) {
-      const r = rooms.find(room => String(room.roomNumber) === String(b.roomNumber));
+      const r = (rooms || []).find(room => room && String(room.roomNumber) === String(b.roomNumber));
       if (r?.building) return r.building;
       if (String(b.roomNumber).startsWith('6')) return 'Main Building';
       if (String(b.roomNumber).startsWith('1')) return 'Extension Building';
     }
     if (b.roomName) {
-      if (b.roomName.toLowerCase().includes('extension') || b.roomName.toLowerCase().includes('diplomatic')) return 'Extension Building';
-      if (b.roomName.toLowerCase().includes('main')) return 'Main Building';
+      const rn = String(b.roomName).toLowerCase();
+      if (rn.includes('extension') || rn.includes('diplomatic')) return 'Extension Building';
+      if (rn.includes('main')) return 'Main Building';
     }
     return 'Main Building';
   };
 
   const isDeskBooking = (b) => {
+    if (!b) return false;
     const desk = getDeskBuilding();
     if (desk === 'all') return true;
     return getBookingBuilding(b) === desk;
@@ -474,12 +483,6 @@ export default function ReceptionPortal({ onNavigate }) {
     setChatInput('');
     setChatMessages(portalStore.getChatMessages('reception'));
     showToast('Intercom message transmitted to other front desk.');
-  };
-
-  // Flash feedback toast
-  const showToast = (msg) => {
-    setFeedbackMsg(msg);
-    setTimeout(() => setFeedbackMsg(''), 4000);
   };
 
   // Dedicated Front Desk Order Code Lookup & Verification
@@ -950,16 +953,24 @@ export default function ReceptionPortal({ onNavigate }) {
   };
 
   // Filtered bookings
-  const filteredBookings = bookings.filter(b => {
-    const matchesSearch = 
-      b.guestName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.phone.includes(searchQuery) ||
-      b.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (b.roomNumber && b.roomNumber.includes(searchQuery));
+  const filteredBookings = (bookings || []).filter(b => {
+    if (!b) return false;
+    const gName = String(b.guestName || '').toLowerCase();
+    const bPhone = String(b.phone || '');
+    const bId = String(b.id || '').toLowerCase();
+    const rNum = String(b.roomNumber || '');
+    const q = String(searchQuery || '').trim().toLowerCase();
 
+    const matchesSearch = !q ||
+      gName.includes(q) ||
+      bPhone.includes(q) ||
+      bId.includes(q) ||
+      rNum.includes(q);
+
+    const bStatus = String(b.status || '').toLowerCase();
     const matchesStatus = 
       statusFilter === 'all' || 
-      b.status.toLowerCase() === statusFilter.toLowerCase();
+      bStatus === String(statusFilter).toLowerCase();
 
     const matchesBuilding = 
       ledgerBuildingFilter === 'all' || 
@@ -969,11 +980,11 @@ export default function ReceptionPortal({ onNavigate }) {
   });
 
   // Calculate quick stats
-  const totalRooms = rooms.length;
-  const occupiedCount = rooms.filter(r => r.status === 'occupied').length;
-  const availableCount = rooms.filter(r => r.status === 'available').length;
-  const cleaningCount = rooms.filter(r => r.status === 'cleaning').length;
-  const reservedCount = rooms.filter(r => r.status === 'reserved').length;
+  const totalRooms = (rooms || []).length;
+  const occupiedCount = (rooms || []).filter(r => r && r.status === 'occupied').length;
+  const availableCount = (rooms || []).filter(r => r && r.status === 'available').length;
+  const cleaningCount = (rooms || []).filter(r => r && r.status === 'cleaning').length;
+  const reservedCount = (rooms || []).filter(r => r && r.status === 'reserved').length;
   const occupancyRate = totalRooms > 0 ? Math.round((occupiedCount / totalRooms) * 100) : 0;
 
   return (
@@ -1120,8 +1131,10 @@ export default function ReceptionPortal({ onNavigate }) {
 
       {/* Real-Time Incoming Online Reservation Alert Banner with Sound */}
       {incomingAlert && (() => {
+        const desk = currentUser?.buildingAccess || getDeskBuilding();
+        const alertRoom = String(incomingAlert.roomNumber || '');
         const isAlertForMyDesk = !currentUser?.buildingAccess || currentUser.buildingAccess === 'all' || 
-          (currentUser.buildingAccess === 'Main Building' ? incomingAlert.roomNumber?.startsWith('6') : incomingAlert.roomNumber?.startsWith('1'));
+          (desk === 'Main Building' ? alertRoom.startsWith('6') : alertRoom.startsWith('1'));
 
         return (
           <div className={`text-black px-4 sm:px-8 py-3.5 shadow-2xl flex flex-wrap items-center justify-between gap-3 border-b-2 border-black/30 ${
@@ -1519,7 +1532,7 @@ export default function ReceptionPortal({ onNavigate }) {
             ]
               .filter(bldg => selectedBuilding === 'all' || selectedBuilding === bldg.name)
               .map((bldg) => {
-                const bldgRooms = rooms.filter(r => r.building === bldg.name || r.floor === bldg.name);
+                const bldgRooms = (rooms || []).filter(r => r && (r.building === bldg.name || r.floor === bldg.name));
                 if (bldgRooms.length === 0) return null;
                 const vacantCount = bldgRooms.filter(r => r.status === 'available').length;
                 const occupiedCount = bldgRooms.filter(r => r.status === 'occupied').length;
@@ -2686,16 +2699,17 @@ export default function ReceptionPortal({ onNavigate }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {diningOrders
+                  {(diningOrders || [])
                     .filter((o) => {
-                      const q = searchQuery.trim().toLowerCase();
+                      if (!o) return false;
+                      const q = String(searchQuery || '').trim().toLowerCase();
                       const matchQ =
                         !q ||
-                        o.id.toLowerCase().includes(q) ||
-                        o.guestName.toLowerCase().includes(q) ||
-                        (o.bookingId && o.bookingId.toLowerCase().includes(q)) ||
+                        String(o.id || '').toLowerCase().includes(q) ||
+                        String(o.guestName || '').toLowerCase().includes(q) ||
+                        (o.bookingId && String(o.bookingId).toLowerCase().includes(q)) ||
                         (o.roomNumber && String(o.roomNumber).includes(q)) ||
-                        (o.serviceLocation && o.serviceLocation.toLowerCase().includes(q));
+                        (o.serviceLocation && String(o.serviceLocation).toLowerCase().includes(q));
                       if (!matchQ) return false;
 
                       // Desk assignment filter unless user chose 'view_all'
@@ -4069,8 +4083,8 @@ export default function ReceptionPortal({ onNavigate }) {
                 className="w-full px-3.5 py-2 rounded-xl bg-black/80 border border-[#d4af37]/40 text-xs text-[#f3e5ab] focus:outline-none focus:border-[#d4af37]"
               >
                 <option value="">Counter Walk-In Diner (Paid Immediately at POS)</option>
-                {bookings
-                  .filter((b) => ['Checked In', 'Confirmed'].includes(b.status) && isDeskBooking(b))
+                {(bookings || [])
+                  .filter((b) => b && ['Checked In', 'Confirmed'].includes(b.status) && isDeskBooking(b))
                   .map((b) => (
                     <option key={b.id} value={b.id}>
                       Add to Suite #{b.roomNumber} Bill — {b.guestName} ({b.id})
@@ -4093,13 +4107,15 @@ export default function ReceptionPortal({ onNavigate }) {
             {/* Items List (Scrollable & Read-Only) */}
             <div className="flex-1 overflow-y-auto space-y-3 pr-1">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {diningMenu
+                {(diningMenu || [])
                   .filter((item) => {
-                    if (!diningSearchQuery.trim()) return true;
+                    if (!item) return false;
+                    const q = String(diningSearchQuery || '').trim().toLowerCase();
+                    if (!q) return true;
                     return (
-                      item.name.toLowerCase().includes(diningSearchQuery.toLowerCase()) ||
-                      item.desc.toLowerCase().includes(diningSearchQuery.toLowerCase()) ||
-                      item.categoryLabel.toLowerCase().includes(diningSearchQuery.toLowerCase())
+                      String(item.name || '').toLowerCase().includes(q) ||
+                      String(item.desc || '').toLowerCase().includes(q) ||
+                      String(item.categoryLabel || '').toLowerCase().includes(q)
                     );
                   })
                   .map((item) => (

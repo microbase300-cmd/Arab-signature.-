@@ -27,6 +27,7 @@ import AccountantLogin from './pages/AccountantLogin';
 import ReceptionPortal from './pages/ReceptionPortal';
 import AdminPortal from './pages/AdminPortal';
 import AccountantPortal from './pages/AccountantPortal';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Lightweight Hotel AI Concierge
 import HotelAiChat from './components/HotelAiChat';
@@ -215,11 +216,23 @@ export default function App() {
       // Protected Dashboards
       case SECURE_PORTAL_ROUTES.MAIN_RECEPTION_PORTAL:
       case SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_PORTAL:
-        return <ReceptionPortal onNavigate={handleNavigate} />;
+        return (
+          <ErrorBoundary fallbackLabel="Front Desk Reception Operations">
+            <ReceptionPortal onNavigate={handleNavigate} />
+          </ErrorBoundary>
+        );
       case SECURE_PORTAL_ROUTES.ACCOUNTANT_PORTAL:
-        return <AccountantPortal onNavigate={handleNavigate} />;
+        return (
+          <ErrorBoundary fallbackLabel="Chief Accountant Operations">
+            <AccountantPortal onNavigate={handleNavigate} />
+          </ErrorBoundary>
+        );
       case SECURE_PORTAL_ROUTES.ADMIN_PORTAL:
-        return <AdminPortal onNavigate={handleNavigate} />;
+        return (
+          <ErrorBoundary fallbackLabel="Executive Administration Operations">
+            <AdminPortal onNavigate={handleNavigate} />
+          </ErrorBoundary>
+        );
 
       // Decommissioned Security Alert Screen
       case 'decommissioned-portal-gate':
