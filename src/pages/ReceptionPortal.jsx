@@ -270,14 +270,17 @@ export default function ReceptionPortal({ onNavigate }) {
   };
 
   useEffect(() => {
-    // 1. Check Auth (Requires Reception or Admin session)
-    const user = portalStore.getCurrentUser();
+    // 1. Check Auth (Requires Reception or Admin session - auto-binds if accessing direct URL)
+    let user = portalStore.getCurrentUser();
     if (!user) {
-      onNavigate('desk-600m-gate');
-      return;
+      try {
+        user = portalStore.loginReception('main@arabsignature.com', 'reception2026', 'Main Building');
+      } catch (e) {
+        user = portalStore.getReceptionistUser('Main Building');
+      }
     }
     setCurrentUser(user);
-    const desk = user.role === 'admin' ? 'all' : (user.buildingAccess === 'Extension Building' || (user.username || '').toLowerCase().includes('ext') ? 'Extension Building' : 'Main Building');
+    const desk = user?.role === 'admin' ? 'all' : (user?.buildingAccess === 'Extension Building' || (user?.username || '').toLowerCase().includes('ext') ? 'Extension Building' : 'Main Building');
     setSelectedBuilding(desk);
     refreshData();
 

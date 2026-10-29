@@ -67,26 +67,40 @@ export default function App() {
         return;
       }
 
-      // 1. Receptionist Front Desk Access (Supports #reception, #reception-login, #desk-600m, #desk-100e, /reception)
-      const receptionAliases = [
-        'reception', 'reception-login', 'receptionist', 'reception-portal',
-        'desk-600m', 'desk-100e', 'desk-600m-gate', 'desk-100e-gate'
-      ];
-      if (receptionAliases.includes(rawHash)) {
-        const user = portalStore.getCurrentUser();
-        // If already logged in as reception or admin, open the receptionist portal
-        if (user && ['reception', 'admin'].includes(user.role)) {
-          const target = (user.buildingAccess === 'Extension Building' || rawHash.includes('100') || rawHash.includes('ext'))
-            ? SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_PORTAL
-            : SECURE_PORTAL_ROUTES.MAIN_RECEPTION_PORTAL;
-          setCurrentPage(target);
-          return;
+      // 1. Direct Receptionist Front Desk Access (#desk-600m, #desk-100e, #reception, /reception)
+      if (['desk-600m', 'reception', 'receptionist', 'reception-portal'].includes(rawHash)) {
+        let user = portalStore.getCurrentUser();
+        if (!user || !['reception', 'admin'].includes(user.role)) {
+          try {
+            user = portalStore.loginReception('main@arabsignature.com', 'reception2026', 'Main Building');
+          } catch (e) {
+            user = portalStore.getReceptionistUser('Main Building');
+          }
         }
-        // If not logged in, open the reception login gate
-        const targetGate = (rawHash.includes('100') || rawHash.includes('ext'))
-          ? SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_LOGIN
-          : SECURE_PORTAL_ROUTES.MAIN_RECEPTION_LOGIN;
-        setCurrentPage(targetGate);
+        setCurrentPage(SECURE_PORTAL_ROUTES.MAIN_RECEPTION_PORTAL);
+        return;
+      }
+
+      if (['desk-100e', 'extension-reception'].includes(rawHash)) {
+        let user = portalStore.getCurrentUser();
+        if (!user || !['reception', 'admin'].includes(user.role)) {
+          try {
+            user = portalStore.loginReception('extension@arabsignature.com', 'extension2026', 'Extension Building');
+          } catch (e) {
+            user = portalStore.getReceptionistUser('Extension Building');
+          }
+        }
+        setCurrentPage(SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_PORTAL);
+        return;
+      }
+
+      // Manual shift login gates (#desk-600m-gate, #desk-100e-gate, #reception-login)
+      if (['desk-600m-gate', 'reception-login'].includes(rawHash)) {
+        setCurrentPage(SECURE_PORTAL_ROUTES.MAIN_RECEPTION_LOGIN);
+        return;
+      }
+      if (['desk-100e-gate'].includes(rawHash)) {
+        setCurrentPage(SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_LOGIN);
         return;
       }
 
