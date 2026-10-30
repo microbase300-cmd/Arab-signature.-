@@ -7,6 +7,7 @@ import {
   ShieldAlert, XCircle, Check, X
 } from 'lucide-react';
 import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
+import AuditVaultModal from '../components/AuditVaultModal';
 
 const SHEET_CUSTOM_ROWS_KEY = 'ash_accountant_sheet_custom_rows_v1';
 const SHEET_OVERRIDES_KEY = 'ash_accountant_sheet_overrides_v1';
@@ -43,9 +44,19 @@ export default function AccountantPortal({ onNavigate }) {
   const [diningTypeFilter, setDiningTypeFilter] = useState('all'); // 'all' | 'food' | 'drinks' | 'unpaid'
   const [feedbackMsg, setFeedbackMsg] = useState('');
   const [selectedProofBooking, setSelectedProofBooking] = useState(null);
+  const [selectedVaultRecord, setSelectedVaultRecord] = useState(null);
+  const [isVaultModalOpen, setIsVaultModalOpen] = useState(false);
+  const [vaultList, setVaultList] = useState(() => portalStore.getArchiveVault());
   const [currentTime, setCurrentTime] = useState(
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   );
+
+  // Live lookup in 4-Year Base64 Archive Vault when searching
+  const liveVaultMatch = useMemo(() => {
+    const q = (searchQuery || '').trim();
+    if (q.length < 4) return null;
+    return portalStore.lookupArchiveVault(q);
+  }, [searchQuery, bookings]);
 
   // ==============================================================
   // ADVANCED SPREADSHEET STATE
@@ -104,6 +115,10 @@ export default function AccountantPortal({ onNavigate }) {
     setBookings(portalStore.getBookings());
     setDiningOrders(portalStore.getDiningOrders());
     setPendingCancellations(portalStore.getPendingCancellations());
+    setVaultList(portalStore.getArchiveVault());
+    portalStore.syncArchiveVaultFromCloud().then(() => {
+      setVaultList(portalStore.getArchiveVault());
+    });
   };
 
   const handleConfirmCancellation = (bookingId) => {
@@ -851,6 +866,48 @@ export default function AccountantPortal({ onNavigate }) {
             </button>
           </div>
         </div>
+
+        {/* 4-Year Base64 Archive Vault Pop-Out Banner (Matches any code even after checkout or expiration) */}
+        {liveVaultMatch && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#2a0614] via-[#1a030d] to-[#120006] border-2 border-[#d4af37]/80 shadow-2xl flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#d4af37]/20 border border-[#d4af37]/50 flex items-center justify-center text-[#f3e5ab] shrink-0">
+                <ShieldCheck size={22} className="stroke-[2.5]" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono font-black text-sm text-[#f3e5ab] tracking-wider">
+                    {liveVaultMatch.booking.id}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
+                    liveVaultMatch.isExpired ? 'bg-rose-500/25 text-rose-300 border border-rose-500/40' : 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40'
+                  }`}>
+                    {liveVaultMatch.isExpired ? '⚠️ Expired / Checked Out' : 'Active In System'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-[#d4af37]/20 text-[#f3e5ab] text-[10px] font-mono border border-[#d4af37]/40">
+                    4-Year Base64 Vault Sealed
+                  </span>
+                </div>
+                <p className="text-xs text-gray-300 mt-0.5">
+                  Guest: <strong className="text-white">{liveVaultMatch.booking.guestName}</strong> &bull; Suite: <span className="text-[#f3e5ab]">Room #{liveVaultMatch.booking.roomNumber || '—'}</span> &bull; Folio: <span className="text-emerald-400 font-bold">₦{Number(liveVaultMatch.booking.amount).toLocaleString()}</span> ({liveVaultMatch.booking.paymentStatus}) &bull; Retention Guarantee: <span className="font-mono text-gray-400">{liveVaultMatch.vaultEntry?.retentionExpiresFormatted || '4-Year Compliance'}</span>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedVaultRecord(liveVaultMatch);
+                  setIsVaultModalOpen(true);
+                }}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-[#d4af37]/20 hover:scale-[1.02] transition-all cursor-pointer"
+              >
+                <FileText size={14} className="stroke-[2.5]" />
+                <span>Pop Out Full Dossier</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ============================================================
             TAB 1: ADVANCED FINANCIAL CALCULATION SPREADSHEET
@@ -1924,6 +1981,18 @@ export default function AccountantPortal({ onNavigate }) {
             portalStore.auditRecordByAccountant('room', id, currentUser?.name);
             refreshAll();
           }}
+        />
+      )}
+
+      {/* 4-Year Base64 Archive Vault Modal */}
+      {isVaultModalOpen && selectedVaultRecord && (
+        <AuditVaultModal
+          isOpen={isVaultModalOpen}
+          onClose={() => {
+            setIsVaultModalOpen(false);
+            setSelectedVaultRecord(null);
+          }}
+          vaultRecord={selectedVaultRecord}
         />
       )}
     </div>

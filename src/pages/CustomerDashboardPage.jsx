@@ -571,14 +571,14 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
               </div>
 
               <div className="space-y-2">
-                <span className="px-3.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-mono font-bold tracking-widest uppercase inline-block">
-                  RESERVATION CLOSED • CHECKED OUT
+                <span className="px-3.5 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[11px] font-mono font-bold tracking-widest uppercase inline-block">
+                  ⚠️ CODE EXPIRED • RESERVATION CONCLUDED
                 </span>
                 <h2 className="font-cinzel text-2xl sm:text-3xl font-extrabold text-white tracking-wide">
-                  This User Has Checked Out
+                  This Booking Code Has Expired
                 </h2>
                 <p className="text-xs sm:text-sm text-gray-300 max-w-lg mx-auto leading-relaxed">
-                  The reservation under booking code <strong className="font-mono text-[#f3e5ab] font-bold">{checkedOutData.booking.id}</strong> has concluded and the guest has completed check-out.
+                  The reservation under booking code <strong className="font-mono text-[#f3e5ab] font-bold">{checkedOutData.booking.id}</strong> has concluded and the guest has completed check-out. This code has expired and can no longer be used to log in.
                 </p>
               </div>
 

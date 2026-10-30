@@ -1197,10 +1197,11 @@ export default function ReceptionPortal({ onNavigate }) {
               </button>
               <button
                 onClick={() => setIncomingAlert(null)}
-                className="p-1.5 rounded-xl bg-black/20 hover:bg-black/30 text-black transition-colors cursor-pointer"
-                title="Acknowledge & dismiss alert"
+                className="px-3 py-1.5 rounded-xl bg-black/35 hover:bg-black/60 text-black hover:text-white font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer border border-black/30"
+                title="Dismiss reservation alert banner to continue other front desk tasks"
               >
-                <X size={18} />
+                <X size={14} className="stroke-[2.5]" />
+                <span>Dismiss</span>
               </button>
             </div>
           </div>
@@ -1273,10 +1274,11 @@ export default function ReceptionPortal({ onNavigate }) {
             </button>
             <button
               onClick={() => setIncomingDiningAlert(null)}
-              className="p-1.5 rounded-xl bg-black/20 hover:bg-black/30 text-black transition-colors cursor-pointer"
-              title="Dismiss notification"
+              className="px-3 py-1.5 rounded-xl bg-black/35 hover:bg-black/60 text-black hover:text-white font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer border border-black/30"
+              title="Dismiss food/drink alert banner"
             >
-              <X size={18} />
+              <X size={14} className="stroke-[2.5]" />
+              <span>Dismiss</span>
             </button>
           </div>
         </div>

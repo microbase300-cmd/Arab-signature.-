@@ -360,19 +360,32 @@ export default function CounterCheckInModal({
           {searchedBooking && !isCheckInSuccess && (
             <div className="space-y-4 animate-fadeIn">
               
+              {/* Checked Out / Expired Banner */}
+              {['Checked Out', 'Completed'].includes(searchedBooking.status) && (
+                <div className="p-4 rounded-2xl bg-rose-950/80 border-2 border-rose-500 text-rose-200 text-xs flex items-start gap-3 shadow-xl">
+                  <AlertCircle size={22} className="text-rose-400 shrink-0 mt-0.5" />
+                  <div>
+                    <h5 className="font-bold text-sm text-white font-cinzel">⚠️ This Booking Code Has Expired</h5>
+                    <p className="text-xs text-rose-200 mt-1 leading-relaxed">
+                      Guest <strong>{searchedBooking.guestName}</strong> has completed check-out on Room #{searchedBooking.roomNumber || '—'}. The suite was vacated and this booking code has expired. It cannot be used to check in again.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Header Status Bar */}
               <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span className="text-xs font-mono font-bold text-emerald-300">
-                    VERIFIED RESERVATION RECORD
+                  <span className={`w-2 h-2 rounded-full ${searchedBooking.status === 'Checked Out' ? 'bg-rose-400' : 'bg-emerald-400 animate-pulse'}`}></span>
+                  <span className={`text-xs font-mono font-bold ${searchedBooking.status === 'Checked Out' ? 'text-rose-300' : 'text-emerald-300'}`}>
+                    {searchedBooking.status === 'Checked Out' ? 'EXPIRED RESERVATION RECORD' : 'VERIFIED RESERVATION RECORD'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono">
                     {searchedBooking.paymentStatus === 'Paid' ? 'PAID IN FULL (Paystack)' : 'COUNTER PAYMENT REQUIRED'}
                   </span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${searchedBooking.status === 'Checked Out' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'}`}>
                     {searchedBooking.status}
                   </span>
                 </div>
@@ -580,31 +593,38 @@ export default function CounterCheckInModal({
                 </div>
               </div>
 
-              {/* Primary Check-In Button */}
-              <button
-                type="button"
-                onClick={handleConfirmCheckIn}
-                className="w-full py-3.5 rounded-xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-2xl transition-all cursor-pointer active:scale-[0.99] hover:brightness-110"
-                style={{
-                  background: isIdVerified
-                    ? 'linear-gradient(135deg, #059669 0%, #10b981 50%, #047857 100%)'
-                    : 'linear-gradient(135deg, #854d0e 0%, #ca8a04 50%, #a16207 100%)',
-                  color: '#ffffff',
-                  border: isIdVerified ? '2px solid #a7f3d0' : '2px solid #fde047',
-                  boxShadow: isIdVerified
-                    ? '0 6px 20px rgba(16, 185, 129, 0.45)'
-                    : '0 6px 20px rgba(202, 138, 4, 0.35)',
-                  fontWeight: '900',
-                  letterSpacing: '0.04em'
-                }}
-              >
-                <CheckCircle2 size={18} className="stroke-[2.5]" />
-                <span>
-                  {isIdVerified
-                    ? 'Confirm Booking Code & Check In Guest'
-                    : 'Confirm Customer Name & Complete Check-In'}
-                </span>
-              </button>
+              {/* Primary Check-In Button or Expired Notice */}
+              {['Checked Out', 'Completed'].includes(searchedBooking.status) ? (
+                <div className="w-full py-3.5 rounded-xl bg-rose-950/60 border-2 border-rose-500 text-rose-200 font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 text-center shadow-lg">
+                  <AlertCircle size={18} className="text-rose-400" />
+                  <span>This Booking Code Has Expired (Already Checked Out)</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleConfirmCheckIn}
+                  className="w-full py-3.5 rounded-xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-2xl transition-all cursor-pointer active:scale-[0.99] hover:brightness-110"
+                  style={{
+                    background: isIdVerified
+                      ? 'linear-gradient(135deg, #059669 0%, #10b981 50%, #047857 100%)'
+                      : 'linear-gradient(135deg, #854d0e 0%, #ca8a04 50%, #a16207 100%)',
+                    color: '#ffffff',
+                    border: isIdVerified ? '2px solid #a7f3d0' : '2px solid #fde047',
+                    boxShadow: isIdVerified
+                      ? '0 6px 20px rgba(16, 185, 129, 0.45)'
+                      : '0 6px 20px rgba(202, 138, 4, 0.35)',
+                    fontWeight: '900',
+                    letterSpacing: '0.04em'
+                  }}
+                >
+                  <CheckCircle2 size={18} className="stroke-[2.5]" />
+                  <span>
+                    {isIdVerified
+                      ? 'Confirm Booking Code & Check In Guest'
+                      : 'Confirm Customer Name & Complete Check-In'}
+                  </span>
+                </button>
+              )}
             </div>
           )}
 

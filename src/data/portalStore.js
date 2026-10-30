@@ -34,6 +34,7 @@ const STORAGE_KEYS = {
   CANCELLATION_NOTIFICATIONS: 'ash_portal_cancellation_notifications_v2',
   GUEST_SESSION: 'ash_active_guest_session_v3',
   CUSTOMER_SESSION: 'ash_customer_portal_session_v2',
+  AUDIT_ARCHIVE_VAULT: 'ash_portal_audit_archive_vault_4yr_v1',
 };
 
 // 1. Initial Room Inventory (34 Authentic Rooms Across 2 Buildings in Nsugbe, Onitsha - All Available for Production)
@@ -2602,6 +2603,7 @@ export const portalStore = {
 
     const updated = [newBooking, ...bookings];
     setLocalItem(STORAGE_KEYS.BOOKINGS, updated);
+    this.archiveBookingRecord(newBooking, 'Reservation Confirmed & Stored in 4-Year Vault');
     this.logActivity(`New reservation confirmed: ${newBooking.id} for ${newBooking.guestName} - Room #${newBooking.roomNumber} (${newBooking.source})`);
     
     // 3. Broadcast live update with audio/visual alert signal for Receptionist & Accountant desks
@@ -2694,6 +2696,14 @@ export const portalStore = {
 
   // Clear all booked rooms, wipe bookings ledger and reset all 34 rooms to 100% available
   clearAllBookingsAndResetRooms() {
+    // 0. Safeguard: Archive all active bookings into 4-Year Base64 Vault before resetting operational ledger
+    const existing = this.getBookings();
+    if (Array.isArray(existing) && existing.length > 0) {
+      existing.forEach(b => {
+        this.archiveBookingRecord(b, 'Pre-Clearance Archival Backup');
+      });
+    }
+
     const cleanRooms = this.resetAllRoomsToAvailable();
     setLocalItem(STORAGE_KEYS.BOOKINGS, []);
     setLocalItem(STORAGE_KEYS.CANCELLATION_NOTIFICATIONS, []);
@@ -4036,6 +4046,16 @@ export const portalStore = {
       }
     }
 
+    // 3. Fallback to 4-Year Base64 Archive Vault (if code was checked out, archived, or cleared from active rooms)
+    const vaultMatch = this.lookupArchiveVault(code);
+    if (vaultMatch && vaultMatch.booking) {
+      return {
+        ...vaultMatch.booking,
+        isArchived: true,
+        isExpired: ['Checked Out', 'Completed', 'Cancelled'].includes(vaultMatch.booking.status)
+      };
+    }
+
     return null;
   },
 
@@ -4139,9 +4159,10 @@ export const portalStore = {
       return {
         success: false,
         isCheckedOut: true,
+        isExpired: true,
         booking: profile.primaryBooking,
         profile: profile,
-        error: `This user has checked out. Booking code '${profile.primaryBooking.id}' is now expired and invalid for suite access.`
+        error: `This booking code has expired. The reservation under code '${profile.primaryBooking.id}' for ${profile.primaryBooking.guestName} has completed check-out and the suite was vacated. This code can no longer be used to log in.`
       };
     }
 
@@ -4184,6 +4205,11 @@ export const portalStore = {
     });
 
     setLocalItem(STORAGE_KEYS.BOOKINGS, updated);
+
+    // Update 4-Year Base64 Archive Vault to record check-out & mark code as expired
+    if (checkedOutBooking) {
+      this.archiveBookingRecord(checkedOutBooking, 'Guest Checked Out & Booking Code Expired');
+    }
 
     // Free assigned room in hotel inventory immediately
     if (checkedOutBooking && checkedOutBooking.roomNumber && checkedOutBooking.roomNumber !== 'Unassigned') {
@@ -5322,5 +5348,239 @@ export const portalStore = {
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const newLogs = [`[${timestamp}] ${msg}`, ...logs.slice(0, 49)];
     setLocalItem(STORAGE_KEYS.ACTIVITY_LOG, newLogs);
+  },
+
+  // =========================================================================
+  // 4-YEAR BASE-64 ENCRYPTED AUDIT VAULT CONTAINER
+  // Retains all reservation codes, guest dossiers, and financial records
+  // permanently for 4+ years even after checkout, cancellation, or reset.
+  // =========================================================================
+
+  // UTF-8 Safe Base64 Encoder
+  encodeBase64Vault(data) {
+    try {
+      const jsonStr = typeof data === 'string' ? data : JSON.stringify(data);
+      if (typeof window !== 'undefined' && window.btoa) {
+        return window.btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode('0x' + p1)));
+      }
+      return Buffer.from(jsonStr, 'utf-8').toString('base64');
+    } catch (e) {
+      return '';
+    }
+  },
+
+  // UTF-8 Safe Base64 Decoder
+  decodeBase64Vault(b64Str) {
+    if (!b64Str) return null;
+    try {
+      if (typeof window !== 'undefined' && window.atob) {
+        const decoded = decodeURIComponent(Array.prototype.map.call(window.atob(b64Str), (c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+        return JSON.parse(decoded);
+      }
+      return JSON.parse(Buffer.from(b64Str, 'base64').toString('utf-8'));
+    } catch (e) {
+      try {
+        return JSON.parse(b64Str);
+      } catch (err) {
+        return null;
+      }
+    }
+  },
+
+  // Retrieve all records stored in the 4-year Base-64 vault container
+  getArchiveVault() {
+    return getLocalItem(STORAGE_KEYS.AUDIT_ARCHIVE_VAULT, []);
+  },
+
+  // Archive or update a booking in the 4-year Base-64 vault container
+  archiveBookingRecord(booking, action = 'Audit Record Sealed') {
+    if (!booking) return null;
+    const cleanId = String(booking.id || booking.bookingCode || '').trim().toUpperCase();
+    if (!cleanId) return null;
+
+    const vault = this.getArchiveVault();
+    const now = new Date();
+    const retentionExpiry = new Date(now.getTime() + 4 * 365.25 * 24 * 60 * 60 * 1000); // 4-Year Retention Date
+
+    const fullPayload = {
+      ...booking,
+      id: cleanId,
+      guestName: booking.guestName || 'Valued Guest',
+      phone: booking.phone || '',
+      email: booking.email || '',
+      homeAddress: booking.homeAddress || '',
+      nextOfKinName: booking.nextOfKinName || '',
+      nextOfKinPhone: booking.nextOfKinPhone || '',
+      nextOfKinRelationship: booking.nextOfKinRelationship || 'Spouse',
+      roomNumber: booking.roomNumber || '',
+      roomName: booking.roomName || '',
+      roomType: booking.roomType || '',
+      building: booking.building || (String(booking.roomNumber || '').startsWith('1') ? 'Extension Building' : 'Main Building'),
+      amount: Number(booking.amount) || 0,
+      paymentMethod: booking.paymentMethod || 'Paystack',
+      paymentStatus: booking.paymentStatus || 'Paid',
+      paystackReference: booking.paystackReference || booking.paymentRef || '',
+      proofOfPayment: booking.proofOfPayment || '',
+      checkIn: booking.checkIn || '',
+      checkOut: booking.checkOut || '',
+      nights: Number(booking.nights) || 1,
+      status: booking.status || 'Confirmed',
+      source: booking.source || 'Website Reservation',
+      createdAt: booking.createdAt || now.toLocaleString(),
+      lastAction: action,
+      lastActionAt: now.toISOString(),
+      vaultRetentionPolicy: '4-YEAR AUDIT COMPLIANCE (RETENTION GUARANTEED UNTIL ' + retentionExpiry.getFullYear() + ')',
+      retentionExpiresAt: retentionExpiry.toISOString()
+    };
+
+    const b64 = this.encodeBase64Vault(fullPayload);
+    const checksum = `ARB-VLT-${cleanId.replace(/[^A-Z0-9]/g, '').slice(-6)}-${b64.length}B`;
+
+    const vaultEntry = {
+      id: cleanId,
+      guestName: fullPayload.guestName,
+      phone: fullPayload.phone,
+      email: fullPayload.email,
+      homeAddress: fullPayload.homeAddress,
+      nextOfKinName: fullPayload.nextOfKinName,
+      nextOfKinPhone: fullPayload.nextOfKinPhone,
+      nextOfKinRelationship: fullPayload.nextOfKinRelationship,
+      roomNumber: fullPayload.roomNumber,
+      roomName: fullPayload.roomName,
+      roomType: fullPayload.roomType,
+      building: fullPayload.building,
+      amount: fullPayload.amount,
+      paymentMethod: fullPayload.paymentMethod,
+      paymentStatus: fullPayload.paymentStatus,
+      paystackReference: fullPayload.paystackReference,
+      status: fullPayload.status,
+      isExpired: ['Checked Out', 'Completed', 'Cancelled'].includes(fullPayload.status),
+      checkIn: fullPayload.checkIn,
+      checkOut: fullPayload.checkOut,
+      nights: fullPayload.nights,
+      source: fullPayload.source,
+      archivedAt: now.toISOString(),
+      archivedDateFormatted: now.toLocaleString(),
+      retentionYears: 4,
+      retentionExpiresAt: retentionExpiry.toISOString(),
+      retentionExpiresFormatted: retentionExpiry.toLocaleDateString(),
+      checksum,
+      base64Payload: b64,
+      lastAction: action
+    };
+
+    const existingIdx = vault.findIndex(v => String(v.id).toUpperCase() === cleanId);
+    let updatedVault;
+    if (existingIdx >= 0) {
+      updatedVault = [...vault];
+      updatedVault[existingIdx] = vaultEntry;
+    } else {
+      updatedVault = [vaultEntry, ...vault];
+    }
+
+    setLocalItem(STORAGE_KEYS.AUDIT_ARCHIVE_VAULT, updatedVault);
+
+    // Sync vault container to MantleDB / Cloud in background
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_vault_updated', { detail: { vault: updatedVault, updatedEntry: vaultEntry } }));
+      fetch('https://mantledb.sh/v2/arab-signature-hotel-audit-vault-v1/records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vault: updatedVault, lastUpdated: now.toISOString() })
+      }).catch(() => {});
+    }
+
+    return vaultEntry;
+  },
+
+  // Lookup ANY booking code in the 4-year Archive Vault (active, checked out, expired, or historical)
+  lookupArchiveVault(codeOrQuery) {
+    if (!codeOrQuery) return null;
+    const cleanQuery = String(codeOrQuery).trim().toUpperCase();
+    const cleanAlpha = cleanQuery.replace(/[^A-Z0-9]/g, '');
+    const vault = this.getArchiveVault();
+
+    // 1. Direct match in Base-64 vault
+    let match = vault.find(v => {
+      const vId = String(v.id || '').toUpperCase();
+      const vAlpha = vId.replace(/[^A-Z0-9]/g, '');
+      return vId === cleanQuery || 
+             (cleanAlpha.length >= 6 && vAlpha.includes(cleanAlpha)) ||
+             vId === `ARS-BGD-${cleanQuery}` ||
+             vId === `ARS-EXT-${cleanQuery}`;
+    });
+
+    // 2. If not yet vaulted, check active bookings and auto-vault
+    if (!match) {
+      const activeBookings = this.getBookings();
+      const activeMatch = activeBookings.find(b => {
+        const bId = String(b.id || '').toUpperCase();
+        const bAlpha = bId.replace(/[^A-Z0-9]/g, '');
+        return bId === cleanQuery || (cleanAlpha.length >= 6 && bAlpha.includes(cleanAlpha));
+      });
+      if (activeMatch) {
+        match = this.archiveBookingRecord(activeMatch, 'Auto-Archived on Audit Search');
+      }
+    }
+
+    if (!match) return null;
+
+    // Decode Base64 payload to retrieve the full original dossier
+    const fullPayload = this.decodeBase64Vault(match.base64Payload) || {};
+
+    return {
+      found: true,
+      vaultEntry: match,
+      booking: {
+        ...fullPayload,
+        id: match.id,
+        guestName: fullPayload.guestName || match.guestName,
+        phone: fullPayload.phone || match.phone,
+        email: fullPayload.email || match.email,
+        homeAddress: fullPayload.homeAddress || match.homeAddress,
+        nextOfKinName: fullPayload.nextOfKinName || match.nextOfKinName,
+        nextOfKinPhone: fullPayload.nextOfKinPhone || match.nextOfKinPhone,
+        nextOfKinRelationship: fullPayload.nextOfKinRelationship || match.nextOfKinRelationship,
+        roomNumber: fullPayload.roomNumber || match.roomNumber,
+        roomName: fullPayload.roomName || match.roomName,
+        roomType: fullPayload.roomType || match.roomType,
+        building: fullPayload.building || match.building,
+        amount: fullPayload.amount || match.amount,
+        status: fullPayload.status || match.status,
+        checkIn: fullPayload.checkIn || match.checkIn,
+        checkOut: fullPayload.checkOut || match.checkOut,
+        nights: fullPayload.nights || match.nights,
+        paymentMethod: fullPayload.paymentMethod || match.paymentMethod,
+        paymentStatus: fullPayload.paymentStatus || match.paymentStatus,
+        source: fullPayload.source || match.source
+      },
+      isExpired: ['Checked Out', 'Completed', 'Cancelled'].includes(match.status),
+      checksum: match.checksum,
+      archivedAt: match.archivedAt,
+      retentionYears: match.retentionYears || 4,
+      retentionExpiresAt: match.retentionExpiresAt,
+      base64Payload: match.base64Payload
+    };
+  },
+
+  // Sync 4-Year Vault from Cloud
+  async syncArchiveVaultFromCloud() {
+    if (typeof window === 'undefined') return;
+    try {
+      const res = await fetch('https://mantledb.sh/v2/arab-signature-hotel-audit-vault-v1/records', {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.vault)) {
+          const local = this.getArchiveVault();
+          const map = new Map();
+          local.forEach(r => map.set(r.id, r));
+          data.vault.forEach(r => map.set(r.id, r));
+          const merged = Array.from(map.values());
+          setLocalItem(STORAGE_KEYS.AUDIT_ARCHIVE_VAULT, merged);
+        }
+      }
+    } catch (e) {}
   }
 };

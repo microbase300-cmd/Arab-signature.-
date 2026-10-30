@@ -16,6 +16,7 @@ import {
   Building2, Package, BellRing, Layers, BarChart3, Tag, Percent, Calendar, Camera, PartyPopper, Upload, RotateCcw
 } from 'lucide-react';
 import ProofOfPaymentModal from '../components/ProofOfPaymentModal';
+import AuditVaultModal from '../components/AuditVaultModal';
 import { compressImage } from '../utils/imageCompressor';
 import { EventAdBannerCard, EventTemplateCard } from './EventsPage';
 
@@ -27,6 +28,9 @@ export default function AdminPortal({ onNavigate }) {
   const [diningOrders, setDiningOrders] = useState([]);
   const [overviewOrderFilter, setOverviewOrderFilter] = useState('all'); // 'all' | 'pending' | 'drinks' | 'food'
   const [selectedProofBooking, setSelectedProofBooking] = useState(null);
+  const [selectedVaultRecord, setSelectedVaultRecord] = useState(null);
+  const [isVaultModalOpen, setIsVaultModalOpen] = useState(false);
+  const [adminVaultSearch, setAdminVaultSearch] = useState('');
   const [rates, setRates] = useState([]);
   const [hotelConfig, setHotelConfig] = useState({});
   const [activityLogs, setActivityLogs] = useState([]);
@@ -734,6 +738,13 @@ export default function AdminPortal({ onNavigate }) {
   const successfulLogins = loginAttempts.filter(l => l.status === 'SUCCESS').length;
   const failedLogins = loginAttempts.filter(l => l.status === 'FAILED').length;
 
+  // Live lookup in 4-Year Base64 Archive Vault for CEO / Executive Admin
+  const liveAdminVaultMatch = React.useMemo(() => {
+    const q = (adminVaultSearch || '').trim();
+    if (q.length < 4) return null;
+    return portalStore.lookupArchiveVault(q);
+  }, [adminVaultSearch, bookings]);
+
   return (
     <div className="min-h-screen bg-[#090105] text-gray-100 flex flex-col font-sans">
       
@@ -898,6 +909,91 @@ export default function AdminPortal({ onNavigate }) {
           </div>
 
         </div>
+
+        {/* CEO Statutory 4-Year Base64 Archive Vault Lookup Bar */}
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-[#14020a] border border-[#d4af37]/40 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-[#d4af37]/20 border border-[#d4af37]/50 text-[#f3e5ab]">
+              <ShieldCheck size={18} className="stroke-[2.5]" />
+            </div>
+            <div>
+              <span className="font-cinzel font-bold text-xs sm:text-sm text-white flex items-center gap-2">
+                <span>4-Year Base64 Statutory Archive Vault</span>
+                <span className="px-2 py-0.5 rounded-full bg-[#d4af37]/20 text-[#f3e5ab] text-[10px] font-mono border border-[#d4af37]/40">
+                  Permanent 4-Yr Dossier Retention
+                </span>
+              </span>
+              <p className="text-[11px] text-gray-400">
+                Search ANY historical, active, or expired reservation code (e.g. ARS-BGD or ARS-EXT) to pop out guest dossier, financial record, and encrypted Base64 container.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="relative flex-1 md:w-80">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={adminVaultSearch}
+                onChange={(e) => setAdminVaultSearch(e.target.value)}
+                placeholder="Type ARS code, guest phone or name..."
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-black/70 border border-[#d4af37]/40 text-xs text-white placeholder-gray-500 font-mono focus:outline-none focus:border-[#d4af37]"
+              />
+            </div>
+            {adminVaultSearch && (
+              <button
+                type="button"
+                onClick={() => setAdminVaultSearch('')}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/15 text-gray-400 hover:text-white"
+                title="Clear Search"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Live Matched Vault Banner for CEO */}
+        {liveAdminVaultMatch && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#2a0614] via-[#1a030d] to-[#120006] border-2 border-[#d4af37]/80 shadow-2xl flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#d4af37]/20 border border-[#d4af37]/50 flex items-center justify-center text-[#f3e5ab] shrink-0">
+                <ShieldCheck size={22} className="stroke-[2.5]" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono font-black text-sm text-[#f3e5ab] tracking-wider">
+                    {liveAdminVaultMatch.booking.id}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
+                    liveAdminVaultMatch.isExpired ? 'bg-rose-500/25 text-rose-300 border border-rose-500/40' : 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40'
+                  }`}>
+                    {liveAdminVaultMatch.isExpired ? '⚠️ Expired / Checked Out' : 'Active In System'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-[#d4af37]/20 text-[#f3e5ab] text-[10px] font-mono border border-[#d4af37]/40">
+                    Base64 Vault Sealed
+                  </span>
+                </div>
+                <p className="text-xs text-gray-300 mt-0.5">
+                  Guest: <strong className="text-white">{liveAdminVaultMatch.booking.guestName}</strong> &bull; Suite: <span className="text-[#f3e5ab]">Room #{liveAdminVaultMatch.booking.roomNumber || '—'}</span> &bull; Folio: <span className="text-emerald-400 font-bold">₦{Number(liveAdminVaultMatch.booking.amount).toLocaleString()}</span> ({liveAdminVaultMatch.booking.paymentStatus}) &bull; Retained Until: <span className="font-mono text-gray-400">{liveAdminVaultMatch.vaultEntry?.retentionExpiresFormatted || '2030'}</span>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedVaultRecord(liveAdminVaultMatch);
+                  setIsVaultModalOpen(true);
+                }}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-[#d4af37]/20 hover:scale-[1.02] transition-all cursor-pointer"
+              >
+                <FileText size={14} className="stroke-[2.5]" />
+                <span>Pop Out Full Dossier</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 3. Executive Tab Navigation (Default: Hotel Operations & Products Overview) */}
         <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-3">
@@ -3031,19 +3127,34 @@ export default function AdminPortal({ onNavigate }) {
                           )}
                         </td>
                         <td className="py-3.5 px-4 text-right">
-                          {isConfirmed ? (
-                            <span className="text-[11px] text-gray-500 italic">
-                              Verified {b.verifiedAt || 'OK'}
-                            </span>
-                          ) : (
+                          <div className="flex items-center justify-end gap-1.5">
                             <button
-                              onClick={() => handleConfirmPaymentBackend(b.id)}
-                              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] transition-all shadow-md shadow-emerald-900/40 flex items-center gap-1 ml-auto"
+                              type="button"
+                              onClick={() => {
+                                const record = portalStore.lookupArchiveVault(b.id);
+                                setSelectedVaultRecord(record);
+                                setIsVaultModalOpen(true);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-[#d4af37]/20 hover:bg-[#d4af37]/35 border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                              title="Pop Out 4-Year Base64 Archive Vault Record"
                             >
-                              <Check size={12} />
-                              <span>Confirm Payment</span>
+                              <ShieldCheck size={11} className="text-[#d4af37]" />
+                              <span>Vault</span>
                             </button>
-                          )}
+                            {isConfirmed ? (
+                              <span className="text-[11px] text-gray-500 italic">
+                                Verified {b.verifiedAt || 'OK'}
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleConfirmPaymentBackend(b.id)}
+                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] transition-all shadow-md shadow-emerald-900/40 flex items-center gap-1"
+                              >
+                                <Check size={12} />
+                                <span>Confirm Payment</span>
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -3950,6 +4061,18 @@ export default function AdminPortal({ onNavigate }) {
           onClose={() => setSelectedProofBooking(null)}
           isAdminView={true}
           onConfirmPayment={(id) => handleConfirmPaymentBackend(id)}
+        />
+      )}
+
+      {/* 4-Year Base64 Archive Vault Modal */}
+      {isVaultModalOpen && selectedVaultRecord && (
+        <AuditVaultModal
+          isOpen={isVaultModalOpen}
+          onClose={() => {
+            setIsVaultModalOpen(false);
+            setSelectedVaultRecord(null);
+          }}
+          vaultRecord={selectedVaultRecord}
         />
       )}
 
