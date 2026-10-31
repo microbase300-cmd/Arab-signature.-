@@ -105,6 +105,7 @@ export default function AccountantPortal({ onNavigate }) {
   }, [rowOverrides]);
 
   const [pendingCancellations, setPendingCancellations] = useState([]);
+  const [pendingEarlyTerminations, setPendingEarlyTerminations] = useState([]);
 
   const showToast = (msg) => {
     setFeedbackMsg(msg);
@@ -115,6 +116,7 @@ export default function AccountantPortal({ onNavigate }) {
     setBookings(portalStore.getBookings());
     setDiningOrders(portalStore.getDiningOrders());
     setPendingCancellations(portalStore.getPendingCancellations());
+    setPendingEarlyTerminations(portalStore.getPendingEarlyTerminations());
     setVaultList(portalStore.getArchiveVault());
     portalStore.syncArchiveVaultFromCloud().then(() => {
       setVaultList(portalStore.getArchiveVault());
@@ -141,6 +143,26 @@ export default function AccountantPortal({ onNavigate }) {
     showToast(`Reservation ${bookingId} cancellation rejected. Reservation remains active.`);
   };
 
+  const handleConfirmEarlyTermination = (bookingId) => {
+    const accountantName = currentUser?.name || 'Chief Accountant';
+    const notes = window.prompt("Accountant Audit Notes for Early Stay Termination Approval:", "Stay duration audited by Finance. Early departure approved and room released for inventory.");
+    if (notes === null) return;
+
+    portalStore.confirmEarlyCheckoutTermination(bookingId, accountantName, notes);
+    refreshAll();
+    showToast(`✓ Early termination approved for ${bookingId}. The room is now officially available for booking.`);
+  };
+
+  const handleRejectEarlyTermination = (bookingId) => {
+    const accountantName = currentUser?.name || 'Chief Accountant';
+    const reason = window.prompt("Reason for Rejecting Early Termination (sent to Front Desk & CEO):", "Guest reservation remains active or pending folio balance.");
+    if (reason === null) return;
+
+    portalStore.rejectEarlyCheckoutTermination(bookingId, accountantName, reason);
+    refreshAll();
+    showToast(`Early termination request for ${bookingId} rejected. Room remains occupied.`);
+  };
+
   useEffect(() => {
     const user = portalStore.getCurrentUser();
     if (!user || !['accountant', 'admin'].includes(user.role)) {
@@ -158,6 +180,9 @@ export default function AccountantPortal({ onNavigate }) {
     window.addEventListener('ash_bookings_updated', handleSync);
     window.addEventListener('ash_cancellation_requested', handleSync);
     window.addEventListener('ash_cancellation_confirmed', handleSync);
+    window.addEventListener('ash_early_termination_requested', handleSync);
+    window.addEventListener('ash_early_termination_confirmed', handleSync);
+    window.addEventListener('ash_early_termination_rejected', handleSync);
     const unsubDining = portalStore.subscribeDiningOrders(handleSync);
 
     return () => {
@@ -165,6 +190,9 @@ export default function AccountantPortal({ onNavigate }) {
       window.removeEventListener('ash_bookings_updated', handleSync);
       window.removeEventListener('ash_cancellation_requested', handleSync);
       window.removeEventListener('ash_cancellation_confirmed', handleSync);
+      window.removeEventListener('ash_early_termination_requested', handleSync);
+      window.removeEventListener('ash_early_termination_confirmed', handleSync);
+      window.removeEventListener('ash_early_termination_rejected', handleSync);
       unsubDining();
     };
   }, []);
@@ -815,6 +843,117 @@ export default function AccountantPortal({ onNavigate }) {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* PENDING EARLY STAY TERMINATIONS AUDIT & CONFIRMATION DESK (CHIEF ACCOUNTANT EXCLUSIVE) */}
+        {pendingEarlyTerminations.length > 0 && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#2c1303] via-[#3d1a04] to-[#1a0802] border-2 border-amber-500 shadow-2xl space-y-4 animate-fadeIn">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-400 flex items-center justify-center text-amber-300">
+                  <AlertCircle size={22} className="stroke-[2.5]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono font-black tracking-widest text-amber-300 uppercase bg-amber-500/25 px-2 py-0.5 rounded border border-amber-500/40">
+                      CONFIRMATION REQUIRED &bull; {pendingEarlyTerminations.length} PENDING EARLY DEPARTURE{pendingEarlyTerminations.length > 1 ? 'S' : ''}
+                    </span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-cinzel font-bold text-white mt-0.5">
+                    Early Stay Termination &amp; Room Release Audits
+                  </h3>
+                </div>
+              </div>
+              <p className="text-xs text-amber-200/90 max-w-md">
+                Front desk receptionist requested to mark occupied rooms available before the booked stay duration is completed. As Chief Accountant, you or the CEO must verify folio settlement and confirm room release.
+              </p>
+            </div>
+
+            {/* List of Pending Early Terminations */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {pendingEarlyTerminations.map((pet) => {
+                const req = pet.earlyTerminationRequest || {};
+                return (
+                  <div key={pet.id} className="p-4 rounded-xl bg-black/60 border border-amber-500/40 space-y-3">
+                    <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-sm text-[#f3e5ab]">{pet.id}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/40 text-[10px] font-mono font-bold text-amber-300">
+                          Room #{pet.roomNumber}
+                        </span>
+                      </div>
+                      <span className="font-mono font-bold text-xs text-emerald-400">
+                        ₦{Number(pet.amount || 0).toLocaleString()} ({pet.paymentStatus || 'Paid'})
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-[10px] text-gray-400 uppercase block">Guest Information</span>
+                        <strong className="text-white text-sm">{pet.guestName || 'In-House Guest'}</strong>
+                        <span className="text-[10px] text-gray-400 font-mono block">{pet.phone || 'No phone'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-gray-400 uppercase block">Booked Duration</span>
+                        <strong className="text-[#d4af37] text-sm">
+                          {req.bookedNights || pet.nights || 1} Night(s) / Day(s)
+                        </strong>
+                        <span className="text-[10px] text-gray-300 block">
+                          Stay: {pet.checkIn || 'N/A'} &rarr; {pet.checkOut || 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Stay Duration Audit Details */}
+                    <div className="grid grid-cols-2 gap-2 p-2 rounded-lg bg-white/[0.04] border border-amber-500/20 text-xs font-mono">
+                      <div>
+                        <span className="text-[9px] text-gray-400 uppercase block">Time Stayed</span>
+                        <span className="text-amber-200 font-bold">{req.elapsedStay || 'Partial Stay'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-gray-400 uppercase block">Unused / Remaining</span>
+                        <span className="text-rose-300 font-bold">{req.remainingStay || 'Early checkout'}</span>
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-white/[0.03] border border-white/10 text-xs">
+                      <span className="text-[10px] text-amber-300 font-bold uppercase block">
+                        Front Desk Reason for Early Checkout:
+                      </span>
+                      <p className="text-gray-200 text-[11px] mt-0.5 italic">
+                        "{req.reason || 'Guest requested early check-out before duration expired.'}"
+                      </p>
+                      <div className="text-[10px] text-gray-400 mt-1 flex items-center justify-between font-mono">
+                        <span>Requested By: {req.requestedBy || 'Front Desk'}</span>
+                        <span>{req.requestedAt || ''}</span>
+                      </div>
+                    </div>
+
+                    {/* Accountant Decision Buttons */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleConfirmEarlyTermination(pet.id)}
+                        className="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
+                      >
+                        <Check size={14} className="stroke-[2.5]" />
+                        <span>✓ Confirm &amp; Mark Available</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRejectEarlyTermination(pet.id)}
+                        className="py-2 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-gray-300 hover:text-white font-medium text-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
+                      >
+                        <X size={14} />
+                        <span>Reject</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

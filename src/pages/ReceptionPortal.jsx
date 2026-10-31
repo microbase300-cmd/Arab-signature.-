@@ -82,6 +82,20 @@ export default function ReceptionPortal({ onNavigate }) {
   const [cancelReasonInput, setCancelReasonInput] = useState('');
   const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
 
+  // Reservation Code Check-In Verification State
+  const [isCheckInCodeModalOpen, setIsCheckInCodeModalOpen] = useState(false);
+  const [checkInTargetRoom, setCheckInTargetRoom] = useState(null);
+  const [checkInReservationCodeInput, setCheckInReservationCodeInput] = useState('');
+  const [checkInVerifiedBooking, setCheckInVerifiedBooking] = useState(null);
+  const [checkInCodeError, setCheckInCodeError] = useState('');
+  const [isNameCrossChecked, setIsNameCrossChecked] = useState(false);
+
+  // Early Stay Termination (CEO & Chief Accountant Authorization) State
+  const [isEarlyTerminationModalOpen, setIsEarlyTerminationModalOpen] = useState(false);
+  const [earlyTerminationTarget, setEarlyTerminationTarget] = useState(null);
+  const [earlyTerminationReasonInput, setEarlyTerminationReasonInput] = useState('');
+  const [isSubmittingEarlyTermination, setIsSubmittingEarlyTermination] = useState(false);
+
   // Front Desk Intercom Chat State
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
@@ -605,6 +619,156 @@ export default function ReceptionPortal({ onNavigate }) {
     }
   };
 
+  // --- RESERVATION CODE VERIFICATION HANDLERS (CHECK IN ON RESERVED ROOMS) ---
+  const handlePromptCheckInReservedRoom = (room) => {
+    if (!isDeskRoom(room)) {
+      showToast(`Access Restricted: Room #${room.roomNumber} is managed by ${room.building || 'another wing'}.`);
+      return;
+    }
+    setCheckInTargetRoom(room);
+    setCheckInReservationCodeInput('');
+    setCheckInVerifiedBooking(null);
+    setCheckInCodeError('');
+    setIsNameCrossChecked(false);
+    setIsCheckInCodeModalOpen(true);
+  };
+
+  const handlePromptCheckInBooking = (booking) => {
+    if (!isDeskBooking(booking)) {
+      showToast(`Access Restricted: Booking #${booking.id} belongs to ${getBookingBuilding(booking)}.`);
+      return;
+    }
+    const targetRoom = rooms.find(r => String(r.roomNumber) === String(booking.roomNumber)) || {
+      roomNumber: booking.roomNumber,
+      type: booking.roomType,
+      building: getBookingBuilding(booking)
+    };
+    setCheckInTargetRoom(targetRoom);
+    setCheckInReservationCodeInput(booking.id || '');
+    setCheckInVerifiedBooking(booking);
+    setCheckInCodeError('');
+    setIsNameCrossChecked(false);
+    setIsCheckInCodeModalOpen(true);
+  };
+
+  const handleVerifyCheckInCode = async () => {
+    const code = checkInReservationCodeInput.trim().toUpperCase();
+    if (!code) {
+      setCheckInCodeError('Please enter the customer reservation code.');
+      return;
+    }
+    setCheckInCodeError('');
+
+    let booking = portalStore.findBookingByCode(code);
+    if (!booking) {
+      booking = await portalStore.fetchBookingFromCloud(code);
+    }
+
+    if (!booking) {
+      setCheckInCodeError(`No reservation found matching code "${code}". Please verify code on guest's device.`);
+      setCheckInVerifiedBooking(null);
+      return;
+    }
+
+    // Verify room match if target room is reserved for a specific room
+    if (checkInTargetRoom && booking.roomNumber && String(booking.roomNumber) !== String(checkInTargetRoom.roomNumber)) {
+      setCheckInCodeError(`Reservation code "${code}" is assigned to Room #${booking.roomNumber}, not Room #${checkInTargetRoom.roomNumber}.`);
+      setCheckInVerifiedBooking(null);
+      return;
+    }
+
+    setCheckInVerifiedBooking(booking);
+  };
+
+  const handleExecuteVerifiedCheckIn = () => {
+    if (!checkInVerifiedBooking || !checkInTargetRoom) return;
+
+    let rNum = checkInTargetRoom.roomNumber;
+    if (!rNum || rNum === 'Unassigned') {
+      rNum = checkInVerifiedBooking.roomNumber;
+    }
+    const guest = checkInVerifiedBooking.guestName || checkInTargetRoom.currentGuest || 'Checked In Guest';
+
+    portalStore.updateRoomStatus(rNum, 'occupied', guest);
+    portalStore.updateBookingStatus(checkInVerifiedBooking.id, 'Checked In', rNum);
+
+    refreshData();
+    setIsCheckInCodeModalOpen(false);
+    setCheckInTargetRoom(null);
+    setCheckInVerifiedBooking(null);
+    setCheckInReservationCodeInput('');
+    setIsNameCrossChecked(false);
+
+    showToast(`Reservation Code Verified! Guest ${guest} Checked In to Room #${rNum}.`);
+  };
+
+  // --- EARLY STAY TERMINATION HANDLERS (CEO & ACCOUNTANT CONFIRMATION) ---
+  const handlePromptMakeAvailable = (room) => {
+    if (!isDeskRoom(room)) {
+      showToast(`Access Restricted: Room #${room.roomNumber} is in ${room.building || 'another wing'}. Only that wing's desk can modify this room.`);
+      return;
+    }
+
+    const stayCheck = portalStore.checkIsStayDurationCompleted(room.roomNumber);
+
+    // If stay duration is NOT completed (e.g. booked for 2 days, and duration is not yet over):
+    if (!stayCheck.isCompleted) {
+      setEarlyTerminationTarget({
+        room,
+        stayCheck,
+        roomNumber: room.roomNumber,
+        guestName: stayCheck.guestName,
+        bookingId: stayCheck.bookingId,
+        bookedNights: stayCheck.bookedNights,
+        elapsedText: stayCheck.elapsedText,
+        remainingText: stayCheck.remainingText
+      });
+      setEarlyTerminationReasonInput('');
+      setIsEarlyTerminationModalOpen(true);
+      return;
+    }
+
+    // Otherwise normal checkout: check dining bills, clear room, mark available
+    const activeBooking = stayCheck.booking || bookings.find(b => 
+      String(b.roomNumber) === String(room.roomNumber) && 
+      ['Checked In', 'Occupied'].includes(b.status)
+    );
+
+    if (activeBooking) {
+      const folio = portalStore.getBookingFolioSummary(activeBooking);
+      if (folio.balanceDue > 0) {
+        const confirmSettle = window.confirm(
+          `Guest ${activeBooking.guestName} (Suite #${room.roomNumber}) has an unsettled Food/Drink Room Bill of ₦${folio.balanceDue.toLocaleString()}.\n\nClick OK to settle this ₦${folio.balanceDue.toLocaleString()} bill via Counter POS and mark room available.`
+        );
+        if (!confirmSettle) return;
+        portalStore.settleBookingDiningBill(activeBooking.id, 'POS Terminal (Front Desk Check-Out)');
+      }
+      portalStore.updateBookingStatus(activeBooking.id, 'Completed', room.roomNumber);
+    }
+
+    handleUpdateRoomStatus(room.roomNumber, 'available');
+  };
+
+  const handleSubmitEarlyTerminationRequest = () => {
+    if (!earlyTerminationTarget) return;
+    setIsSubmittingEarlyTermination(true);
+    const reason = earlyTerminationReasonInput.trim() || 'Client requested early departure before booked duration expired';
+
+    portalStore.requestEarlyCheckoutTermination({
+      bookingId: earlyTerminationTarget.bookingId,
+      roomNumber: earlyTerminationTarget.roomNumber,
+      reason,
+      requestedBy: `${currentUser?.name || 'Front Desk'} (${getDeskBuilding()})`
+    });
+
+    setIsSubmittingEarlyTermination(false);
+    setIsEarlyTerminationModalOpen(false);
+    setEarlyTerminationTarget(null);
+    setEarlyTerminationReasonInput('');
+    refreshData();
+    showToast(`Early termination request for Room #${earlyTerminationTarget.roomNumber} dispatched to CEO & Chief Accountant for audit confirmation.`);
+  };
+
   // Check In / Check Out from ledger (Enforces Building Operational Permissions)
   const handleToggleBookingStatus = (booking) => {
     if (!isDeskBooking(booking)) {
@@ -613,20 +777,26 @@ export default function ReceptionPortal({ onNavigate }) {
     }
 
     if (booking.status === 'Confirmed') {
-      // Find an available room if unassigned
-      let assignedRoom = booking.roomNumber;
-      if (!assignedRoom || assignedRoom === 'Unassigned') {
-        const availableRoom = rooms.find(r => 
-          r.type === booking.roomType && 
-          r.status === 'available' &&
-          isDeskRoom(r)
-        );
-        assignedRoom = availableRoom ? availableRoom.roomNumber : (currentUser?.buildingAccess === 'Extension Building' ? '102' : '602');
-      }
-      portalStore.updateBookingStatus(booking.id, 'Checked In', assignedRoom);
-      refreshData();
-      showToast(`Guest ${booking.guestName} Checked In to Room ${assignedRoom}`);
+      handlePromptCheckInBooking(booking);
+      return;
     } else if (booking.status === 'Checked In') {
+      const stayCheck = portalStore.checkIsStayDurationCompleted(booking.roomNumber);
+      if (!stayCheck.isCompleted) {
+        const targetRoom = rooms.find(r => String(r.roomNumber) === String(booking.roomNumber)) || { roomNumber: booking.roomNumber, building: getBookingBuilding(booking) };
+        setEarlyTerminationTarget({
+          room: targetRoom,
+          stayCheck,
+          roomNumber: booking.roomNumber,
+          guestName: booking.guestName,
+          bookingId: booking.id,
+          bookedNights: stayCheck.bookedNights,
+          elapsedText: stayCheck.elapsedText,
+          remainingText: stayCheck.remainingText
+        });
+        setEarlyTerminationReasonInput('');
+        setIsEarlyTerminationModalOpen(true);
+        return;
+      }
       const folio = portalStore.getBookingFolioSummary(booking);
       if (folio.balanceDue > 0) {
         const confirmSettle = window.confirm(
@@ -1600,6 +1770,7 @@ export default function ReceptionPortal({ onNavigate }) {
                       const isCleaning = room.status === 'cleaning';
                       const isReserved = room.status === 'reserved';
                       const isCancellationPending = room.status === 'cancellation_pending';
+                      const isEarlyTerminationPending = room.status === 'early_termination_pending';
 
                       let borderClass = 'border-white/10';
                       let bgCard = 'bg-[#16030c]';
@@ -1622,6 +1793,10 @@ export default function ReceptionPortal({ onNavigate }) {
                         bgCard = 'bg-gradient-to-br from-[#16030c] to-[#04152b]';
                         badgeColor = 'bg-sky-500/20 text-sky-400 border-sky-500/40';
                       } else if (isCancellationPending) {
+                        borderClass = 'border-amber-400/80 shadow-amber-500/20';
+                        bgCard = 'bg-gradient-to-br from-[#16030c] to-[#361705]';
+                        badgeColor = 'bg-amber-500/30 text-amber-300 border-amber-400/60 animate-pulse';
+                      } else if (isEarlyTerminationPending) {
                         borderClass = 'border-amber-400/80 shadow-amber-500/20';
                         bgCard = 'bg-gradient-to-br from-[#16030c] to-[#361705]';
                         badgeColor = 'bg-amber-500/30 text-amber-300 border-amber-400/60 animate-pulse';
@@ -1687,9 +1862,9 @@ export default function ReceptionPortal({ onNavigate }) {
                               {isOccupied && (
                                 <div className="flex items-center gap-1.5">
                                   <button
-                                    onClick={() => handleUpdateRoomStatus(room.roomNumber, 'available')}
-                                    className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 text-[11px] font-semibold transition-all flex items-center justify-center gap-1"
-                                    title="Check out guest and immediately mark suite available"
+                                    onClick={() => handlePromptMakeAvailable(room)}
+                                    className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                                    title="Check out guest & mark suite available (Verifies stay duration completion)"
                                   >
                                     <Check size={12} />
                                     <span>Make Available</span>
@@ -1741,13 +1916,22 @@ export default function ReceptionPortal({ onNavigate }) {
                                 </div>
                               )}
 
+                              {isEarlyTerminationPending && (
+                                <div className="w-full py-2 px-2.5 rounded-lg bg-amber-950/70 border border-amber-500/50 text-amber-200 text-[10px] font-mono font-bold text-center flex items-center justify-center gap-1.5 shadow-sm">
+                                  <Clock size={12} className="text-amber-400 animate-spin" />
+                                  <span>Early Checkout Pending CEO/Accountant Approval</span>
+                                </div>
+                              )}
+
                               {isReserved && (
                                 <div className="flex items-center gap-1.5">
                                   <button
-                                    onClick={() => handleUpdateRoomStatus(room.roomNumber, 'occupied', room.currentGuest)}
-                                    className="flex-1 py-1.5 px-2 rounded-lg bg-sky-950/60 hover:bg-sky-900 border border-sky-500/40 text-sky-200 text-[11px] font-medium transition-all"
+                                    onClick={() => handlePromptCheckInReservedRoom(room)}
+                                    className="flex-1 py-1.5 px-2 rounded-lg bg-sky-950/60 hover:bg-sky-900 border border-sky-500/40 text-sky-200 text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                                    title="Verify customer reservation code to check in"
                                   >
-                                    Check In
+                                    <Key size={12} className="text-sky-300" />
+                                    <span>Check In</span>
                                   </button>
                                   <button
                                     onClick={() => handlePromptCancelReservation(room)}
@@ -2132,6 +2316,16 @@ export default function ReceptionPortal({ onNavigate }) {
                                     >
                                       <Clock size={11} />
                                       <span>Pending Audit</span>
+                                    </span>
+                                  )}
+
+                                  {b.status === 'Early Termination Pending' && (
+                                    <span
+                                      className="px-2.5 py-1 rounded-lg bg-amber-950/60 border border-amber-400/50 text-amber-300 text-[10px] font-mono font-bold flex items-center gap-1 animate-pulse"
+                                      title="Early checkout requested. Awaiting CEO or Chief Accountant confirmation before room is made available."
+                                    >
+                                      <Clock size={11} className="text-amber-400" />
+                                      <span>Early Checkout Pending</span>
                                     </span>
                                   )}
 
@@ -4503,6 +4697,264 @@ export default function ReceptionPortal({ onNavigate }) {
 
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: VERIFY RESERVATION CODE BEFORE CHECK-IN ON RESERVED ROOM */}
+      {/* ============================================================== */}
+      {isCheckInCodeModalOpen && checkInTargetRoom && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+          <div className="w-full max-w-lg rounded-3xl bg-[#14020a] border border-[#d4af37]/40 shadow-2xl p-6 sm:p-7 space-y-5">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3.5">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-[#d4af37] font-bold block">
+                  FRONT DESK COUNTER CHECK-IN • RESERVATION CODE VERIFICATION
+                </span>
+                <h3 className="font-cinzel text-lg sm:text-xl font-bold text-white flex items-center gap-2 mt-0.5">
+                  <Key size={18} className="text-[#d4af37]" />
+                  <span>Check In Suite #{checkInTargetRoom.roomNumber}</span>
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCheckInCodeModalOpen(false);
+                  setCheckInTargetRoom(null);
+                  setCheckInVerifiedBooking(null);
+                  setCheckInCodeError('');
+                }}
+                className="p-1.5 text-gray-400 hover:text-white rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Room Info Banner */}
+            <div className="p-3.5 rounded-2xl bg-sky-950/40 border border-sky-500/30 flex items-center justify-between text-xs">
+              <div>
+                <span className="text-[10px] text-sky-300 font-mono block">RESERVED SUITE:</span>
+                <strong className="text-white text-sm">Room #{checkInTargetRoom.roomNumber}</strong>
+                <span className="text-gray-400 ml-1.5">({checkInTargetRoom.type || 'Luxury Suite'} • {checkInTargetRoom.building || getDeskBuilding()})</span>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-sky-500/20 text-sky-300 text-[10px] font-mono font-bold border border-sky-500/40">
+                RESERVED
+              </span>
+            </div>
+
+            {/* Step 1: Input Reservation Code */}
+            <div className="space-y-2">
+              <label className="block text-xs uppercase tracking-wider text-[#f3e5ab] font-bold">
+                Enter Customer Reservation Code: <span className="text-rose-400">*</span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  autoFocus
+                  value={checkInReservationCodeInput}
+                  onChange={(e) => {
+                    setCheckInReservationCodeInput(e.target.value.toUpperCase());
+                    setCheckInCodeError('');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleVerifyCheckInCode();
+                  }}
+                  placeholder="e.g. ARS-BGD-7548BD or ARB-RES-..."
+                  className="flex-1 bg-black/60 border border-[#d4af37]/40 rounded-xl px-4 py-3 text-white text-sm font-mono tracking-wider focus:border-[#d4af37] focus:outline-none uppercase"
+                />
+                <button
+                  type="button"
+                  onClick={handleVerifyCheckInCode}
+                  className="px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-wider bg-gradient-to-r from-[#d4af37] to-[#f3e5ab] text-black shadow-lg hover:brightness-105 active:scale-95 transition-all cursor-pointer"
+                >
+                  Verify
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400">
+                Ask customer to show their reservation code on their phone screen, SMS, or confirmation receipt.
+              </p>
+            </div>
+
+            {/* Verification Error */}
+            {checkInCodeError && (
+              <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle size={15} className="text-rose-400 shrink-0" />
+                <span>{checkInCodeError}</span>
+              </div>
+            )}
+
+            {/* Step 2: Customer Name Cross-Check Box */}
+            {checkInVerifiedBooking && (
+              <div className="p-4 rounded-2xl bg-[#081f12] border-2 border-emerald-500/50 space-y-3 animate-fadeIn">
+                <div className="flex items-center justify-between border-b border-emerald-500/30 pb-2">
+                  <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold font-mono">
+                    <CheckCircle2 size={16} /> RESERVATION CODE VERIFIED
+                  </div>
+                  <span className="text-[11px] font-mono text-emerald-300 font-bold">
+                    Code: {checkInVerifiedBooking.id}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-black/60 border border-emerald-500/30 space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Customer Full Name:</span>
+                    <strong className="text-white text-sm font-cinzel">{checkInVerifiedBooking.guestName}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">WhatsApp / Phone:</span>
+                    <span className="text-gray-200 font-mono">{checkInVerifiedBooking.phone || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Stay Duration:</span>
+                    <span className="text-[#f3e5ab] font-bold">{checkInVerifiedBooking.nights || 1} Days ({checkInVerifiedBooking.checkIn} to {checkInVerifiedBooking.checkOut})</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Assigned Room:</span>
+                    <span className="text-emerald-300 font-bold">Suite #{checkInTargetRoom.roomNumber}</span>
+                  </div>
+                </div>
+
+                {/* Verbal Name Cross-Check Notice per User Rule */}
+                <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 text-[11px] text-amber-200 space-y-2">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                    <Sparkles size={14} /> Receptionist Name Confirmation
+                  </div>
+                  <p className="leading-relaxed">
+                    Please verbally confirm that the guest checking in matches the name <strong className="text-white underline">{checkInVerifiedBooking.guestName}</strong> before issuing room RFID keycard.
+                  </p>
+                  <label className="flex items-center gap-2 pt-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isNameCrossChecked}
+                      onChange={(e) => setIsNameCrossChecked(e.target.checked)}
+                      className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400 cursor-pointer"
+                    />
+                    <span className="font-semibold text-white text-xs">
+                      I have confirmed guest name matches {checkInVerifiedBooking.guestName}
+                    </span>
+                  </label>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={!isNameCrossChecked}
+                  onClick={handleExecuteVerifiedCheckIn}
+                  className="w-full py-3.5 rounded-xl font-extrabold text-xs uppercase tracking-wider bg-gradient-to-r from-emerald-500 to-teal-400 text-black shadow-xl hover:brightness-105 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Key size={15} />
+                  <span>Confirm Check In & Issue Keycard</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: EARLY STAY TERMINATION AUTHORIZATION (CEO / ACCOUNTANT) */}
+      {/* ============================================================== */}
+      {isEarlyTerminationModalOpen && earlyTerminationTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+          <div className="w-full max-w-lg rounded-3xl bg-[#1a040d] border border-amber-500/40 shadow-2xl p-6 sm:p-7 space-y-5">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3.5">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold block">
+                  EARLY CHECKOUT TERMINATION DESK • CONFIRMATION REQUIRED
+                </span>
+                <h3 className="font-cinzel text-lg sm:text-xl font-bold text-white flex items-center gap-2 mt-0.5">
+                  <AlertCircle size={18} className="text-amber-400" />
+                  <span>Early Stay Termination: Suite #{earlyTerminationTarget.roomNumber}</span>
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEarlyTerminationModalOpen(false);
+                  setEarlyTerminationTarget(null);
+                  setEarlyTerminationReasonInput('');
+                }}
+                className="p-1.5 text-gray-400 hover:text-white rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Warning Callout Box */}
+            <div className="p-4 rounded-2xl bg-amber-950/60 border border-amber-500/50 space-y-2 text-xs">
+              <div className="flex items-center gap-1.5 text-amber-300 font-bold font-mono">
+                <Clock size={15} /> CLIENT STAY DURATION NOT COMPLETED
+              </div>
+              <p className="text-gray-200 leading-relaxed text-[11px]">
+                This room was booked for <strong className="text-white font-mono">{earlyTerminationTarget.bookedNights} Days</strong> ({earlyTerminationTarget.stayCheck?.checkInDate} to {earlyTerminationTarget.stayCheck?.checkOutDate}).
+                Only <strong className="text-amber-300">{earlyTerminationTarget.elapsedText}</strong> has elapsed (<strong className="text-rose-300">{earlyTerminationTarget.remainingText}</strong> uncompleted).
+              </p>
+              <p className="text-[11px] text-amber-200/90 leading-relaxed pt-1 border-t border-amber-500/30">
+                🔒 Under hotel audit policy, early check-out termination before the client's stay duration is over strictly requires <strong>confirmation from the Chief Accountant or CEO</strong> before the room can be terminated and marked available.
+              </p>
+            </div>
+
+            {/* Target Guest Details */}
+            <div className="p-3.5 rounded-xl bg-black/60 border border-white/10 space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Guest Name:</span>
+                <strong className="text-[#f3e5ab]">{earlyTerminationTarget.guestName}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Booking Reference:</span>
+                <span className="text-gray-200 font-mono">{earlyTerminationTarget.bookingId}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Booked Duration:</span>
+                <span className="text-white font-bold">{earlyTerminationTarget.bookedNights} Days</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Uncompleted Balance:</span>
+                <span className="text-rose-300 font-bold">{earlyTerminationTarget.remainingText} remaining</span>
+              </div>
+            </div>
+
+            {/* Reason for Early Departure */}
+            <div className="space-y-1.5">
+              <label className="block text-xs uppercase tracking-wider text-gray-300 font-bold">
+                Reason for Early Departure / Termination: <span className="text-rose-400">*</span>
+              </label>
+              <textarea
+                rows={3}
+                required
+                value={earlyTerminationReasonInput}
+                onChange={(e) => setEarlyTerminationReasonInput(e.target.value)}
+                placeholder="e.g. Guest had urgent flight rebooking / family emergency / early checkout requested..."
+                className="w-full bg-black/60 border border-white/20 rounded-xl p-3 text-white text-xs focus:border-amber-400 focus:outline-none"
+              />
+              <span className="text-[10px] text-gray-400 block">
+                This reason will be audited by the Chief Accountant and CEO in real-time.
+              </span>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEarlyTerminationModalOpen(false);
+                  setEarlyTerminationTarget(null);
+                  setEarlyTerminationReasonInput('');
+                }}
+                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-gray-300 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Keep Room In-House
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitEarlyTerminationRequest}
+                disabled={isSubmittingEarlyTermination}
+                className="px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-lg hover:brightness-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Clock size={14} />
+                <span>{isSubmittingEarlyTermination ? 'Dispatching...' : 'Request CEO & Accountant Confirmation'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

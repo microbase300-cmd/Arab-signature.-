@@ -136,6 +136,7 @@ export default function AdminPortal({ onNavigate }) {
   const [adminPaystackStatus, setAdminPaystackStatus] = useState(getPaystackMode());
   const [paystackSaveSuccess, setPaystackSaveSuccess] = useState(false);
   const [pendingCancellations, setPendingCancellations] = useState([]);
+  const [pendingEarlyTerminations, setPendingEarlyTerminations] = useState([]);
 
   const handleAdminSavePaystackKey = () => {
     setPaystackPublicKey(adminPaystackKey.trim());
@@ -146,6 +147,26 @@ export default function AdminPortal({ onNavigate }) {
       setPaystackSaveSuccess(false);
       setFeedbackMsg('');
     }, 3000);
+  };
+
+  const handleConfirmEarlyTermination = (bookingId) => {
+    const approver = currentUser?.name ? `${currentUser.name} (CEO)` : 'CEO Executive Management';
+    const notes = window.prompt("Executive Notes for Early Room Termination Approval:", "Early termination confirmed by CEO. Room cleared and marked available for booking.");
+    if (notes === null) return;
+    portalStore.confirmEarlyCheckoutTermination(bookingId, approver, notes);
+    refreshData();
+    setFeedbackMsg(`✓ Early room termination approved for ${bookingId}. The room is now available.`);
+    setTimeout(() => setFeedbackMsg(''), 4000);
+  };
+
+  const handleRejectEarlyTermination = (bookingId) => {
+    const approver = currentUser?.name ? `${currentUser.name} (CEO)` : 'CEO Executive Management';
+    const reason = window.prompt("Reason for Rejecting Early Termination (sent to Front Desk):", "Stay duration active or front desk review needed.");
+    if (reason === null) return;
+    portalStore.rejectEarlyCheckoutTermination(bookingId, approver, reason);
+    refreshData();
+    setFeedbackMsg(`Early termination request for ${bookingId} rejected.`);
+    setTimeout(() => setFeedbackMsg(''), 4000);
   };
 
   // Editable Hotel Config State
@@ -164,6 +185,7 @@ export default function AdminPortal({ onNavigate }) {
     const currentRooms = portalStore.getRooms();
     const currentBookings = portalStore.getBookings();
     setPendingCancellations(portalStore.getPendingCancellations());
+    setPendingEarlyTerminations(portalStore.getPendingEarlyTerminations());
     const currentRates = portalStore.getRoomRates();
     const currentConfig = portalStore.getHotelConfig();
     const currentLogs = portalStore.getActivityLogs();
@@ -253,6 +275,9 @@ export default function AdminPortal({ onNavigate }) {
     window.addEventListener('ash_bookings_updated', handleLiveSync);
     window.addEventListener('ash_cancellation_requested', handleLiveSync);
     window.addEventListener('ash_cancellation_confirmed', handleLiveSync);
+    window.addEventListener('ash_early_termination_requested', handleLiveSync);
+    window.addEventListener('ash_early_termination_confirmed', handleLiveSync);
+    window.addEventListener('ash_early_termination_rejected', handleLiveSync);
     window.addEventListener('ash_rates_updated', handleLiveSync);
     window.addEventListener('ash_rooms_updated', handleLiveSync);
     window.addEventListener('ash_menu_updated', handleLiveSync);
@@ -278,6 +303,9 @@ export default function AdminPortal({ onNavigate }) {
       window.removeEventListener('ash_bookings_updated', handleLiveSync);
       window.removeEventListener('ash_cancellation_requested', handleLiveSync);
       window.removeEventListener('ash_cancellation_confirmed', handleLiveSync);
+      window.removeEventListener('ash_early_termination_requested', handleLiveSync);
+      window.removeEventListener('ash_early_termination_confirmed', handleLiveSync);
+      window.removeEventListener('ash_early_termination_rejected', handleLiveSync);
       window.removeEventListener('ash_rates_updated', handleLiveSync);
       window.removeEventListener('ash_rooms_updated', handleLiveSync);
       window.removeEventListener('ash_menu_updated', handleLiveSync);
@@ -615,7 +643,8 @@ export default function AdminPortal({ onNavigate }) {
     return s === 'cleaning' || s === 'maintenance';
   };
   const isRoomCancellationPending = (r) => String(r.status || '').toLowerCase() === 'cancellation_pending';
-  const isRoomAvailable = (r) => !isRoomOccupied(r) && !isRoomReserved(r) && !isRoomCleaning(r) && !isRoomCancellationPending(r);
+  const isRoomEarlyTerminationPending = (r) => String(r.status || '').toLowerCase() === 'early_termination_pending';
+  const isRoomAvailable = (r) => !isRoomOccupied(r) && !isRoomReserved(r) && !isRoomCleaning(r) && !isRoomCancellationPending(r) && !isRoomEarlyTerminationPending(r);
 
   const totalOccupied = rooms.filter(isRoomOccupied).length;
   const totalReserved = rooms.filter(isRoomReserved).length;
@@ -1164,6 +1193,116 @@ export default function AdminPortal({ onNavigate }) {
               </div>
             )}
 
+            {/* CEO Urgent Action: Pending Early Room Terminations Awaiting CEO / Accountant Approval */}
+            {pendingEarlyTerminations.length > 0 && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#2c1303] via-[#3d1a04] to-[#1a0802] border-2 border-amber-500 shadow-2xl space-y-4 animate-fadeIn">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-400 flex items-center justify-center text-amber-300 flex-shrink-0">
+                      <AlertCircle size={22} className="stroke-[2.5]" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono font-black tracking-widest text-amber-300 uppercase bg-amber-500/30 px-2 py-0.5 rounded border border-amber-500/50">
+                          EXECUTIVE ACTION REQUIRED &bull; {pendingEarlyTerminations.length} EARLY TERMINATION{pendingEarlyTerminations.length > 1 ? 'S' : ''}
+                        </span>
+                      </div>
+                      <h4 className="font-cinzel font-bold text-white text-sm sm:text-base mt-0.5">
+                        Early Departure &amp; Premature Room Release Approvals
+                      </h4>
+                      <p className="text-xs text-amber-200/90 mt-0.5">
+                        Reception requested to mark room available before guest's booked stay duration ended. Executive authorization is required to clear room into inventory.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                  {pendingEarlyTerminations.map((pet) => {
+                    const req = pet.earlyTerminationRequest || {};
+                    return (
+                      <div key={pet.id} className="p-4 rounded-xl bg-black/65 border border-amber-500/40 space-y-3">
+                        <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-sm text-[#f3e5ab]">{pet.id}</span>
+                            <span className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/40 text-[10px] font-mono font-bold text-amber-300">
+                              Room #{pet.roomNumber}
+                            </span>
+                          </div>
+                          <span className="font-mono font-bold text-xs text-emerald-400">
+                            ₦{Number(pet.amount || 0).toLocaleString()} ({pet.paymentStatus || 'Paid'})
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-[10px] text-gray-400 uppercase block">Guest Name</span>
+                            <strong className="text-white text-sm">{pet.guestName || 'In-House Guest'}</strong>
+                            <span className="text-[10px] text-gray-400 font-mono block">{pet.phone || 'No phone'}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-gray-400 uppercase block">Booked Duration</span>
+                            <strong className="text-[#d4af37] text-sm">
+                              {req.bookedNights || pet.nights || 1} Night(s) / Day(s)
+                            </strong>
+                            <span className="text-[10px] text-gray-300 block font-mono">
+                              {pet.checkIn || 'N/A'} &rarr; {pet.checkOut || 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Stay Breakdown */}
+                        <div className="grid grid-cols-2 gap-2 p-2 rounded-lg bg-white/[0.04] border border-amber-500/25 text-xs font-mono">
+                          <div>
+                            <span className="text-[9px] text-gray-400 uppercase block">Elapsed Time</span>
+                            <span className="text-amber-200 font-bold">{req.elapsedStay || 'Partial Stay'}</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-gray-400 uppercase block">Unused Duration</span>
+                            <span className="text-rose-300 font-bold">{req.remainingStay || 'Early checkout'}</span>
+                          </div>
+                        </div>
+
+                        <div className="p-2.5 rounded-lg bg-white/[0.03] border border-white/10 text-xs">
+                          <span className="text-[10px] text-amber-300 font-bold uppercase block">
+                            Reception Stated Reason:
+                          </span>
+                          <p className="text-gray-200 text-[11px] mt-0.5 italic">
+                            "{req.reason || 'Guest requested early check-out before duration expired.'}"
+                          </p>
+                          <div className="text-[10px] text-gray-400 mt-1 flex items-center justify-between font-mono">
+                            <span>Requested By: {req.requestedBy || 'Front Desk'}</span>
+                            <span>{req.requestedAt || ''}</span>
+                          </div>
+                        </div>
+
+                        {/* CEO Decision Buttons */}
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleConfirmEarlyTermination(pet.id)}
+                            className="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
+                          >
+                            <Check size={14} className="stroke-[2.5]" />
+                            <span>✓ Approve &amp; Mark Available</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRejectEarlyTermination(pet.id)}
+                            className="py-2 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-gray-300 hover:text-white font-medium text-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
+                          >
+                            <X size={14} />
+                            <span>Reject</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Executive Welcome & Live Operations Banner */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-[#1d0511] via-[#16030c] to-[#120208] border border-[#d4af37]/40 shadow-lg">
               <div>
@@ -1577,7 +1716,9 @@ export default function AdminPortal({ onNavigate }) {
                       {mainWingRooms.map(r => {
                         const statusLower = String(r.status || '').toLowerCase();
                         const color =
-                          statusLower === 'occupied'
+                          statusLower === 'early_termination_pending'
+                            ? 'bg-rose-500/35 border-rose-400 text-rose-200 animate-pulse'
+                            : statusLower === 'occupied'
                             ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200'
                             : statusLower === 'reserved'
                             ? 'bg-amber-500/25 border-amber-400 text-amber-200'
@@ -1606,7 +1747,9 @@ export default function AdminPortal({ onNavigate }) {
                       {extWingRooms.map(r => {
                         const statusLower = String(r.status || '').toLowerCase();
                         const color =
-                          statusLower === 'occupied'
+                          statusLower === 'early_termination_pending'
+                            ? 'bg-rose-500/35 border-rose-400 text-rose-200 animate-pulse'
+                            : statusLower === 'occupied'
                             ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200'
                             : statusLower === 'reserved'
                             ? 'bg-amber-500/25 border-amber-400 text-amber-200'
@@ -1632,6 +1775,9 @@ export default function AdminPortal({ onNavigate }) {
                     <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400 inline-block"></span> Reserved Hold ({totalReserved})</span>
                     <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-gray-500 inline-block"></span> Available ({totalAvailable})</span>
                     <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-purple-400 inline-block"></span> Cleaning ({totalCleaning})</span>
+                    {pendingEarlyTerminations.length > 0 && (
+                      <span className="flex items-center gap-1 text-rose-300 font-bold"><span className="w-2.5 h-2.5 rounded-sm bg-rose-500 animate-pulse inline-block"></span> Early Term Review ({pendingEarlyTerminations.length})</span>
+                    )}
                   </div>
                 </div>
 

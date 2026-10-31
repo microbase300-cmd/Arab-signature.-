@@ -32,6 +32,7 @@ const STORAGE_KEYS = {
   ACTIVITY_LOG: 'ash_portal_activity_log',
   INTERCOM_CHAT: 'ash_portal_intercom_chat_v1',
   CANCELLATION_NOTIFICATIONS: 'ash_portal_cancellation_notifications_v2',
+  EARLY_TERMINATION_NOTIFICATIONS: 'ash_portal_early_termination_notifications_v1',
   GUEST_SESSION: 'ash_active_guest_session_v3',
   CUSTOMER_SESSION: 'ash_customer_portal_session_v2',
   AUDIT_ARCHIVE_VAULT: 'ash_portal_audit_archive_vault_4yr_v1',
@@ -3065,6 +3066,361 @@ export const portalStore = {
     this.logActivity(`❌ RESERVATION CANCELLATION REJECTED: ${bookingId} (${guestLabel}) by Chief Accountant ${accountantName}. Reservation remains CONFIRMED.`);
 
     if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_bookings_updated', { detail: { bookings: updatedBookings } }));
+    }
+
+    return { success: true };
+  },
+
+  // --- EARLY ROOM TERMINATION AUDIT & CONFIRMATION DESK (CEO & ACCOUNTANT APPROVAL) ---
+  checkIsStayDurationCompleted(roomNumber) {
+    const bookings = this.getBookings();
+    const target = bookings.find(b => 
+      String(b.roomNumber) === String(roomNumber) && 
+      ['Checked In', 'Occupied', 'Early Termination Pending'].includes(b.status)
+    );
+
+    if (!target) {
+      return {
+        isCompleted: true,
+        booking: null,
+        guestName: 'Guest',
+        bookedNights: 1,
+        elapsedHours: 24,
+        elapsedDays: 1,
+        elapsedText: 'Full duration',
+        remainingText: 'None'
+      };
+    }
+
+    const bookedNights = Math.max(1, Number(target.nights) || 1);
+    
+    // Check-in start timestamp
+    let checkInTimestamp = null;
+    if (target.checkedInAt) {
+      const parsed = new Date(target.checkedInAt).getTime();
+      if (!isNaN(parsed)) checkInTimestamp = parsed;
+    }
+    if (!checkInTimestamp && target.checkIn) {
+      const parsed = new Date(`${target.checkIn}T14:00:00`).getTime();
+      if (!isNaN(parsed)) checkInTimestamp = parsed;
+    }
+    if (!checkInTimestamp && target.createdAt) {
+      const parsed = new Date(target.createdAt).getTime();
+      if (!isNaN(parsed)) checkInTimestamp = parsed;
+    }
+    if (!checkInTimestamp) {
+      checkInTimestamp = Date.now();
+    }
+
+    // Expected check-out timestamp (12:00 PM on checkout date or checkIn + bookedNights * 24h)
+    let checkOutTimestamp = null;
+    if (target.checkOut) {
+      const parsed = new Date(`${target.checkOut}T12:00:00`).getTime();
+      if (!isNaN(parsed)) checkOutTimestamp = parsed;
+    }
+    if (!checkOutTimestamp) {
+      checkOutTimestamp = checkInTimestamp + (bookedNights * 86400000);
+    }
+
+    const now = Date.now();
+    const isCompleted = now >= checkOutTimestamp;
+
+    // Elapsed stay calculations
+    const elapsedMs = Math.max(0, now - checkInTimestamp);
+    const elapsedHours = Math.round(elapsedMs / (1000 * 60 * 60));
+    const elapsedDays = (elapsedMs / (1000 * 60 * 60 * 24)).toFixed(1);
+    const elapsedText = elapsedHours < 24 
+      ? `${elapsedHours} hr${elapsedHours === 1 ? '' : 's'}` 
+      : `${elapsedDays} day${elapsedDays === '1.0' ? '' : 's'} (${elapsedHours} hrs)`;
+
+    // Remaining calculations
+    const remainingMs = Math.max(0, checkOutTimestamp - now);
+    const remainingHours = Math.ceil(remainingMs / (1000 * 60 * 60));
+    const remainingDays = (remainingMs / (1000 * 60 * 60 * 24)).toFixed(1);
+    const remainingText = remainingHours < 24
+      ? `${remainingHours} hr${remainingHours === 1 ? '' : 's'}`
+      : `${remainingDays} day${remainingDays === '1.0' ? '' : 's'} (${remainingHours} hrs)`;
+
+    return {
+      isCompleted,
+      booking: target,
+      bookingId: target.id,
+      guestName: target.guestName || 'In-House Guest',
+      roomNumber: target.roomNumber,
+      bookedNights,
+      checkInDate: target.checkIn || new Date(checkInTimestamp).toLocaleDateString(),
+      checkOutDate: target.checkOut || new Date(checkOutTimestamp).toLocaleDateString(),
+      elapsedHours,
+      elapsedDays,
+      elapsedText,
+      remainingHours,
+      remainingDays,
+      remainingText
+    };
+  },
+
+  getEarlyTerminationNotifications() {
+    return getLocalItem(STORAGE_KEYS.EARLY_TERMINATION_NOTIFICATIONS, []);
+  },
+
+  addEarlyTerminationNotification(item) {
+    const list = this.getEarlyTerminationNotifications();
+    const newEntry = {
+      id: `ETN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      status: 'pending',
+      createdAt: new Date().toLocaleString(),
+      ...item
+    };
+    const updated = [newEntry, ...list.slice(0, 49)];
+    setLocalItem(STORAGE_KEYS.EARLY_TERMINATION_NOTIFICATIONS, updated);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_early_termination_notifications_updated', { detail: updated }));
+    }
+    return newEntry;
+  },
+
+  getPendingEarlyTerminations() {
+    const bookings = this.getBookings();
+    return bookings.filter(b => 
+      b.status === 'Early Termination Pending' || 
+      (b.earlyTerminationRequest && b.earlyTerminationRequest.pendingApproval === true)
+    );
+  },
+
+  requestEarlyCheckoutTermination({ bookingId, roomNumber, reason, requestedBy }) {
+    const bookings = this.getBookings();
+    let targetBooking = null;
+
+    if (bookingId) {
+      targetBooking = bookings.find(b => b.id === bookingId);
+    }
+    if (!targetBooking && roomNumber) {
+      targetBooking = bookings.find(b => 
+        String(b.roomNumber) === String(roomNumber) && 
+        ['Checked In', 'Occupied'].includes(b.status)
+      );
+    }
+
+    const effectiveRoom = targetBooking?.roomNumber || roomNumber;
+    const effectiveGuest = targetBooking?.guestName || 'In-House Guest';
+    const effectiveId = targetBooking?.id || `ROOM-${effectiveRoom}`;
+    const staffName = requestedBy || 'Front Desk Receptionist';
+    const reasonText = reason || 'Guest requested early check-out before booked duration expired';
+    
+    const stayStatus = this.checkIsStayDurationCompleted(effectiveRoom);
+
+    // 1. Update Booking Status to 'Early Termination Pending'
+    if (targetBooking) {
+      const updatedBookings = bookings.map(b => {
+        if (b.id === targetBooking.id) {
+          return {
+            ...b,
+            status: 'Early Termination Pending',
+            earlyTerminationRequest: {
+              requestedBy: staffName,
+              requestedAt: new Date().toLocaleString(),
+              reason: reasonText,
+              bookedNights: stayStatus.bookedNights,
+              elapsedStay: stayStatus.elapsedText,
+              remainingStay: stayStatus.remainingText,
+              pendingApproval: true
+            }
+          };
+        }
+        return b;
+      });
+      setLocalItem(STORAGE_KEYS.BOOKINGS, updatedBookings);
+      this.pushBookingToCloud({
+        ...targetBooking,
+        status: 'Early Termination Pending',
+        earlyTerminationRequest: {
+          requestedBy: staffName,
+          requestedAt: new Date().toLocaleString(),
+          reason: reasonText,
+          bookedNights: stayStatus.bookedNights,
+          elapsedStay: stayStatus.elapsedText,
+          remainingStay: stayStatus.remainingText,
+          pendingApproval: true
+        }
+      });
+    }
+
+    // 2. Put Room under 'early_termination_pending' holding lock so it cannot be marked available without CEO/Accountant approval
+    if (effectiveRoom) {
+      this.updateRoomStatus(effectiveRoom, 'early_termination_pending', effectiveGuest);
+    }
+
+    // 3. Add High-Priority System Notification for CEO & Chief Accountant
+    this.addEarlyTerminationNotification({
+      bookingId: effectiveId,
+      guestName: effectiveGuest,
+      phone: targetBooking?.phone || '',
+      roomNumber: effectiveRoom,
+      amount: targetBooking?.amount || 0,
+      bookedNights: stayStatus.bookedNights,
+      elapsedStay: stayStatus.elapsedText,
+      remainingStay: stayStatus.remainingText,
+      requestedBy: staffName,
+      reason: reasonText
+    });
+
+    // 4. Intercom Broadcast to CEO and Chief Accountant
+    this.sendIntercomMessage({
+      senderName: staffName,
+      senderBadge: 'RECEPTION',
+      text: `🚨 EARLY ROOM TERMINATION REQUEST: Room #${effectiveRoom} (${effectiveGuest}) booked for ${stayStatus.bookedNights} Days requested early departure (${stayStatus.remainingText} remaining). Reason: "${reasonText}". Sent to CEO & Chief Accountant for confirmation before marking available.`,
+      recipient: 'all'
+    });
+
+    // 5. Activity Log & Window Events
+    this.logActivity(`⚠️ EARLY TERMINATION REQUEST: Room #${effectiveRoom} (${effectiveGuest}, booked ${stayStatus.bookedNights} Days) requested by ${staffName}. Awaiting CEO / Chief Accountant confirmation.`);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_early_termination_requested', {
+        detail: { bookingId: effectiveId, roomNumber: effectiveRoom, requestedBy: staffName, reason: reasonText }
+      }));
+      window.dispatchEvent(new CustomEvent('ash_bookings_updated', { detail: { bookings: this.getBookings() } }));
+    }
+
+    return { success: true, bookingId: effectiveId };
+  },
+
+  confirmEarlyCheckoutTermination(bookingId, approverName = 'Chief Accountant / CEO', notes = '') {
+    const bookings = this.getBookings();
+    let targetBooking = bookings.find(b => b.id === bookingId);
+    let targetRoomNum = targetBooking?.roomNumber;
+
+    if (!targetBooking && bookingId.startsWith('ROOM-')) {
+      targetRoomNum = bookingId.replace('ROOM-', '');
+      targetBooking = bookings.find(b => String(b.roomNumber) === String(targetRoomNum));
+    }
+
+    const updatedBookings = bookings.map(b => {
+      if ((targetBooking && b.id === targetBooking.id) || (targetRoomNum && String(b.roomNumber) === String(targetRoomNum) && b.status === 'Early Termination Pending')) {
+        return {
+          ...b,
+          status: 'Completed',
+          completedAt: new Date().toLocaleString(),
+          earlyCheckoutApproved: true,
+          earlyCheckoutApprovedBy: approverName,
+          earlyCheckoutApprovedAt: new Date().toLocaleString(),
+          earlyTerminationRequest: {
+            ...(b.earlyTerminationRequest || {}),
+            pendingApproval: false,
+            approvedAt: new Date().toLocaleString(),
+            approvedBy: approverName,
+            approverNotes: notes
+          }
+        };
+      }
+      return b;
+    });
+
+    setLocalItem(STORAGE_KEYS.BOOKINGS, updatedBookings);
+
+    // Release the Room Inventory -> Mark Available!
+    if (targetRoomNum) {
+      this.updateRoomStatus(targetRoomNum, 'available', null);
+    }
+
+    // Update notification status
+    const notifs = this.getEarlyTerminationNotifications().map(n => {
+      if (n.bookingId === bookingId || n.roomNumber === targetRoomNum) {
+        return { ...n, status: 'approved', approvedBy: approverName, approvedAt: new Date().toLocaleString() };
+      }
+      return n;
+    });
+    setLocalItem(STORAGE_KEYS.EARLY_TERMINATION_NOTIFICATIONS, notifs);
+
+    // Intercom Announcement
+    const guestLabel = targetBooking?.guestName || 'Guest';
+    this.sendIntercomMessage({
+      senderName: approverName,
+      senderBadge: 'MANAGEMENT',
+      text: `✅ EARLY CHECKOUT APPROVED: ${approverName} approved early termination of Room #${targetRoomNum || 'N/A'} (${guestLabel}). Room is now VACANT & AVAILABLE for booking.`,
+      recipient: 'all'
+    });
+
+    this.logActivity(`✅ EARLY TERMINATION CONFIRMED: Room #${targetRoomNum} (${guestLabel}) approved by ${approverName}. Room is now AVAILABLE.`);
+
+    if (targetBooking) {
+      this.pushBookingToCloud({
+        ...targetBooking,
+        status: 'Completed',
+        completedAt: new Date().toLocaleString(),
+        earlyCheckoutApproved: true,
+        earlyCheckoutApprovedBy: approverName
+      });
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_early_termination_confirmed', {
+        detail: { bookingId, roomNumber: targetRoomNum, approverName }
+      }));
+      window.dispatchEvent(new CustomEvent('ash_bookings_updated', { detail: { bookings: updatedBookings } }));
+    }
+
+    return { success: true };
+  },
+
+  rejectEarlyCheckoutTermination(bookingId, approverName = 'Chief Accountant / CEO', reason = '') {
+    const bookings = this.getBookings();
+    let targetBooking = bookings.find(b => b.id === bookingId);
+    let targetRoomNum = targetBooking?.roomNumber;
+
+    if (!targetBooking && bookingId.startsWith('ROOM-')) {
+      targetRoomNum = bookingId.replace('ROOM-', '');
+      targetBooking = bookings.find(b => String(b.roomNumber) === String(targetRoomNum));
+    }
+
+    const updatedBookings = bookings.map(b => {
+      if ((targetBooking && b.id === targetBooking.id) || (targetRoomNum && String(b.roomNumber) === String(targetRoomNum) && b.status === 'Early Termination Pending')) {
+        return {
+          ...b,
+          status: 'Checked In',
+          earlyTerminationRequest: {
+            ...(b.earlyTerminationRequest || {}),
+            pendingApproval: false,
+            rejectedAt: new Date().toLocaleString(),
+            rejectedBy: approverName,
+            rejectionReason: reason
+          }
+        };
+      }
+      return b;
+    });
+
+    setLocalItem(STORAGE_KEYS.BOOKINGS, updatedBookings);
+
+    // Revert room back to occupied
+    if (targetRoomNum) {
+      this.updateRoomStatus(targetRoomNum, 'occupied', targetBooking?.guestName || 'In-House Guest');
+    }
+
+    // Update notifications
+    const notifs = this.getEarlyTerminationNotifications().map(n => {
+      if (n.bookingId === bookingId || n.roomNumber === targetRoomNum) {
+        return { ...n, status: 'rejected', rejectedBy: approverName, rejectedAt: new Date().toLocaleString(), rejectionReason: reason };
+      }
+      return n;
+    });
+    setLocalItem(STORAGE_KEYS.EARLY_TERMINATION_NOTIFICATIONS, notifs);
+
+    // Intercom Announcement
+    const guestLabel = targetBooking?.guestName || 'Guest';
+    this.sendIntercomMessage({
+      senderName: approverName,
+      senderBadge: 'MANAGEMENT',
+      text: `❌ EARLY TERMINATION REJECTED: ${approverName} rejected early termination of Room #${targetRoomNum || 'N/A'} (${guestLabel}). Reason: "${reason || 'Must complete full booked duration'}". Room remains OCCUPIED.`,
+      recipient: 'all'
+    });
+
+    this.logActivity(`❌ EARLY TERMINATION REJECTED: Room #${targetRoomNum} (${guestLabel}) rejected by ${approverName}. Room remains OCCUPIED.`);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ash_early_termination_rejected', {
+        detail: { bookingId, roomNumber: targetRoomNum, approverName, reason }
+      }));
       window.dispatchEvent(new CustomEvent('ash_bookings_updated', { detail: { bookings: updatedBookings } }));
     }
 

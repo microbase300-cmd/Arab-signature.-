@@ -55,12 +55,53 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
   const [step, setStep] = useState(1);
   const [roomId, setRoomId] = useState(preselectedRoomId || 'deluxe');
 
-  // Dynamic current & next day dates
+  // Dynamic current & next day dates with flexible stay duration
   const todayStr = () => new Date().toISOString().split('T')[0];
-  const tomorrowStr = () => new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const calcCheckOutDate = (inDate, days) => {
+    try {
+      const parts = (inDate || todayStr()).split('-').map(Number);
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      d.setDate(d.getDate() + Math.max(1, Number(days) || 1));
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    } catch {
+      return new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    }
+  };
 
   const [checkIn, setCheckIn] = useState(todayStr());
-  const [checkOut, setCheckOut] = useState(tomorrowStr());
+  const [durationDays, setDurationDays] = useState(1);
+  const [checkOut, setCheckOut] = useState(() => calcCheckOutDate(todayStr(), 1));
+
+  // Stay duration change handler (recalculates checkOut date & price)
+  const handleDurationChange = (newDays) => {
+    const valid = Math.max(1, Math.min(60, Number(newDays) || 1));
+    setDurationDays(valid);
+    setCheckOut(calcCheckOutDate(checkIn, valid));
+  };
+
+  // Check-In date change handler (preserves chosen durationDays)
+  const handleCheckInChange = (newInDate) => {
+    setCheckIn(newInDate);
+    setCheckOut(calcCheckOutDate(newInDate, durationDays));
+  };
+
+  // Check-Out date change handler (recalculates durationDays from date difference)
+  const handleCheckOutChange = (newOutDate) => {
+    setCheckOut(newOutDate);
+    try {
+      const pIn = checkIn.split('-').map(Number);
+      const pOut = newOutDate.split('-').map(Number);
+      const d1 = new Date(pIn[0], pIn[1] - 1, pIn[2]);
+      const d2 = new Date(pOut[0], pOut[1] - 1, pOut[2]);
+      const diff = Math.max(1, Math.round((d2 - d1) / 86400000) || 1);
+      setDurationDays(diff);
+    } catch {
+      // fallback
+    }
+  };
 
   // Guest Registration Details (pre-fill from active customer session or guest session)
   const existingCust = portalStore.getCustomerSession();
@@ -128,14 +169,12 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
   const rooms = portalStore.getRoomRates();
   const selectedRoom = rooms.find(r => r.id === roomId) || rooms[0];
 
-  // Calculate nights & effective promo rate
-  const d1 = new Date(checkIn);
-  const d2 = new Date(checkOut);
-  const nights = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) || 1);
+  // Calculate stay duration (days/nights) & effective promo rate
+  const nights = durationDays;
   const effectiveNightlyRate = (selectedRoom.isPromoActive && selectedRoom.promoPrice > 0)
     ? selectedRoom.promoPrice
     : selectedRoom.price;
-  const totalAmount = effectiveNightlyRate * nights;
+  const totalAmount = effectiveNightlyRate * durationDays;
 
   // Handle saving new Paystack Public Key
   const handleSaveKey = () => {
@@ -652,6 +691,77 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                 </div>
               </div>
 
+              {/* Stay Duration: Choose How Many Days/Nights */}
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-white/5 border border-[#d4af37]/35 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs uppercase tracking-wider text-[#f3e5ab] font-bold flex items-center gap-1.5">
+                    <Clock size={14} className="text-[#d4af37]" /> How Many Days Do You Want to Stay?
+                  </label>
+                  <span className="text-xs font-mono font-bold text-white bg-black/60 px-2.5 py-0.5 rounded-full border border-white/10">
+                    {durationDays} {durationDays === 1 ? 'Day' : 'Days'} ({durationDays} {durationDays === 1 ? 'Night' : 'Nights'})
+                  </span>
+                </div>
+
+                {/* Duration Stepper & Real-Time Price Calculation */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                  <div className="flex items-center justify-center bg-black/70 border border-[#d4af37]/50 rounded-xl p-1 self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => handleDurationChange(durationDays - 1)}
+                      disabled={durationDays <= 1}
+                      className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-white/10 text-white font-bold text-lg flex items-center justify-center transition-all cursor-pointer"
+                      title="Decrease duration by 1 day"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      min="1"
+                      max="60"
+                      value={durationDays}
+                      onChange={(e) => handleDurationChange(e.target.value)}
+                      className="w-14 text-center bg-transparent text-white font-extrabold font-mono text-base focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDurationChange(durationDays + 1)}
+                      disabled={durationDays >= 60}
+                      className="w-9 h-9 rounded-lg bg-[#5c0725] hover:bg-[#780a31] text-[#f3e5ab] font-bold text-lg flex items-center justify-center transition-all cursor-pointer"
+                      title="Add 1 day"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  {/* Calculated Price Display Callout */}
+                  <div className="flex-1 p-2.5 rounded-xl bg-black/50 border border-white/10 flex items-center justify-between text-xs">
+                    <span className="text-gray-400 text-[11px]">Calculated Price:</span>
+                    <span className="font-bold font-mono text-[#f3e5ab]">
+                      ₦{effectiveNightlyRate.toLocaleString()} × {durationDays} {durationDays === 1 ? 'Day' : 'Days'} = <strong className="text-emerald-400">₦{totalAmount.toLocaleString()}</strong>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Quick Selection Preset Pills */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wider mr-1">Quick Select:</span>
+                  {[1, 2, 3, 4, 5, 7, 10, 14, 30].map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => handleDurationChange(d)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold font-mono transition-all cursor-pointer ${
+                        durationDays === d
+                          ? 'bg-[#d4af37] text-black font-extrabold shadow-md ring-1 ring-white'
+                          : 'bg-white/5 hover:bg-white/15 text-gray-300 border border-white/10'
+                      }`}
+                    >
+                      {d} {d === 1 ? 'Day' : 'Days'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Dates */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -662,7 +772,7 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                     type="date"
                     min={todayStr()}
                     value={checkIn}
-                    onChange={(e) => setCheckIn(e.target.value)}
+                    onChange={(e) => handleCheckInChange(e.target.value)}
                     className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2.5 text-white text-xs focus:border-[#d4af37] focus:outline-none"
                   />
                   <span className="text-[10px] text-gray-500 mt-1 block">Check-in from 2:00 PM</span>
@@ -675,7 +785,7 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                     type="date"
                     min={checkIn || todayStr()}
                     value={checkOut}
-                    onChange={(e) => setCheckOut(e.target.value)}
+                    onChange={(e) => handleCheckOutChange(e.target.value)}
                     className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2.5 text-white text-xs focus:border-[#d4af37] focus:outline-none"
                   />
                   <span className="text-[10px] text-gray-500 mt-1 block">Check-out by 12:00 PM</span>
@@ -687,14 +797,14 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                 <div className="flex justify-between items-center">
                   <div>
                     <span className="text-xs text-gray-300 block font-medium">
-                      Total Stay ({nights} {nights === 1 ? 'Night' : 'Nights'} • {selectedRoom.name})
+                      Total Stay ({durationDays} {durationDays === 1 ? 'Day' : 'Days'} • {selectedRoom.name})
                     </span>
                     <div className="text-2xl font-extrabold text-[#f3e5ab] font-cinzel mt-0.5">
                       ₦{totalAmount.toLocaleString()}
                     </div>
                     {selectedRoom.isPromoActive && selectedRoom.promoPrice > 0 && (
                       <span className="text-[11px] text-emerald-400 font-mono font-medium block mt-0.5">
-                        🔥 Promo Applied: Save ₦{((selectedRoom.price - selectedRoom.promoPrice) * nights).toLocaleString()} total!
+                        🔥 Promo Applied: Save ₦{((selectedRoom.price - selectedRoom.promoPrice) * durationDays).toLocaleString()} total!
                       </span>
                     )}
                   </div>
@@ -983,8 +1093,12 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                   <span className="text-white font-medium">{selectedRoom.name} ({selectedRoom.buildingLabel || 'Main Wing'})</span>
                 </div>
                 <div className="flex justify-between text-xs text-gray-400">
-                  <span>Duration:</span>
-                  <span className="text-white font-medium">{checkIn} to {checkOut} ({nights} nights)</span>
+                  <span>Stay Duration:</span>
+                  <span className="text-white font-medium">{durationDays} {durationDays === 1 ? 'Day' : 'Days'} ({checkIn} to {checkOut})</span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>Rate Calculation:</span>
+                  <span className="text-emerald-400 font-mono font-bold">₦{effectiveNightlyRate.toLocaleString()} × {durationDays} {durationDays === 1 ? 'Day' : 'Days'}</span>
                 </div>
                 <div className="flex justify-between text-xs text-gray-400">
                   <span>Primary Guest:</span>
@@ -995,8 +1109,8 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                   <span className="text-gray-300 font-mono text-[11px]">{guestEmail}</span>
                 </div>
                 <div className="pt-2 border-t border-white/10 flex justify-between text-sm font-bold">
-                  <span className="text-gray-300">Total Billed:</span>
-                  <span className="text-[#d4af37]">₦{totalAmount.toLocaleString()}</span>
+                  <span className="text-gray-300">Total Paystack Charge:</span>
+                  <span className="text-[#d4af37] font-cinzel text-base">₦{totalAmount.toLocaleString()}</span>
                 </div>
               </div>
 
