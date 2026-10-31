@@ -508,10 +508,23 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
       {/* 4.5. HOMEPAGE EVENTS TAB: UPCOMING EVENTS, PREVIOUS RECAPS & AUTO-DESIGNED AD BANNER */}
       <section className="py-16 px-6 max-w-7xl mx-auto border-t border-[#5c0725]/40 space-y-10">
         {(() => {
-          const upcomingList = hotelEvents.filter((e) => e.type !== 'recap');
-          const recapList = hotelEvents.filter((e) => e.type === 'recap');
-          const adBannerEvent = upcomingList.find((e) => e.showAsAdBanner !== false) || upcomingList[0] || hotelEvents[0];
+          // Strict filter: Event must be active & not turned off by CEO/Admin
+          const isEventActive = (e) => e.isActive !== false && e.enabled !== false && e.status !== 'inactive';
+          const activeHotelEvents = hotelEvents.filter(isEventActive);
+
+          // Filter by event type and homepage visibility toggle
+          const upcomingList = activeHotelEvents.filter((e) => e.type !== 'recap' && e.showOnHomepage !== false);
+          const recapList = activeHotelEvents.filter((e) => e.type === 'recap' && e.showOnHomepage !== false);
+
+          // Ad Banner: ONLY show if an active upcoming event explicitly has showAsAdBanner === true
+          // DO NOT fallback to upcomingList[0] if the CEO turned off the Ad Banner!
+          const adBannerEvent = upcomingList.find((e) => e.showAsAdBanner === true) || null;
           const activeList = homeEventTab === 'upcoming' ? upcomingList : recapList;
+
+          // If no events are active on the website at all, hide the section gracefully
+          if (upcomingList.length === 0 && recapList.length === 0) {
+            return null;
+          }
 
           return (
             <>
@@ -569,7 +582,7 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
                 </div>
               </div>
 
-              {/* Auto-Designed Luxury Event Advertisement Banner */}
+              {/* Auto-Designed Luxury Event Advertisement Banner (Only if explicitly enabled by CEO) */}
               {adBannerEvent && (
                 <EventAdBannerCard
                   event={adBannerEvent}
@@ -579,16 +592,27 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
               )}
 
               {/* Events Grid (Upcoming or Recap) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {activeList.map((evt) => (
-                  <EventTemplateCard
-                    key={evt.id}
-                    event={evt}
-                    onOpenBooking={onOpenBooking}
-                    onSelectEvent={setSelectedHomeEvent}
-                  />
-                ))}
-              </div>
+              {activeList.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {activeList.map((evt) => (
+                    <EventTemplateCard
+                      key={evt.id}
+                      event={evt}
+                      onOpenBooking={onOpenBooking}
+                      onSelectEvent={setSelectedHomeEvent}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 sm:p-12 text-center rounded-2xl bg-white/[0.02] border border-white/10 text-gray-400 text-xs font-mono space-y-1">
+                  <p className="text-white text-sm font-semibold">
+                    No {homeEventTab === 'upcoming' ? 'upcoming events' : 'previous event recaps'} currently active.
+                  </p>
+                  <p className="text-[11px] text-gray-400">
+                    Stay tuned for announcements or check our luxury suites and dining options.
+                  </p>
+                </div>
+              )}
             </>
           );
         })()}

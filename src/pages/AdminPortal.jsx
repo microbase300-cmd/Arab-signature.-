@@ -370,9 +370,30 @@ export default function AdminPortal({ onNavigate }) {
   };
 
   const handleToggleEventFlag = (eventId, field, currentVal) => {
-    portalStore.updateHotelEvent(eventId, { [field]: !currentVal });
+    // If currentVal is undefined, default it according to field
+    const effectiveCurrent = currentVal !== undefined ? Boolean(currentVal) : true;
+    const newVal = !effectiveCurrent;
+    portalStore.updateHotelEvent(eventId, { [field]: newVal });
     refreshData();
-    showToast(`Event setting "${field}" updated live!`);
+    let label = `Event setting "${field}" updated live!`;
+    if (field === 'isActive') {
+      label = newVal
+        ? '🟢 Event turned ON & published live to the website!'
+        : '🔴 Event turned OFF & completely hidden from the homepage and public pages!';
+    } else if (field === 'showAsAdBanner') {
+      label = newVal
+        ? '✓ Ad Banner turned ON (Displaying at top of Homepage)'
+        : '✓ Ad Banner turned OFF (Removed from top of Homepage)';
+    } else if (field === 'showOnHomepage') {
+      label = newVal
+        ? '✓ Homepage Section display ON'
+        : '✓ Homepage Section display OFF (Hidden from Homepage)';
+    } else if (field === 'showInPopup') {
+      label = newVal
+        ? '✓ Visitor Popup display ON'
+        : '✓ Visitor Popup display OFF';
+    }
+    showToast(label);
   };
 
   const handleConvertEventType = (eventId, newType) => {
@@ -2983,42 +3004,75 @@ export default function AdminPortal({ onNavigate }) {
                     Published Hotel Events &amp; Previous Event Recaps ({hotelEvents.length})
                   </h4>
                   <p className="text-xs text-gray-400">
-                    Toggle Visitor Popup or Ad Banner visibility, or convert an Upcoming Event into a Previous Event Recap with 1 click after the event concludes.
+                    Master Active/Inactive switch, Homepage placement, Ad Banner toggle, and 1-click conversion to Event Recaps.
                   </p>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] font-mono">
+                  <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
+                    {hotelEvents.filter(e => e.isActive !== false).length} Active Live
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold">
+                    {hotelEvents.filter(e => e.isActive === false).length} Turned Off
+                  </span>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {hotelEvents.map((ev) => {
                   const isRecap = ev.type === 'recap';
+                  const isTurnedOff = ev.isActive === false;
+                  const isAdBannerOn = Boolean(ev.showAsAdBanner);
+                  const isPopupOn = Boolean(ev.showInPopup);
+                  const isHomepageOn = ev.showOnHomepage !== false;
+
                   return (
                     <div
                       key={ev.id}
                       className={`p-4 rounded-2xl border flex flex-col justify-between gap-4 transition-all ${
-                        isRecap
+                        isTurnedOff
+                          ? 'bg-black/80 border-rose-500/40 opacity-75 ring-1 ring-rose-500/30'
+                          : isRecap
                           ? 'bg-[#120208] border-emerald-500/30'
                           : 'bg-[#1a040e] border-[#d4af37]/40'
                       }`}
                     >
                       <div className="flex items-start gap-3.5">
-                        <img
-                          src={ev.banner}
-                          alt={ev.title}
-                          onError={(e) => {
-                            e.currentTarget.onerror = null;
-                            e.currentTarget.src = '/rooms/suite-royal-penthouse.jpg';
-                          }}
-                          className="w-24 h-24 rounded-xl object-cover border border-[#d4af37]/40 flex-shrink-0"
-                        />
+                        <div className="relative flex-shrink-0">
+                          <img
+                            src={ev.banner}
+                            alt={ev.title}
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = '/rooms/suite-royal-penthouse.jpg';
+                            }}
+                            className={`w-24 h-24 rounded-xl object-cover border ${
+                              isTurnedOff ? 'border-rose-500/50 grayscale' : 'border-[#d4af37]/40'
+                            }`}
+                          />
+                          {isTurnedOff && (
+                            <span className="absolute inset-0 bg-black/60 rounded-xl flex items-center justify-center text-[10px] font-mono font-black text-rose-300 uppercase tracking-widest text-center p-1">
+                              OFF
+                            </span>
+                          )}
+                        </div>
                         <div className="space-y-1 min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono uppercase font-bold ${
-                              isRecap
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                : 'bg-[#d4af37]/20 text-[#f3e5ab] border border-[#d4af37]/40'
-                            }`}>
-                              {isRecap ? 'Previous Event Recap' : 'Upcoming Event'}
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono uppercase font-bold ${
+                                isTurnedOff
+                                  ? 'bg-rose-500/25 text-rose-300 border border-rose-500/50'
+                                  : isRecap
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                  : 'bg-[#d4af37]/20 text-[#f3e5ab] border border-[#d4af37]/40'
+                              }`}>
+                                {isTurnedOff ? '🔴 Turned Off' : isRecap ? 'Previous Event Recap' : 'Upcoming Event'}
+                              </span>
+                              {isTurnedOff && (
+                                <span className="text-[9px] font-mono text-rose-400 font-bold uppercase tracking-wider">
+                                  Hidden from Website
+                                </span>
+                              )}
+                            </div>
                             <button
                               type="button"
                               onClick={() => handleDeleteEvent(ev.id, ev.title)}
@@ -3042,40 +3096,77 @@ export default function AdminPortal({ onNavigate }) {
                       </div>
 
                       {/* Quick Action Toggles */}
-                      <div className="pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-1.5">
+                      <div className="pt-3 border-t border-white/10 space-y-2.5">
+                        {/* Master Visibility Switch */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap bg-black/45 p-2 rounded-xl border border-white/10">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-gray-400">
+                            Website Master Status:
+                          </span>
                           <button
                             type="button"
-                            onClick={() => handleToggleEventFlag(ev.id, 'showAsAdBanner', ev.showAsAdBanner)}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold border transition-all cursor-pointer ${
-                              ev.showAsAdBanner
-                                ? 'bg-[#d4af37]/20 border-[#d4af37]/50 text-[#f3e5ab]'
-                                : 'bg-white/5 border-white/10 text-gray-500'
+                            onClick={() => handleToggleEventFlag(ev.id, 'isActive', ev.isActive !== false)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold border transition-all cursor-pointer flex items-center gap-1.5 shadow-sm ${
+                              ev.isActive !== false
+                                ? 'bg-emerald-500/25 border-emerald-400 text-emerald-300 hover:bg-emerald-500/35'
+                                : 'bg-rose-500/30 border-rose-500/70 text-rose-200 hover:bg-rose-500/40'
                             }`}
                           >
-                            Ad Banner: {ev.showAsAdBanner ? 'ON' : 'OFF'}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleToggleEventFlag(ev.id, 'showInPopup', ev.showInPopup)}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold border transition-all cursor-pointer ${
-                              ev.showInPopup
-                                ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                                : 'bg-white/5 border-white/10 text-gray-500'
-                            }`}
-                          >
-                            Visitor Popup: {ev.showInPopup ? 'ON' : 'OFF'}
+                            <span className={`w-2 h-2 rounded-full ${ev.isActive !== false ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+                            <span>{ev.isActive !== false ? 'ACTIVE (Live on Website)' : 'TURNED OFF (Hidden)'}</span>
                           </button>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleConvertEventType(ev.id, isRecap ? 'upcoming' : 'recap')}
-                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-[10px] font-semibold text-gray-200 transition-all cursor-pointer"
-                        >
-                          {isRecap ? 'Move to Upcoming' : 'Convert to Past Recap →'}
-                        </button>
+                        {/* Channel Specific Placement Toggles */}
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleEventFlag(ev.id, 'showAsAdBanner', ev.showAsAdBanner)}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold border transition-all cursor-pointer ${
+                                isAdBannerOn
+                                  ? 'bg-[#d4af37]/25 border-[#d4af37]/60 text-[#f3e5ab]'
+                                  : 'bg-white/5 border-white/10 text-gray-500 line-through'
+                              }`}
+                              title={isAdBannerOn ? 'Ad Banner is ON (Shows at top of Homepage)' : 'Ad Banner is OFF (Will NOT show at top of Homepage)'}
+                            >
+                              Ad Banner: {isAdBannerOn ? 'ON' : 'OFF'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleToggleEventFlag(ev.id, 'showOnHomepage', ev.showOnHomepage !== false)}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold border transition-all cursor-pointer ${
+                                isHomepageOn
+                                  ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-200'
+                                  : 'bg-white/5 border-white/10 text-gray-500 line-through'
+                              }`}
+                              title={isHomepageOn ? 'Showing in Homepage Events Grid' : 'Hidden from Homepage Events Grid'}
+                            >
+                              Homepage Grid: {isHomepageOn ? 'ON' : 'OFF'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleToggleEventFlag(ev.id, 'showInPopup', ev.showInPopup)}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold border transition-all cursor-pointer ${
+                                isPopupOn
+                                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                                  : 'bg-white/5 border-white/10 text-gray-500 line-through'
+                              }`}
+                              title={isPopupOn ? 'Visitor Popup is ON' : 'Visitor Popup is OFF'}
+                            >
+                              Visitor Popup: {isPopupOn ? 'ON' : 'OFF'}
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleConvertEventType(ev.id, isRecap ? 'upcoming' : 'recap')}
+                            className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-[10px] font-semibold text-gray-200 transition-all cursor-pointer"
+                          >
+                            {isRecap ? 'Move to Upcoming' : 'Convert to Past Recap →'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

@@ -334,7 +334,7 @@ export default function PromoPopupModal({
   const generateRandomSuitePromo = () => {
     try {
       const allEvents = portalStore.getHotelEvents() || [];
-      const popupEvents = allEvents.filter((e) => e.showInPopup !== false);
+      const popupEvents = allEvents.filter((e) => e.isActive !== false && e.enabled !== false && e.status !== 'inactive' && e.showInPopup === true);
       const rates = portalStore.getRoomRates() || [];
 
       if (popupEvents.length > 0) {

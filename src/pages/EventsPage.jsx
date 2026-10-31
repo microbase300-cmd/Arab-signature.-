@@ -267,16 +267,18 @@ export default function EventsPage({ onNavigate, onOpenBooking }) {
     return () => unsub();
   }, []);
 
-  const upcomingEvents = events.filter((e) => e.type !== 'recap');
-  const recapEvents = events.filter((e) => e.type === 'recap');
-  const featuredAdEvent = upcomingEvents.find((e) => e.showAsAdBanner !== false) || upcomingEvents[0] || events[0];
+  const isEventActive = (e) => e.isActive !== false && e.enabled !== false && e.status !== 'inactive';
+  const activeEvents = events.filter(isEventActive);
+  const upcomingEvents = activeEvents.filter((e) => e.type !== 'recap');
+  const recapEvents = activeEvents.filter((e) => e.type === 'recap');
+  const featuredAdEvent = upcomingEvents.find((e) => e.showAsAdBanner === true) || null;
 
   const displayedEvents =
     activeFilter === 'upcoming'
       ? upcomingEvents
       : activeFilter === 'recap'
       ? recapEvents
-      : events;
+      : activeEvents;
 
   return (
     <div className="min-h-screen bg-[#120208] text-gray-100 py-12 sm:py-16 px-4 sm:px-6">
@@ -319,7 +321,7 @@ export default function EventsPage({ onNavigate, onOpenBooking }) {
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
           <div className="flex flex-wrap items-center gap-2">
             {[
-              { id: 'all', label: `All Events & Recaps (${events.length})` },
+              { id: 'all', label: `All Events & Recaps (${activeEvents.length})` },
               { id: 'upcoming', label: `🔥 Upcoming Events (${upcomingEvents.length})` },
               { id: 'recap', label: `📸 Previous Events Recap (${recapEvents.length})` },
             ].map((tab) => (
@@ -350,16 +352,24 @@ export default function EventsPage({ onNavigate, onOpenBooking }) {
         </div>
 
         {/* Events & Recaps Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
-          {displayedEvents.map((evt) => (
-            <EventTemplateCard
-              key={evt.id}
-              event={evt}
-              onOpenBooking={onOpenBooking}
-              onSelectEvent={setSelectedEventModal}
-            />
-          ))}
-        </div>
+        {displayedEvents.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
+            {displayedEvents.map((evt) => (
+              <EventTemplateCard
+                key={evt.id}
+                event={evt}
+                onOpenBooking={onOpenBooking}
+                onSelectEvent={setSelectedEventModal}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="p-12 text-center rounded-3xl bg-white/[0.02] border border-white/10 text-gray-400 font-mono text-xs space-y-2">
+            <PartyPopper size={24} className="mx-auto text-[#d4af37]/50" />
+            <p className="text-white text-sm font-semibold">No active events in this category right now.</p>
+            <p className="text-gray-400 text-xs">New luxury galas, live poolside performances, and executive soirees are being curated.</p>
+          </div>
+        )}
 
         {/* Full Event Flyer / Story Popup Modal */}
         {selectedEventModal && (

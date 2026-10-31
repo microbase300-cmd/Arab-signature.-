@@ -3753,6 +3753,8 @@ export const portalStore = {
         ticketInfo: 'Free for Checked-In Guests • VIP Cabana Table: ₦50,000',
         ctaLabel: 'Reserve VIP Table / Suite',
         featuredSuiteId: 'suites',
+        isActive: true,
+        showOnHomepage: true,
         showInPopup: true,
         showAsAdBanner: true,
         createdAt: '2026-10-25'
@@ -3770,6 +3772,8 @@ export const portalStore = {
         ticketInfo: 'Open to All VIP Guests • Table & Cabana Reservations Available',
         ctaLabel: 'Book Sunday Table / Suite',
         featuredSuiteId: 'super-executive',
+        isActive: true,
+        showOnHomepage: true,
         showInPopup: true,
         showAsAdBanner: true,
         createdAt: '2026-10-26'
@@ -3787,6 +3791,8 @@ export const portalStore = {
         ticketInfo: '120+ VIP Dignitaries & Guests Hosted',
         ctaLabel: 'Book Your Own Event / Stay',
         featuredSuiteId: 'suites',
+        isActive: true,
+        showOnHomepage: true,
         showInPopup: false,
         showAsAdBanner: false,
         createdAt: '2026-10-19'
@@ -3804,6 +3810,8 @@ export const portalStore = {
         ticketInfo: '65+ Executive Delegates Hosted • 100% Suite Occupancy',
         ctaLabel: 'Inquire for Corporate Hosting',
         featuredSuiteId: 'executive',
+        isActive: true,
+        showOnHomepage: true,
         showInPopup: false,
         showAsAdBanner: false,
         createdAt: '2026-10-12'
@@ -3841,6 +3849,8 @@ export const portalStore = {
       ticketInfo: String(eventInput.ticketInfo || '').trim() || (isRecap ? 'Memorable Gathering Hosted in Grand Style' : 'Free Entry for Checked-In Suite Guests • VIP Table Reservations Open'),
       ctaLabel: String(eventInput.ctaLabel || '').trim() || (isRecap ? 'Host Your Next Event With Us' : 'Reserve VIP Table / Suite'),
       featuredSuiteId: eventInput.featuredSuiteId || 'suites',
+      isActive: eventInput.isActive !== undefined ? Boolean(eventInput.isActive) : true,
+      showOnHomepage: eventInput.showOnHomepage !== undefined ? Boolean(eventInput.showOnHomepage) : true,
       showInPopup: isRecap ? Boolean(eventInput.showInPopup) : (eventInput.showInPopup !== undefined ? Boolean(eventInput.showInPopup) : true),
       showAsAdBanner: isRecap ? Boolean(eventInput.showAsAdBanner) : (eventInput.showAsAdBanner !== undefined ? Boolean(eventInput.showAsAdBanner) : true),
       createdAt: new Date().toISOString().split('T')[0]
