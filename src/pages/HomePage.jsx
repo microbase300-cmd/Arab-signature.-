@@ -5,10 +5,12 @@ import {
   Calendar, Users, ArrowRight, Star, ShieldCheck, Zap, Crown, 
   Car, Sparkles, Utensils, Waves, Phone, MapPin, Check, 
   ChevronRight, Play, Clock, Share2, Award, Camera, Building2, DoorOpen,
-  Flame, X, PartyPopper
+  Flame, X, PartyPopper, Eye
 } from 'lucide-react';
 import PhotoGallerySection from '../components/PhotoGallerySection';
 import { EventAdBannerCard, EventTemplateCard } from './EventsPage';
+import RoomDetailsModal from '../components/RoomDetailsModal';
+import Pool360Viewer from '../components/Pool360Viewer';
 
 export default function HomePage({ onNavigate, onOpenBooking }) {
   const [checkIn, setCheckIn] = useState('2026-10-20');
@@ -20,6 +22,7 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
   const [hotelEvents, setHotelEvents] = useState(() => portalStore.getHotelEvents());
   const [homeEventTab, setHomeEventTab] = useState('upcoming'); // 'upcoming' | 'recap'
   const [selectedHomeEvent, setSelectedHomeEvent] = useState(null);
+  const [selectedRoomDetails, setSelectedRoomDetails] = useState(null);
 
   // Listen for real-time room rate & event adjustments made by Admin
   useEffect(() => {
@@ -305,12 +308,19 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
                       <img
                         src={currentPhoto}
                         alt={room.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        onClick={() => setSelectedRoomDetails(room)}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 cursor-pointer"
                       />
                       <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
                         <span className="bg-[#5c0725] text-[#f3e5ab] border border-[#d4af37]/40 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow">
                           {room.boardTitle || room.category}
                         </span>
+                        {(room.hasParlour || room.price === 120000) && (
+                          <span className="bg-gradient-to-r from-amber-500/30 to-[#d4af37]/40 text-amber-200 border border-amber-400 text-[9px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-1">
+                            <Crown size={10} className="text-[#d4af37]" />
+                            <span>Apartment with Parlour</span>
+                          </span>
+                        )}
                         {room.isPromoActive && (
                           <span className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white border border-emerald-300/60 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-1 animate-pulse">
                             🔥 Promo Offer
@@ -413,14 +423,17 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
 
                       <div className="pt-2 flex items-center justify-between border-t border-white/10 gap-2">
                         <button
-                          onClick={() => onNavigate('suites')}
-                          className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-semibold border border-white/10 transition-all"
+                          type="button"
+                          onClick={() => setSelectedRoomDetails(room)}
+                          className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-[#f3e5ab] text-xs font-bold border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                          title="View high-res photos & full room details"
                         >
-                          Details
+                          <Eye size={13} className="text-[#d4af37]" />
+                          <span>Photos &amp; Details</span>
                         </button>
                         <button
                           onClick={() => onOpenBooking(room.id)}
-                          className={`flex-1 py-2.5 px-4 rounded-xl ${goldGradient} font-extrabold text-xs uppercase tracking-wider shadow-md hover:opacity-95 flex items-center justify-center gap-1.5`}
+                          className={`flex-1 py-2.5 px-4 rounded-xl ${goldGradient} font-extrabold text-xs uppercase tracking-wider shadow-md hover:opacity-95 flex items-center justify-center gap-1.5 cursor-pointer`}
                         >
                           <span>Reserve {room.category}</span>
                           <ArrowRight size={13} />
@@ -434,19 +447,22 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
         </div>
       </section>
 
-      {/* 4. POOLSIDE CABANAS & DINING HIGHLIGHTS */}
+      {/* 4. POOLSIDE CABANAS & DINING HIGHLIGHTS (WITH 360° INTERACTIVE POOLSIDE TOUR) */}
       <section className="py-20 px-6 max-w-7xl mx-auto space-y-12">
         <div className="text-center space-y-3 max-w-2xl mx-auto">
           <span className="text-xs uppercase font-mono tracking-widest text-[#d4af37] font-semibold">
-            LEISURE, VIP LOUNGE & FINE DINING
+            360° VIRTUAL TOUR &bull; LEISURE &bull; VIP CABANAS &bull; FINE DINING
           </span>
           <h2 className="font-cinzel text-3xl sm:text-4xl font-extrabold tracking-wide">
-            Poolside Cabanas & Gourmet Dining
+            Poolside Cabanas &amp; Gourmet Dining
           </h2>
           <p className="text-sm text-gray-400">
-            Enjoy exclusive poolside relaxation, vibrant VIP lounge experiences, and authentic Middle Eastern & continental cuisine in Nsugbe, Onitsha.
+            Enjoy exclusive poolside relaxation with our interactive 360° virtual tour, vibrant VIP lounge experiences, and authentic Middle Eastern &amp; continental cuisine in Nsugbe, Onitsha.
           </p>
         </div>
+
+        {/* Interactive 360° Poolside Panorama */}
+        <Pool360Viewer onOpenBooking={onOpenBooking} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Card 1: VIP Lounge & Cabanas */}
@@ -742,6 +758,16 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
           </div>
         </div>
       </section>
+
+      {/* Interactive Room Details & Multi-Angle Photo Modal */}
+      {selectedRoomDetails && (
+        <RoomDetailsModal
+          room={selectedRoomDetails}
+          onClose={() => setSelectedRoomDetails(null)}
+          onOpenBooking={onOpenBooking}
+          initialBuilding={selectedBuilding}
+        />
+      )}
 
     </div>
   );

@@ -55,31 +55,60 @@ export const HOTEL_BUILDINGS = [
 export const ROOMS = [
   {
     id: "suites",
-    name: "Diplomatic Suite",
-    boardTitle: "SUITES",
-    category: "Suites",
+    name: "Diplomatic Apartment with Parlour",
+    boardTitle: "120K DIPLOMATIC APARTMENT & PARLOUR",
+    category: "Diplomatic Apartment & Parlour",
     price: 120000,
     priceFormatted: "₦120,000",
+    hasParlour: true,
+    apartmentType: "Executive Apartment with Private Parlour & King Bedroom",
     buildings: ["Extension Building"],
-    buildingLabel: "Extension Building • Rooms 107, 114",
+    buildingLabel: "Extension Building • Suites 107, 114",
     roomNumbers: ["107", "114"],
     mainBuildingRooms: [],
     extensionBuildingRooms: ["107", "114"],
     totalRooms: 2,
     rating: 5.0,
-    reviews: 58,
-    image: "/rooms/suite-royal-penthouse.jpg",
-    thumb: "/rooms/suite-royal-penthouse.jpg",
-    gallery: [
-      "/rooms/suite-royal-penthouse.jpg",
-      "/rooms/suite-royal-lounge-wide.jpg",
-      "/rooms/suite-royal-entertainment.jpg"
+    reviews: 64,
+    image: "/rooms/ext-120k-apartment-parlour-1.webp",
+    thumb: "/rooms/ext-120k-apartment-parlour-1.webp",
+    extensionBuildingPhotos: [
+      "/rooms/ext-120k-apartment-parlour-1.webp",
+      "/rooms/ext-120k-apartment-parlour-2.webp",
+      "/rooms/ext-120k-apartment-parlour-3.webp",
+      "/rooms/ext-120k-apartment-parlour-4.webp",
+      "/rooms/ext-120k-apartment-parlour-5.webp",
+      "/rooms/ext-120k-apartment-parlour-6.webp",
+      "/rooms/ext-120k-apartment-parlour-7.webp",
+      "/rooms/ext-120k-apartment-parlour-8.webp"
     ],
-    description: "The crown jewel of Arab Signature Hotel Extension. An expansive diplomatic suite featuring royal blue & gold ambient tray ceiling, plush velvet lounge armchairs, media entertainment wall, ensuite marble bathroom, mini-bar, and dedicated butler service.",
-    bed: "1 Presidential King Bed + Majlis Lounge",
+    mainBuildingPhotos: [],
+    gallery: [
+      "/rooms/ext-120k-apartment-parlour-1.webp",
+      "/rooms/ext-120k-apartment-parlour-2.webp",
+      "/rooms/ext-120k-apartment-parlour-3.webp",
+      "/rooms/ext-120k-apartment-parlour-4.webp",
+      "/rooms/ext-120k-apartment-parlour-5.webp",
+      "/rooms/ext-120k-apartment-parlour-6.webp",
+      "/rooms/ext-120k-apartment-parlour-7.webp",
+      "/rooms/ext-120k-apartment-parlour-8.webp",
+      "/rooms/suite-royal-penthouse.jpg",
+      "/rooms/suite-royal-lounge-wide.jpg"
+    ],
+    description: "The premier luxury offering at Arab Signature Hotel Extension Building. An expansive ₦120,000 VIP diplomatic apartment featuring a spacious private parlour/living room with plush executive sofa seating, separate master king bedroom, ambient royal blue & gold tray ceiling, dual smart entertainment displays, mini-bar, ensuite luxury marble bathroom, and dedicated 24/7 butler service.",
+    bed: "1 Presidential King Bed + Private Executive Parlour Suite",
     guests: "2–4 Guests",
-    size: "115 sqm",
-    amenities: ["Personal Butler Service", "Private Majlis Velvet Lounge", "Smart 4K TV & Sound Bar", "In-Suite Mini Bar & Fridge", "Complimentary Gourmet Breakfast", "24/7 Power Backup"]
+    size: "125 sqm",
+    amenities: [
+      "Spacious Private Executive Parlour / Living Room",
+      "Separate Master King Bedroom",
+      "Personal Butler Service",
+      "Dual Smart 4K TVs (Parlour & Bedroom)",
+      "In-Suite Mini Bar & Refrigerator",
+      "Ensuite Marble Rain Shower & Amenities",
+      "Complimentary Gourmet Breakfast",
+      "Uninterrupted 24/7 Power Backup & Free High-Speed Wi-Fi"
+    ]
   },
   {
     id: "super-executive",
@@ -95,19 +124,35 @@ export const ROOMS = [
     extensionBuildingRooms: ["102", "109"],
     totalRooms: 5,
     rating: 4.9,
-    reviews: 86,
-    image: "/rooms/suite-executive-arabian.jpg",
-    thumb: "/rooms/suite-executive-arabian.jpg",
-    gallery: [
+    reviews: 92,
+    image: "/rooms/ext-60k-super-executive-1.webp",
+    thumb: "/rooms/ext-60k-super-executive-1.webp",
+    extensionBuildingPhotos: [
+      "/rooms/ext-60k-super-executive-1.webp",
+      "/rooms/ext-60k-super-executive-2.webp",
+      "/rooms/ext-60k-super-executive-3.webp",
+      "/rooms/ext-60k-super-executive-4.webp",
+      "/rooms/ext-60k-super-executive-5.webp"
+    ],
+    mainBuildingPhotos: [
       "/rooms/suite-executive-arabian.jpg",
       "/rooms/suite-executive-king.jpg",
       "/rooms/suite-executive-portrait.jpg"
     ],
-    description: "Available across both Main and Extension buildings (5 rooms total). Exquisite executive accommodations featuring golden tray ceiling illumination, plush velvet scallop armchair, architectural glass partition, marble flooring, and executive work desk.",
+    gallery: [
+      "/rooms/ext-60k-super-executive-1.webp",
+      "/rooms/ext-60k-super-executive-2.webp",
+      "/rooms/ext-60k-super-executive-3.webp",
+      "/rooms/ext-60k-super-executive-4.webp",
+      "/rooms/ext-60k-super-executive-5.webp",
+      "/rooms/suite-executive-arabian.jpg",
+      "/rooms/suite-executive-king.jpg"
+    ],
+    description: "Available across both Main Building (Suites 605, 612, 615) and Extension Building (Suites 102, 109). Premium ₦60,000 executive room featuring golden architectural tray ceilings, velvet scallop lounge armchair, glass architectural partitions, marble tile finishes, and ergonomic workstation.",
     bed: "1 Royal King Bed",
     guests: "2 Adults + 1 Child",
     size: "55 sqm",
-    amenities: ["Royal King Bed", "Velvet Scallop Armchair", "Architectural Glass Partition", "Executive Workstation", "Free High-Speed Wi-Fi", "Complimentary Breakfast"]
+    amenities: ["Royal King Bed", "Velvet Scallop Armchair", "Architectural Glass Partition", "Executive Workstation", "Smart 4K TV", "Free High-Speed Wi-Fi", "Complimentary Breakfast", "24/7 Power"]
   },
   {
     id: "executive",
@@ -123,19 +168,31 @@ export const ROOMS = [
     extensionBuildingRooms: ["103", "104", "110", "111"],
     totalRooms: 7,
     rating: 4.9,
-    reviews: 112,
-    image: "/rooms/suite-deluxe-doha.jpg",
-    thumb: "/rooms/suite-deluxe-doha.jpg",
-    gallery: [
+    reviews: 118,
+    image: "/rooms/ext-50k-executive-1.webp",
+    thumb: "/rooms/ext-50k-executive-1.webp",
+    extensionBuildingPhotos: [
+      "/rooms/ext-50k-executive-1.webp",
+      "/rooms/ext-50k-executive-2.webp",
+      "/rooms/ext-50k-executive-3.webp"
+    ],
+    mainBuildingPhotos: [
       "/rooms/suite-deluxe-doha.jpg",
       "/rooms/suite-executive-king.jpg",
       "/rooms/suite-corridor-hallway.jpg"
     ],
-    description: "Available in both Main and Extension buildings (7 rooms total). King bed with custom leather-tufted headboard, warm ambient wall sconces, executive work desk, smart TV, and complimentary morning breakfast.",
+    gallery: [
+      "/rooms/ext-50k-executive-1.webp",
+      "/rooms/ext-50k-executive-2.webp",
+      "/rooms/ext-50k-executive-3.webp",
+      "/rooms/suite-deluxe-doha.jpg",
+      "/rooms/suite-executive-king.jpg"
+    ],
+    description: "Available across Main Building (3 rooms) and Extension Building (4 rooms). Contemporary ₦50,000 luxury room with custom leather-tufted headboard, warm ambient wall sconces, executive work desk, smart TV, and complimentary breakfast.",
     bed: "1 King Bed",
     guests: "2 Adults",
     size: "46 sqm",
-    amenities: ["Custom Tufted Headboard", "Smart 4K TV with Netflix", "Executive Work Desk", "Ensuite Rain Shower", "Room Service", "24/7 Security"]
+    amenities: ["Custom Tufted Headboard", "Smart 4K TV with Streaming", "Executive Work Desk", "Ensuite Rain Shower", "Room Service", "24/7 Security & Power"]
   },
   {
     id: "superior",
@@ -151,19 +208,34 @@ export const ROOMS = [
     extensionBuildingRooms: ["101", "105", "106", "108", "112", "113"],
     totalRooms: 11,
     rating: 4.8,
-    reviews: 144,
-    image: "/rooms/suite-classic-chevron.jpg",
-    thumb: "/rooms/suite-classic-chevron.jpg",
-    gallery: [
+    reviews: 152,
+    image: "/rooms/ext-40k-superior-1.webp",
+    thumb: "/rooms/ext-40k-superior-1.webp",
+    extensionBuildingPhotos: [
+      "/rooms/ext-40k-superior-1.webp",
+      "/rooms/ext-40k-superior-2.webp",
+      "/rooms/ext-40k-superior-3.webp",
+      "/rooms/ext-40k-superior-4.webp",
+      "/rooms/ext-40k-superior-5.webp"
+    ],
+    mainBuildingPhotos: [
       "/rooms/suite-classic-chevron.jpg",
       "/rooms/suite-deluxe-doha.jpg",
       "/rooms/suite-corridor-hallway.jpg"
     ],
-    description: "Our most versatile luxury category spanning 11 rooms across Main and Extension buildings. Elegantly furnished with plush bedding, acoustic soundproofing, modern ensuite bathroom, and high-speed Wi-Fi.",
+    gallery: [
+      "/rooms/ext-40k-superior-1.webp",
+      "/rooms/ext-40k-superior-2.webp",
+      "/rooms/ext-40k-superior-3.webp",
+      "/rooms/ext-40k-superior-4.webp",
+      "/rooms/ext-40k-superior-5.webp",
+      "/rooms/suite-classic-chevron.jpg"
+    ],
+    description: "Our popular ₦40,000 category spanning 11 rooms across Main Building (5) and Extension Building (6). Elegantly appointed with comfortable king/queen bed, acoustic soundproofing, modern ensuite bathroom, and high-speed Wi-Fi.",
     bed: "1 King / Queen Bed",
     guests: "2 Adults",
     size: "40 sqm",
-    amenities: ["Plush Bedding", "Air Conditioning", "Free High-Speed Wi-Fi", "Soundproof Acoustic Walls", "Ensuite Rain Shower", "24/7 Power Backup"]
+    amenities: ["Plush King/Queen Bedding", "Air Conditioning", "Free High-Speed Wi-Fi", "Soundproof Acoustic Walls", "Ensuite Rain Shower", "24/7 Power Backup"]
   },
   {
     id: "deluxe",
@@ -182,6 +254,12 @@ export const ROOMS = [
     reviews: 98,
     image: "/rooms/suite-standard-classic.jpg",
     thumb: "/rooms/suite-standard-classic.jpg",
+    mainBuildingPhotos: [
+      "/rooms/suite-standard-classic.jpg",
+      "/rooms/suite-classic-chevron.jpg",
+      "/rooms/suite-corridor-hallway.jpg"
+    ],
+    extensionBuildingPhotos: [],
     gallery: [
       "/rooms/suite-standard-classic.jpg",
       "/rooms/suite-classic-chevron.jpg",
@@ -210,6 +288,11 @@ export const ROOMS = [
     reviews: 130,
     image: "/rooms/suite-standard-classic.jpg",
     thumb: "/rooms/suite-standard-classic.jpg",
+    mainBuildingPhotos: [
+      "/rooms/suite-standard-classic.jpg",
+      "/rooms/suite-corridor-hallway.jpg"
+    ],
+    extensionBuildingPhotos: [],
     gallery: [
       "/rooms/suite-standard-classic.jpg",
       "/rooms/suite-corridor-hallway.jpg"

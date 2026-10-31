@@ -3,14 +3,16 @@ import { portalStore } from '../data/portalStore';
 import { HOTEL_BUILDINGS } from '../data/hotelData';
 import {
   Star, Check, ArrowRight, Crown, Sparkles, ShieldCheck,
-  Users, Bed, Building2, Layers, DoorOpen, MapPin
+  Users, Bed, Building2, Layers, DoorOpen, MapPin, Eye
 } from 'lucide-react';
+import RoomDetailsModal from '../components/RoomDetailsModal';
 
 export default function SuitesPage({ onNavigate, onOpenBooking }) {
   const [selectedBuilding, setSelectedBuilding] = useState('all'); // 'all' | 'main' | 'extension'
   const [selectedCategory, setSelectedCategory] = useState('all'); // 'all' | room.id
   const [rooms, setRooms] = useState(() => portalStore.getRoomRates());
   const [activePhotoMap, setActivePhotoMap] = useState({});
+  const [selectedRoomDetails, setSelectedRoomDetails] = useState(null);
 
   useEffect(() => {
     return portalStore.subscribeRates(setRooms);
@@ -237,11 +239,17 @@ export default function SuitesPage({ onNavigate, onOpenBooking }) {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#1a040d] via-transparent to-black/30 opacity-80" />
 
-                  {/* Category Badge */}
+                    {/* Category Badge */}
                   <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
                     <span className="bg-[#5c0725] text-[#f3e5ab] border border-[#d4af37]/40 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">
                       {room.boardTitle || room.category}
                     </span>
+                    {(room.hasParlour || room.price === 120000) && (
+                      <span className="bg-gradient-to-r from-amber-500/30 to-[#d4af37]/40 text-amber-200 border border-amber-400 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-1">
+                        <Crown size={11} className="text-[#d4af37]" />
+                        <span>Apartment with Parlour</span>
+                      </span>
+                    )}
                     {room.isPromoActive && (
                       <span className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white border border-emerald-300/60 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-1 animate-pulse">
                         🔥 Special Promo
@@ -389,15 +397,27 @@ export default function SuitesPage({ onNavigate, onOpenBooking }) {
                       ))}
                     </div>
 
-                    {/* Reserve Action Button */}
-                    <button
-                      type="button"
-                      onClick={() => onOpenBooking(room.id)}
-                      className={`w-full py-3.5 rounded-xl ${goldGradient} font-extrabold text-xs uppercase tracking-wider shadow-lg hover:opacity-95 flex items-center justify-center gap-2 transition-all active:scale-98`}
-                    >
-                      <span>Reserve {room.category}</span>
-                      <ArrowRight size={14} />
-                    </button>
+                    {/* Action Buttons: View Details & Photos + Reserve Room */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRoomDetails(room)}
+                        className="px-3.5 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-[#f3e5ab] text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        title="View high-res photos and full room details"
+                      >
+                        <Eye size={14} className="text-[#d4af37]" />
+                        <span>Photos &amp; Details</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onOpenBooking(room.id)}
+                        className={`flex-1 py-3 px-4 rounded-xl ${goldGradient} font-extrabold text-xs uppercase tracking-wider shadow-lg hover:opacity-95 flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer`}
+                      >
+                        <span>Reserve Room</span>
+                        <ArrowRight size={13} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -525,6 +545,16 @@ export default function SuitesPage({ onNavigate, onOpenBooking }) {
           </div>
         </div>
       </section>
+
+      {/* Interactive Room Details & Multi-Angle Photo Modal */}
+      {selectedRoomDetails && (
+        <RoomDetailsModal
+          room={selectedRoomDetails}
+          onClose={() => setSelectedRoomDetails(null)}
+          onOpenBooking={onOpenBooking}
+          initialBuilding={selectedBuilding}
+        />
+      )}
 
     </div>
   );

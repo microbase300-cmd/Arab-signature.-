@@ -1,5 +1,6 @@
 import React from 'react';
-import { Waves, Sparkles, Crown, Car, ShieldCheck, Zap, ArrowRight, Check } from 'lucide-react';
+import { Waves, Sparkles, Crown, Car, ShieldCheck, Zap, ArrowRight, Check, Compass } from 'lucide-react';
+import Pool360Viewer from '../components/Pool360Viewer';
 
 export default function AmenitiesPage({ onNavigate, onOpenBooking }) {
   const goldGradient = 'bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black';
@@ -28,64 +29,45 @@ export default function AmenitiesPage({ onNavigate, onOpenBooking }) {
         </div>
       </section>
 
-      {/* 2. POOLSIDE OASIS & VIP CABANAS (HERO FEATURE) */}
-      <section className="py-20 px-6 max-w-7xl mx-auto">
-        <div className="rounded-3xl overflow-hidden border-2 border-[#d4af37]/40 bg-[#1c040e]/90 shadow-2xl grid grid-cols-1 lg:grid-cols-2 items-center">
-          
-          <div className="p-8 sm:p-12 space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#5c0725] text-[#f3e5ab] text-xs font-bold uppercase tracking-wider">
-              <Waves size={14} /> Signature Amenity
-            </div>
-
-            <h2 className="font-cinzel text-3xl sm:text-4xl font-extrabold text-white">
-              Private Poolside & <br />
-              <span className="gold-text-gradient">Curtained VIP Cabanas</span>
-            </h2>
-
-            <p className="text-sm text-gray-300 leading-relaxed">
-              Step into our private poolside oasis surrounded by lush tropical landscaping and Arabian architectural masonry. Enjoy curtained private VIP cabanas, plush sun loungers, towel service, and dedicated poolside cocktail attendants.
-            </p>
-
-            <ul className="space-y-2.5 text-xs text-gray-300">
-              <li className="flex items-center gap-2">
-                <Check size={15} className="text-[#d4af37]" />
-                <span>Curtained VIP poolside cabanas with plush daybeds and day shade</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check size={15} className="text-[#d4af37]" />
-                <span>Poolside beverage and light grill menu served directly to your sun lounger</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check size={15} className="text-[#d4af37]" />
-                <span>Strict privacy — restricted exclusively to in-house guests and registered cabana patrons</span>
-              </li>
-            </ul>
-
-            <button
-              onClick={() => onOpenBooking('deluxe')}
-              className={`px-7 py-3.5 rounded-xl ${goldGradient} font-bold text-xs uppercase tracking-wider shadow-lg flex items-center gap-2`}
-            >
-              <span>Book Stay With Pool Access</span>
-              <ArrowRight size={14} />
-            </button>
+      {/* 2. POOLSIDE OASIS & VIP CABANAS (HERO FEATURE WITH 360° VIRTUAL PANORAMA) */}
+      <section className="py-20 px-6 max-w-7xl mx-auto space-y-8">
+        <div className="text-center max-w-2xl mx-auto space-y-2">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#5c0725] text-[#f3e5ab] text-xs font-bold uppercase tracking-wider">
+            <Waves size={14} /> <span>360° Virtual Tour &bull; Poolside Cabanas</span>
           </div>
+          <h2 className="font-cinzel text-3xl sm:text-4xl font-extrabold text-white">
+            Private Poolside &amp; <span className="gold-text-gradient">VIP Cabana Panorama</span>
+          </h2>
+          <p className="text-xs sm:text-sm text-gray-300">
+            Rotate through 5 high-resolution panoramic angles of our crystal-clear swimming pool, VIP cabana daybeds, and tropical palm courtyard.
+          </p>
+        </div>
 
-          <div className="h-full min-h-[380px] relative bg-black">
-            <img
-              src="/lounge/vip-bar-lounge-1.webp"
-              alt="Al-Sultan VIP Lounge & Bar Experience"
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/75 border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] font-mono font-bold uppercase tracking-wider">
-              VIVID HDR • 4K
-            </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-6">
-              <span className="text-xs text-[#f3e5ab] font-mono bg-black/60 px-3 py-1 rounded-full border border-white/20">
-                Al-Sultan VIP Velvet Lounge & Cocktail Bar
-              </span>
+        {/* Interactive 360 Poolside Viewer */}
+        <Pool360Viewer onOpenBooking={onOpenBooking} />
+
+        <div className="rounded-3xl overflow-hidden border-2 border-[#d4af37]/40 bg-[#1c040e]/90 p-8 sm:p-10 shadow-2xl grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-gray-300">
+          <div className="flex items-start gap-3">
+            <Check size={18} className="text-[#d4af37] shrink-0 mt-0.5" />
+            <div>
+              <strong className="text-white block text-sm font-cinzel mb-0.5">VIP Curtained Cabanas</strong>
+              <span>Curtained private poolside cabanas with plush daybeds, towels, and daytime sun shade.</span>
             </div>
           </div>
-
+          <div className="flex items-start gap-3">
+            <Check size={18} className="text-[#d4af37] shrink-0 mt-0.5" />
+            <div>
+              <strong className="text-white block text-sm font-cinzel mb-0.5">Poolside Grills &amp; Bar</strong>
+              <span>Signature cocktails, vintage wines, and hot suya/fish pepper soup served straight to your sun lounger.</span>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <Check size={18} className="text-[#d4af37] shrink-0 mt-0.5" />
+            <div>
+              <strong className="text-white block text-sm font-cinzel mb-0.5">Strict Privacy &amp; Security</strong>
+              <span>Exclusive access reserved for checked-in suite guests and registered VIP cabana patrons.</span>
+            </div>
+          </div>
         </div>
       </section>
 
