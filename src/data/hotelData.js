@@ -15,8 +15,8 @@ export const HOTEL_INFO = {
   checkInTime: "2:00 PM",
   checkOutTime: "12:00 PM",
   poolPricing: {
-    lodgeGuests: "FREE (100% Complimentary for all lodge guests & room reservations)",
-    nonSuiteGuests: "₦3,000 per person (Day pass for non-suite guests & visitors)",
+    lodgeGuests: "FREE (100% Complimentary unlimited access for all lodge guests & room reservations)",
+    nonSuiteGuests: "₦3,000 per hour (For non-suite guests & visitors)",
     vipCabanaTable: "₦50,000 (Private shaded cabana daybed with dedicated bottle & dining service)"
   },
   aboutText: "Welcome to Arab Signature Hotel and Suites, a premier luxury destination located in Nsugbe, Onitsha. Featuring 34 luxury rooms and diplomatic suites across two private wings (Main Building & Extension Building), we pride ourselves on delivering an exceptional blend of world-class comfort, sophisticated design, and unparalleled guest experiences. Whether visiting for business or leisure, our guests enjoy state-of-the-art amenities, elegantly appointed suites, and premium dining options designed to meet the highest standards of excellence. Independently owned and operated by a private investment group, our establishment is dedicated to providing a secure, relaxing, and memorable stay. Experience the ultimate standard of elegance and premium service with us."
@@ -313,7 +313,7 @@ export const ROOMS = [
 export const AMENITIES = [
   { id: "spa", name: "Royal Spa", icon: "Sparkles", desc: "Traditional Moroccan bath & therapeutic massage" },
   { id: "dining", name: "Gourmet Dining", icon: "Utensils", desc: "Authentic Arabian & continental fine cuisine" },
-  { id: "pool", name: "Poolside Oasis & Cabanas", icon: "Waves", desc: "Crystal clear pool • Free for lodge guests • ₦3,000 for non-suite visitors" },
+  { id: "pool", name: "Poolside Oasis & Cabanas", icon: "Waves", desc: "Crystal clear pool • Free for lodge guests • ₦3,000/hr for non-suite visitors" },
   { id: "butler", name: "Personal Butler", icon: "Crown", desc: "Dedicated 24/7 in-suite butler & concierge" }
 ];
 

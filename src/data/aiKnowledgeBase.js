@@ -138,8 +138,8 @@ export const CUSTOM_TRAINING_DATA = [
             "• **Location**: Central Royal Courtyard, Arab Signature Hotel, Nsugbe, Onitsha.\n" +
             "• **Hours**: Open daily from 7:00 AM to 10:00 PM.\n" +
             "• **Pricing & Admission Rules**:\n" +
-            "   1. **Lodge Guests & Room Reservations**: **100% FREE Complimentary Swimming** for all checked-in guests and confirmed suite reservations.\n" +
-            "   2. **Non-Suite Guests & Walk-in Visitors**: **₦3,000 per person** day pass to swim in our crystal-clear pool.\n" +
+            "   1. **Lodge Guests & Room Reservations**: **100% FREE Complimentary Unlimited Swimming** for all checked-in guests and confirmed suite reservations.\n" +
+            "   2. **Non-Suite Guests & Walk-in Visitors**: **₦3,000 per hour** to swim in our crystal-clear pool.\n" +
             "   3. **VIP Poolside Cabana Tables**: **₦50,000** for a private shaded VIP daybed cabana table with dedicated bottle service, plush towels, and poolside dining.\n" +
             "• **Interactive 360° View on Website**: Experience our pool live on the Homepage or Amenities page with 5 high-resolution perspectives:\n" +
             "   1. **0° North Deck**: VIP Pool Deck & Daybed Cabanas\n" +

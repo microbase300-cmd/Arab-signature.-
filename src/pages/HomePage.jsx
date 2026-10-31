@@ -479,7 +479,7 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
               />
               <div className="absolute top-4 left-4 bg-emerald-950/90 text-emerald-200 border border-emerald-400/50 text-xs font-bold px-3 py-1 rounded-xl shadow-lg flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Lodge Guests: Free &bull; Visitors: ₦3,000</span>
+                <span>Lodge Guests: Free &bull; Visitors: ₦3,000/hr</span>
               </div>
               <div className="absolute bottom-3 right-3 bg-black/75 backdrop-blur-md text-[#f3e5ab] text-[11px] font-mono px-2.5 py-1 rounded-lg border border-[#d4af37]/40">
                 5 Panoramic Angles Available
@@ -488,7 +488,7 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
             <div className="p-6 space-y-3">
               <h3 className="font-cinzel text-xl font-bold text-white">Olympic Swimming Pool & VIP Cabanas</h3>
               <p className="text-xs text-gray-300 leading-relaxed">
-                Crystal-clear outdoor swimming pool with luxury sun loungers, poolside cocktail bar, and shaded VIP cabanas. 100% complimentary swimming for all resident lodge guests &amp; confirmed reservations. Non-suite visitors welcome with ₦3,000 day pass.
+                Crystal-clear outdoor swimming pool with luxury sun loungers, poolside cocktail bar, and shaded VIP cabanas. 100% complimentary unlimited swimming for all resident lodge guests &amp; confirmed reservations. Non-suite visitors welcome at ₦3,000 per hour.
               </p>
               <div className="flex items-center gap-3 pt-1">
                 <button

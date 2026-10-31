@@ -16,7 +16,7 @@ export const GALLERY_PHOTOS = [
     id: 'pool-view-1',
     src: '/pool/pool-view-1.webp',
     title: 'Olympic Swimming Pool & VIP Daybeds',
-    subtitle: 'Crystal Clear Water • Free for Lodge Guests • ₦3,000 for Visitors • Nsugbe, Onitsha',
+    subtitle: 'Crystal Clear Water • Free for Lodge Guests • ₦3,000/hr for Visitors • Nsugbe, Onitsha',
     category: 'pool',
     categoryLabel: 'Poolside & Cabanas',
     orientation: 'landscape',

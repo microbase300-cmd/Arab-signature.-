@@ -145,7 +145,7 @@ export default function Pool360Viewer({ className = '', onOpenBooking }) {
 
             <span className="px-3 py-1.5 rounded-full bg-emerald-950/90 backdrop-blur-md border border-emerald-400/60 text-emerald-200 text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg">
               <Waves size={13} className="text-emerald-400" />
-              <span>Lodge Guests: Free &bull; Visitors: ₦3,000</span>
+              <span>Lodge Guests: Free &bull; Visitors: ₦3,000/hr</span>
             </span>
 
             <span className="px-2.5 py-1 rounded-full bg-[#5c0725]/85 backdrop-blur-md border border-[#d4af37]/40 text-[#f3e5ab] text-[10px] font-mono font-bold uppercase">
@@ -249,7 +249,7 @@ export default function Pool360Viewer({ className = '', onOpenBooking }) {
         <div className="flex items-center justify-between sm:justify-end gap-3 text-xs font-mono text-gray-400">
           <span className="px-2.5 py-1 rounded-lg bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 font-bold flex items-center gap-1.5 shadow-sm">
             <Waves size={12} className="text-emerald-400" />
-            <span>Lodge Guests: Free &bull; Visitors: ₦3,000</span>
+            <span>Lodge Guests: Free &bull; Visitors: ₦3,000/hr</span>
           </span>
           <span className="text-gray-500 hidden sm:inline">|</span>
           <span className="flex items-center gap-1 text-[#f3e5ab]">

@@ -71,22 +71,22 @@ export default function AmenitiesPage({ onNavigate, onOpenBooking }) {
 
           <div className="rounded-2xl border border-[#d4af37]/50 bg-[#1c040e]/90 p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
             <div className="absolute top-0 right-0 px-3 py-1 bg-[#d4af37] text-black text-[10px] font-bold uppercase rounded-bl-xl tracking-wider">
-              Public Day Pass
+              Hourly Visitor Rate
             </div>
             <div className="space-y-2">
               <span className="text-[11px] font-mono uppercase tracking-wider text-[#d4af37] font-bold block">
                 Non-Suite Guests &amp; Visitors
               </span>
               <h3 className="font-cinzel text-xl font-extrabold text-white">
-                ₦3,000 Day Pass
+                ₦3,000 / Hour
               </h3>
               <p className="text-xs text-gray-300 leading-relaxed">
-                Visiting Nsugbe or dining at Al-Sultan without lodging? Non-suite visitors can enjoy our crystal-clear olympic swimming pool for just ₦3,000 per person per day with towel service and locker access.
+                Visiting Nsugbe or dining at Al-Sultan without lodging? Non-suite visitors can enjoy our crystal-clear olympic swimming pool for ₦3,000 per hour per person with towel service, sun lounger, and poolside bar service.
               </p>
             </div>
             <div className="pt-4 border-t border-white/10 flex items-center justify-between text-xs font-mono text-[#f3e5ab]">
-              <span>Per Person / Day</span>
-              <span className="font-bold text-[#d4af37] text-sm">₦3,000</span>
+              <span>Rate per Person</span>
+              <span className="font-bold text-[#d4af37] text-sm">₦3,000 / hr</span>
             </div>
           </div>
 
