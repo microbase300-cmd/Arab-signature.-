@@ -129,18 +129,25 @@ export const CUSTOM_TRAINING_DATA = [
   {
     id: "swimming-pool-360",
     category: "amenities",
-    keywords: ["pool", "swimming", "360", "360 view", "cabana", "daybed", "swim", "poolside", "water", "pool price", "pool time"],
-    answer: "🏊 **Poolside Oasis & Interactive 360° Panoramic View:**\n\n" +
-            "• **Location**: Central Royal Courtyard, Arab Signature Hotel, Nsugbe.\n" +
+    keywords: [
+      "pool", "swimming", "360", "360 view", "cabana", "daybed", "swim", "poolside",
+      "water", "pool price", "pool time", "is pool free", "pool fee", "swimming fee",
+      "how much is pool", "how much to swim", "non suite pool"
+    ],
+    answer: "🏊 **Poolside Oasis, Swimming Pricing & 360° Panoramic View:**\n\n" +
+            "• **Location**: Central Royal Courtyard, Arab Signature Hotel, Nsugbe, Onitsha.\n" +
             "• **Hours**: Open daily from 7:00 AM to 10:00 PM.\n" +
-            "• **Admission**: 100% complimentary for all checked-in suite guests. Non-resident visitors can book VIP Poolside Cabana Tables for ₦50,000.\n" +
-            "• **Interactive 360° View on Website**: Experience our pool before arriving! Visit the Homepage or Amenities page to interact with our 360° viewer across 5 perspectives:\n" +
+            "• **Pricing & Admission Rules**:\n" +
+            "   1. **Lodge Guests & Room Reservations**: **100% FREE Complimentary Swimming** for all checked-in guests and confirmed suite reservations.\n" +
+            "   2. **Non-Suite Guests & Walk-in Visitors**: **₦3,000 per person** day pass to swim in our crystal-clear pool.\n" +
+            "   3. **VIP Poolside Cabana Tables**: **₦50,000** for a private shaded VIP daybed cabana table with dedicated bottle service, plush towels, and poolside dining.\n" +
+            "• **Interactive 360° View on Website**: Experience our pool live on the Homepage or Amenities page with 5 high-resolution perspectives:\n" +
             "   1. **0° North Deck**: VIP Pool Deck & Daybed Cabanas\n" +
             "   2. **72° East Cabanas**: Waterline View & Sun Loungers\n" +
             "   3. **144° South Horizon**: Panoramic Open Sky Deck\n" +
             "   4. **216° West Palm Terrace**: Palm Oasis & Outdoor Cocktail Bar\n" +
             "   5. **288° Courtyard Angle**: Al-Sultan Courtyard Entrance\n\n" +
-            "You can drag with your mouse/finger to spin 360 degrees or toggle the **Auto 360° Spin** button for a cinematic tour!"
+            "You can drag with your mouse/touchscreen to spin 360 degrees or toggle the **Auto 360° Spin** button for a guided virtual tour!"
   },
 
   // ==========================================================================

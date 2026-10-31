@@ -325,17 +325,18 @@ export const hotelAiEngine = {
       }
 
       // ========================================================
-      // 5. POOL & 360° PANORAMIC VIEW INQUIRIES
+      // 5. POOL, SWIMMING PRICING & 360° PANORAMIC VIEW INQUIRIES
       // ========================================================
       const poolTriggers = [
-        "pool", "swimming", "360", "panoramic", "cabana", "daybed", "swim", "poolside"
+        "pool", "swimming", "360", "panoramic", "cabana", "daybed", "swim", "poolside",
+        "pool price", "pool fee", "how much is pool", "is pool free", "swimming fee", "swim price"
       ];
       if (poolTriggers.some(t => query.includes(t))) {
         const item = CUSTOM_TRAINING_DATA.find(d => d.id === "swimming-pool-360");
         if (item) {
           return {
             text: item.answer,
-            suggestions: ["Check Available Suites", "Dining & Drinks Menu", "Chat on WhatsApp"]
+            suggestions: ["Check Available Suites", "View Pool 360", "Dining & Drinks Menu", "Chat on WhatsApp"]
           };
         }
       }

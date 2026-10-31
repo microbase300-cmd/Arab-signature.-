@@ -465,30 +465,46 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
         <Pool360Viewer onOpenBooking={onOpenBooking} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Card 1: VIP Lounge & Cabanas */}
+          {/* Card 1: Olympic Pool & VIP Cabanas */}
           <div className="rounded-3xl overflow-hidden border border-[#d4af37]/40 bg-[#1f050f]/80 shadow-2xl group flex flex-col justify-between">
             <div className="relative h-64 overflow-hidden">
               <img
-                src="/lounge/vip-bar-lounge-1.webp"
-                alt="Al-Sultan VIP Lounge & Bar"
+                src="/pool/pool-view-1.webp"
+                alt="Arab Signature Olympic Swimming Pool & Cabanas"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = '/pool/pool-view-1.jpg';
+                }}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
-              <div className="absolute top-4 left-4 bg-[#5c0725] text-[#f3e5ab] text-xs font-bold px-3 py-1 rounded-xl">
-                VIP Lounge & Cocktail Bar
+              <div className="absolute top-4 left-4 bg-emerald-950/90 text-emerald-200 border border-emerald-400/50 text-xs font-bold px-3 py-1 rounded-xl shadow-lg flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Lodge Guests: Free &bull; Visitors: ₦3,000</span>
+              </div>
+              <div className="absolute bottom-3 right-3 bg-black/75 backdrop-blur-md text-[#f3e5ab] text-[11px] font-mono px-2.5 py-1 rounded-lg border border-[#d4af37]/40">
+                5 Panoramic Angles Available
               </div>
             </div>
             <div className="p-6 space-y-3">
-              <h3 className="font-cinzel text-xl font-bold text-white">Private Poolside VIP Cabanas & Lounge</h3>
+              <h3 className="font-cinzel text-xl font-bold text-white">Olympic Swimming Pool & VIP Cabanas</h3>
               <p className="text-xs text-gray-300 leading-relaxed">
-                Relax beside our crystal-clear pool and outdoor VIP courtyard with private shaded cabanas, luxury sun loungers, and dedicated bottle & beverage service.
+                Crystal-clear outdoor swimming pool with luxury sun loungers, poolside cocktail bar, and shaded VIP cabanas. 100% complimentary swimming for all resident lodge guests &amp; confirmed reservations. Non-suite visitors welcome with ₦3,000 day pass.
               </p>
-              <button
-                onClick={() => onNavigate('amenities')}
-                className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 border border-white/15"
-              >
-                <span>Explore Poolside Cabanas</span>
-                <ChevronRight size={14} className="text-[#d4af37]" />
-              </button>
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  onClick={() => onNavigate('amenities')}
+                  className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 border border-white/15 cursor-pointer transition-all"
+                >
+                  <span>Explore Pool &amp; 360 View</span>
+                  <ChevronRight size={14} className="text-[#d4af37]" />
+                </button>
+                <button
+                  onClick={() => onOpenBooking('deluxe')}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa820a] text-black font-extrabold text-xs uppercase tracking-wider cursor-pointer hover:brightness-110 transition-all shadow-md"
+                >
+                  Book Stay (Free Swim)
+                </button>
+              </div>
             </div>
           </div>
 

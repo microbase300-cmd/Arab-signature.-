@@ -46,6 +46,72 @@ export default function AmenitiesPage({ onNavigate, onOpenBooking }) {
         {/* Interactive 360 Poolside Viewer */}
         <Pool360Viewer onOpenBooking={onOpenBooking} />
 
+        {/* Pool Admission & Pricing Matrix */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="rounded-2xl border-2 border-emerald-500/50 bg-[#0d1f14]/85 p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
+            <div className="absolute top-0 right-0 px-3 py-1 bg-emerald-500 text-black text-[10px] font-bold uppercase rounded-bl-xl tracking-wider">
+              100% Complimentary
+            </div>
+            <div className="space-y-2">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-emerald-400 font-bold block">
+                Hotel In-House Guests
+              </span>
+              <h3 className="font-cinzel text-xl font-extrabold text-white">
+                FREE Swimming Access
+              </h3>
+              <p className="text-xs text-emerald-100/80 leading-relaxed">
+                All checked-in guests in Main Building and Extension Building, plus guests with confirmed suite reservations, enjoy 100% complimentary pool entry and lounger access anytime during pool hours.
+              </p>
+            </div>
+            <div className="pt-4 border-t border-emerald-500/20 flex items-center justify-between text-xs font-mono text-emerald-300">
+              <span>Pool Hours: 7 AM – 10 PM</span>
+              <span className="font-bold text-emerald-400">₦0 / Free</span>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#d4af37]/50 bg-[#1c040e]/90 p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
+            <div className="absolute top-0 right-0 px-3 py-1 bg-[#d4af37] text-black text-[10px] font-bold uppercase rounded-bl-xl tracking-wider">
+              Public Day Pass
+            </div>
+            <div className="space-y-2">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-[#d4af37] font-bold block">
+                Non-Suite Guests &amp; Visitors
+              </span>
+              <h3 className="font-cinzel text-xl font-extrabold text-white">
+                ₦3,000 Day Pass
+              </h3>
+              <p className="text-xs text-gray-300 leading-relaxed">
+                Visiting Nsugbe or dining at Al-Sultan without lodging? Non-suite visitors can enjoy our crystal-clear olympic swimming pool for just ₦3,000 per person per day with towel service and locker access.
+              </p>
+            </div>
+            <div className="pt-4 border-t border-white/10 flex items-center justify-between text-xs font-mono text-[#f3e5ab]">
+              <span>Per Person / Day</span>
+              <span className="font-bold text-[#d4af37] text-sm">₦3,000</span>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#d4af37]/50 bg-[#1c040e]/90 p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
+            <div className="absolute top-0 right-0 px-3 py-1 bg-[#5c0725] text-[#f3e5ab] text-[10px] font-bold uppercase rounded-bl-xl tracking-wider border border-[#d4af37]/40">
+              VIP Shaded Luxury
+            </div>
+            <div className="space-y-2">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-[#d4af37] font-bold block">
+                Exclusive Cabana Reservation
+              </span>
+              <h3 className="font-cinzel text-xl font-extrabold text-white">
+                ₦50,000 VIP Cabana
+              </h3>
+              <p className="text-xs text-gray-300 leading-relaxed">
+                Curtained private daybed cabana table with dedicated cocktail and bottle service, poolside grill ordering, luxury plush towels, and total royal privacy for you and your guests.
+              </p>
+            </div>
+            <div className="pt-4 border-t border-white/10 flex items-center justify-between text-xs font-mono text-[#f3e5ab]">
+              <span>Table Reservation</span>
+              <span className="font-bold text-[#d4af37] text-sm">₦50,000</span>
+            </div>
+          </div>
+        </div>
+
         <div className="rounded-3xl overflow-hidden border-2 border-[#d4af37]/40 bg-[#1c040e]/90 p-8 sm:p-10 shadow-2xl grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-gray-300">
           <div className="flex items-start gap-3">
             <Check size={18} className="text-[#d4af37] shrink-0 mt-0.5" />

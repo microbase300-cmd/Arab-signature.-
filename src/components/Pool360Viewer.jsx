@@ -137,10 +137,15 @@ export default function Pool360Viewer({ className = '', onOpenBooking }) {
 
         {/* Top Badges & 360 Compass Indicator */}
         <div className="absolute top-4 left-4 right-4 flex items-center justify-between gap-2 flex-wrap pointer-events-none">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="px-3 py-1.5 rounded-full bg-black/80 backdrop-blur-md border border-[#d4af37]/60 text-[#f3e5ab] text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg">
               <Compass size={14} className="text-[#d4af37] animate-spin" style={{ animationDuration: '10s' }} />
               <span>360° Virtual Tour &bull; Drag to Spin</span>
+            </span>
+
+            <span className="px-3 py-1.5 rounded-full bg-emerald-950/90 backdrop-blur-md border border-emerald-400/60 text-emerald-200 text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg">
+              <Waves size={13} className="text-emerald-400" />
+              <span>Lodge Guests: Free &bull; Visitors: ₦3,000</span>
             </span>
 
             <span className="px-2.5 py-1 rounded-full bg-[#5c0725]/85 backdrop-blur-md border border-[#d4af37]/40 text-[#f3e5ab] text-[10px] font-mono font-bold uppercase">
@@ -242,12 +247,15 @@ export default function Pool360Viewer({ className = '', onOpenBooking }) {
         </div>
 
         <div className="flex items-center justify-between sm:justify-end gap-3 text-xs font-mono text-gray-400">
+          <span className="px-2.5 py-1 rounded-lg bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 font-bold flex items-center gap-1.5 shadow-sm">
+            <Waves size={12} className="text-emerald-400" />
+            <span>Lodge Guests: Free &bull; Visitors: ₦3,000</span>
+          </span>
+          <span className="text-gray-500 hidden sm:inline">|</span>
           <span className="flex items-center gap-1 text-[#f3e5ab]">
             <RotateCcw size={13} className="text-[#d4af37]" />
-            <span>Interactive 360° Panorama</span>
+            <span>Drag to Spin 360°</span>
           </span>
-          <span className="text-gray-500">|</span>
-          <span className="text-emerald-400">5 High-Res Angles</span>
         </div>
       </div>
 
