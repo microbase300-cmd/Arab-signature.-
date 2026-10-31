@@ -10,8 +10,8 @@
  * - Step-by-step guidance for room bookings, dining orders, guest portal & directions
  */
 
-import { CUSTOM_TRAINING_DATA, HOTEL_CORE_PROFILE } from '../data/aiKnowledgeBase';
-import { portalStore } from '../data/portalStore';
+import { CUSTOM_TRAINING_DATA, HOTEL_CORE_PROFILE } from '../data/aiKnowledgeBase.js';
+import { portalStore } from '../data/portalStore.js';
 
 // Session security tracker to prevent brute-force booking number scanning
 let failedBookingLookupAttempts = 0;
