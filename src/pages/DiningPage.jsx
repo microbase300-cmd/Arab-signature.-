@@ -282,7 +282,15 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
       
       {/* 1. HERO BANNER */}
       <section className="relative py-24 px-6 text-center border-b border-[#d4af37]/30 bg-gradient-to-b from-[#250210] to-[#120208] overflow-hidden">
-        <div className="absolute inset-0 arabesque-pattern opacity-20 pointer-events-none" />
+        <div className="absolute inset-0 z-0">
+          <img
+            src="/lounge/vip-bar-lounge-4.webp"
+            alt="Al-Sultan VIP Bar & Lounge Atmosphere"
+            className="w-full h-full object-cover object-center scale-105 opacity-25 brightness-75 contrast-125"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#250210]/85 via-[#1c020d]/90 to-[#120208]" />
+        </div>
+        <div className="absolute inset-0 arabesque-pattern opacity-15 pointer-events-none" />
         
         <div className="relative z-10 max-w-4xl mx-auto space-y-4">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#5c0725]/50 border border-[#d4af37]/40 text-[#f3e5ab] text-xs font-mono tracking-widest shadow-lg">
@@ -337,18 +345,30 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
       {/* 2. RESTAURANT & LOUNGE ATMOSPHERE SHOWCASE */}
       <section className="py-16 px-6 max-w-7xl mx-auto">
         <div className="rounded-3xl overflow-hidden border border-[#d4af37]/40 bg-[#1c040e]/90 shadow-2xl grid grid-cols-1 lg:grid-cols-2 items-center">
-          <div className="h-full min-h-[340px] bg-black relative group">
+          <div className="h-full min-h-[360px] bg-black relative group overflow-hidden">
             <img
-              src="/rooms/al-sultan-dining-hall.jpg"
-              alt="Al-Sultan Gourmet Dining Hall"
-              className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-700"
+              src="/lounge/vip-bar-lounge-1.webp"
+              alt="Al-Sultan VIP Velvet Lounge & Bar"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
             />
-            <div className="absolute top-4 left-4 px-3 py-1 rounded-full bg-black/75 border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] font-mono font-bold uppercase tracking-wider">
-              Dining Hall
+            <div className="absolute top-4 left-4 px-3 py-1 rounded-full bg-black/80 border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] font-mono font-bold uppercase tracking-wider shadow-lg">
+              VIP Lounge & Executive Bar
             </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-6">
-              <span className="text-xs text-[#f3e5ab] font-mono bg-black/60 px-3 py-1 rounded-full border border-white/20">
-                Main Banquet Hall & Chilled Executive Bar
+            {/* Secondary bar counter inset thumbnail */}
+            <div className="absolute bottom-4 right-4 w-36 sm:w-44 h-24 sm:h-28 rounded-2xl overflow-hidden border-2 border-[#d4af37]/80 shadow-2xl hidden xs:block">
+              <img
+                src="/lounge/vip-bar-lounge-4.webp"
+                alt="Al-Sultan Executive Bar Counter"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-black/15" />
+              <div className="absolute bottom-1 right-2 px-1.5 py-0.5 rounded bg-black/80 text-[8px] font-mono text-[#f3e5ab]">
+                Spirits Bar
+              </div>
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent flex items-end p-6 pointer-events-none">
+              <span className="text-xs text-[#f3e5ab] font-mono bg-black/75 px-3 py-1 rounded-full border border-white/20 shadow-md">
+                Royal Blue Velvet Booths & Illuminated Bar
               </span>
             </div>
           </div>

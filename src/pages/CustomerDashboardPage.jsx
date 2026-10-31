@@ -1482,8 +1482,8 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                     <div>
                       <div className="h-40 overflow-hidden relative">
                         <img 
-                          src="/gallery/IMG-20261018-WA0081.jpg" 
-                          alt="Olympic Pool & Cabanas" 
+                          src="/lounge/vip-bar-lounge-1.webp" 
+                          alt="VIP Lounge & Cabanas" 
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-[#16030c] via-transparent to-transparent" />

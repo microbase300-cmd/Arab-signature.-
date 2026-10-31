@@ -9,8 +9,8 @@ export default function GalleryPage({ onNavigate, onOpenBooking }) {
       <section className="relative py-16 sm:py-20 px-6 overflow-hidden border-b border-[#d4af37]/25">
         <div className="absolute inset-0 z-0">
           <img
-            src="/gallery/IMG-20261018-WA0081.jpg"
-            alt="Arab Signature Hotel & Suites VIP Nightlife Gallery"
+            src="/lounge/vip-bar-lounge-1.webp"
+            alt="Arab Signature Hotel & Suites VIP Lounge & Bar"
             className="w-full h-full object-cover object-center scale-105 brightness-75 contrast-110"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-[#120208]/90 via-[#2a0210]/85 to-[#120208]" />

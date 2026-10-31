@@ -449,16 +449,16 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Card 1: Poolside & Cabanas */}
+          {/* Card 1: VIP Lounge & Cabanas */}
           <div className="rounded-3xl overflow-hidden border border-[#d4af37]/40 bg-[#1f050f]/80 shadow-2xl group flex flex-col justify-between">
             <div className="relative h-64 overflow-hidden">
               <img
-                src="/gallery/IMG-20261018-WA0108.jpg"
-                alt="VIP Lounge & Poolside Oasis"
+                src="/lounge/vip-bar-lounge-1.webp"
+                alt="Al-Sultan VIP Lounge & Bar"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
               <div className="absolute top-4 left-4 bg-[#5c0725] text-[#f3e5ab] text-xs font-bold px-3 py-1 rounded-xl">
-                VIP Lounge & Poolside Oasis
+                VIP Lounge & Cocktail Bar
               </div>
             </div>
             <div className="p-6 space-y-3">

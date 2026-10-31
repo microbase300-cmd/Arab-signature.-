@@ -72,8 +72,8 @@ export default function AmenitiesPage({ onNavigate, onOpenBooking }) {
 
           <div className="h-full min-h-[380px] relative bg-black">
             <img
-              src="/gallery/IMG-20261018-WA0108.jpg"
-              alt="VIP Lounge & Cabana Experience"
+              src="/lounge/vip-bar-lounge-1.webp"
+              alt="Al-Sultan VIP Lounge & Bar Experience"
               className="w-full h-full object-cover"
             />
             <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/75 border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] font-mono font-bold uppercase tracking-wider">
@@ -81,7 +81,7 @@ export default function AmenitiesPage({ onNavigate, onOpenBooking }) {
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-6">
               <span className="text-xs text-[#f3e5ab] font-mono bg-black/60 px-3 py-1 rounded-full border border-white/20">
-                Nsugbe Private Pool & Lounge Oasis
+                Al-Sultan VIP Velvet Lounge & Cocktail Bar
               </span>
             </div>
           </div>

@@ -3442,7 +3442,7 @@ export const portalStore = {
         subtitle: 'Exclusive Networking, Fine Dining & Executive Staycation Weekend',
         dateLabel: 'Held on October 11, 2026',
         venue: 'Diplomatic Majlis Lounge & Poolside',
-        banner: '/rooms/suite-royal-lounge-wide.jpg',
+        banner: '/lounge/vip-bar-lounge-1.webp',
         writeUp: 'Leading entrepreneurs, industrialists, and diaspora investors gathered at Arab Signature Hotel for a weekend of high-level networking and luxury relaxation. Every delegate enjoyed uninterrupted 24/7 power, private Diplomatic Majlis lounge sessions, fine cognac pairings, and bespoke butler service.',
         highlightBadge: 'EVENT RECAP • EXCLUSIVE',
         ticketInfo: '65+ Executive Delegates Hosted • 100% Suite Occupancy',
