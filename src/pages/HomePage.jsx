@@ -525,12 +525,12 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
       <section className="py-16 px-6 max-w-7xl mx-auto border-t border-[#5c0725]/40 space-y-10">
         {(() => {
           // Strict filter: Event must be active & not turned off by CEO/Admin
-          const isEventActive = (e) => e.isActive !== false && e.enabled !== false && e.status !== 'inactive';
+          const isEventActive = (e) => Boolean(e) && e.isActive === true && e.enabled !== false && e.status !== 'inactive';
           const activeHotelEvents = hotelEvents.filter(isEventActive);
 
           // Filter by event type and homepage visibility toggle
-          const upcomingList = activeHotelEvents.filter((e) => e.type !== 'recap' && e.showOnHomepage !== false);
-          const recapList = activeHotelEvents.filter((e) => e.type === 'recap' && e.showOnHomepage !== false);
+          const upcomingList = activeHotelEvents.filter((e) => e.type !== 'recap' && e.showOnHomepage === true);
+          const recapList = activeHotelEvents.filter((e) => e.type === 'recap' && e.showOnHomepage === true);
 
           // Ad Banner: ONLY show if an active upcoming event explicitly has showAsAdBanner === true
           // DO NOT fallback to upcomingList[0] if the CEO turned off the Ad Banner!

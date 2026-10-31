@@ -267,7 +267,7 @@ export default function EventsPage({ onNavigate, onOpenBooking }) {
     return () => unsub();
   }, []);
 
-  const isEventActive = (e) => e.isActive !== false && e.enabled !== false && e.status !== 'inactive';
+  const isEventActive = (e) => Boolean(e) && e.isActive === true && e.enabled !== false && e.status !== 'inactive';
   const activeEvents = events.filter(isEventActive);
   const upcomingEvents = activeEvents.filter((e) => e.type !== 'recap');
   const recapEvents = activeEvents.filter((e) => e.type === 'recap');

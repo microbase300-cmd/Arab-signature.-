@@ -221,51 +221,51 @@ const DRINKS_PROMOS = [
 ];
 
 // ============================================================================
-// 3. HOTEL SUITES POOL (Arab Suites & Upcoming Events)
+// 3. HOTEL SUITES POOL (Luxury Staycations & Suite Highlights)
 // ============================================================================
 const SUITE_EVENT_PROMOS = [
   {
-    id: "poolside-night",
-    eventTitle: "VIP Arabian Poolside Night & Live Sax",
-    eventBadge: "THIS WEEKEND • FRIDAY & SATURDAY",
-    eventDate: "From 7:00 PM Till Late",
-    eventDesc: "Experience exotic shisha cabanas, live acoustic saxophone melodies, charcoal BBQ grills, and illuminated pool views under the stars.",
-    suiteName: "Diplomatic Suite",
+    id: "diplomatic-apartment-luxury",
+    eventTitle: "Diplomatic Apartment with Parlour",
+    eventBadge: "5-STAR PRESIDENTIAL SUITE",
+    eventDate: "Available 7 Days a Week",
+    eventDesc: "Experience uncompromised luxury with a private parlour living room, plush king bedroom, 24/7 uninterrupted power, and bespoke concierge service.",
+    suiteName: "Diplomatic Apartment with Parlour",
     suiteCategory: "Extension Building • Rooms 107 & 114",
     suitePrice: 120000,
     suitePriceFormatted: "₦120,000",
     suiteId: "suites",
-    image: "/rooms/suite-royal-penthouse.jpg",
+    image: "/rooms/ext-120k-apartment-parlour-1.webp",
     perk: "Includes 2 Complimentary Signature Cocktails & VIP Cabana Table reservation",
     tagline: "The Crown Jewel of Arab Luxury in Nsugbe"
   },
   {
     id: "diplomatic-retreat",
-    eventTitle: "Diplomatic Weekend Getaway & Executive Brunch",
+    eventTitle: "Super Executive Weekend Experience",
     eventBadge: "WEEKEND EXCLUSIVE PACKAGE",
-    eventDate: "Saturday & Sunday Check-ins",
+    eventDate: "Friday – Sunday Stays",
     eventDesc: "Escape into quiet luxury with 24/7 uninterrupted solar silent power, private majlis velvet lounge, high-speed fiber internet, and 5-star comfort.",
     suiteName: "Super Executive Room",
     suiteCategory: "Main (3) & Extension (2) • 5 Luxury Rooms",
     suitePrice: 60000,
     suitePriceFormatted: "₦60,000",
     suiteId: "super-executive",
-    image: "/rooms/suite-executive-arabian.jpg",
+    image: "/rooms/ext-60k-super-executive-1.webp",
     perk: "Complimentary Chef's Gourmet Breakfast in Bed + Guaranteed 2:00 PM Late Check-out",
     tagline: "Unmatched Prestige for Business & Leisure"
   },
   {
-    id: "sunday-soiree",
-    eventTitle: "Royal Sunday Seafood & Wine Soirée",
-    eventBadge: "EVERY SUNDAY SPECIAL",
-    eventDate: "2:00 PM – 9:00 PM Poolside",
+    id: "executive-special",
+    eventTitle: "Executive Suite Business Stay",
+    eventBadge: "BUSINESS & LEISURE CHOICE",
+    eventDate: "Daily Executive Check-ins",
     eventDesc: "Savor fresh whole catfish pepper soup, chilled vintage dinner wines, and smooth ambient music in a private tranquil setting.",
     suiteName: "Executive Room",
     suiteCategory: "Main Building (3) & Extension (4) • 7 Rooms",
     suitePrice: 50000,
     suitePriceFormatted: "₦50,000",
     suiteId: "executive",
-    image: "/rooms/suite-executive-king.jpg",
+    image: "/rooms/ext-50k-executive-1.webp",
     perk: "Complimentary Welcome Wine Glass & Express In-Room Check-In",
     tagline: "Elegantly Appointed Comfort & Privacy"
   },
@@ -334,7 +334,7 @@ export default function PromoPopupModal({
   const generateRandomSuitePromo = () => {
     try {
       const allEvents = portalStore.getHotelEvents() || [];
-      const popupEvents = allEvents.filter((e) => e.isActive !== false && e.enabled !== false && e.status !== 'inactive' && e.showInPopup === true);
+      const popupEvents = allEvents.filter((e) => Boolean(e) && e.isActive === true && e.enabled !== false && e.status !== 'inactive' && e.showInPopup === true);
       const rates = portalStore.getRoomRates() || [];
 
       if (popupEvents.length > 0) {

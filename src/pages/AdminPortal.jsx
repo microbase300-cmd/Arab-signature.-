@@ -373,7 +373,28 @@ export default function AdminPortal({ onNavigate }) {
     // If currentVal is undefined, default it according to field
     const effectiveCurrent = currentVal !== undefined ? Boolean(currentVal) : true;
     const newVal = !effectiveCurrent;
-    portalStore.updateHotelEvent(eventId, { [field]: newVal });
+    let updates = { [field]: newVal };
+
+    if (field === 'isActive') {
+      if (!newVal) {
+        // Master switch turned OFF: completely hide from all channels
+        updates = {
+          isActive: false,
+          showOnHomepage: false,
+          showAsAdBanner: false,
+          showInPopup: false
+        };
+      } else {
+        // Master switch turned ON: enable default display channels
+        updates = {
+          isActive: true,
+          showOnHomepage: true,
+          showInPopup: true
+        };
+      }
+    }
+
+    portalStore.updateHotelEvent(eventId, updates);
     refreshData();
     let label = `Event setting "${field}" updated live!`;
     if (field === 'isActive') {

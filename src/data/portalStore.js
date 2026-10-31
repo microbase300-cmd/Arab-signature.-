@@ -28,7 +28,7 @@ const STORAGE_KEYS = {
   ROOM_RATES: 'ash_portal_room_rates_v3',
   DINING_MENU: 'ash_portal_dining_menu_v6',
   HOTEL_CONFIG: 'ash_portal_hotel_config',
-  HOTEL_EVENTS: 'ash_portal_hotel_events_v1',
+  HOTEL_EVENTS: 'ash_portal_hotel_events_v2',
   ACTIVITY_LOG: 'ash_portal_activity_log',
   INTERCOM_CHAT: 'ash_portal_intercom_chat_v1',
   CANCELLATION_NOTIFICATIONS: 'ash_portal_cancellation_notifications_v2',
@@ -3753,10 +3753,10 @@ export const portalStore = {
         ticketInfo: 'Free for Checked-In Guests • VIP Cabana Table: ₦50,000',
         ctaLabel: 'Reserve VIP Table / Suite',
         featuredSuiteId: 'suites',
-        isActive: true,
-        showOnHomepage: true,
-        showInPopup: true,
-        showAsAdBanner: true,
+        isActive: false,
+        showOnHomepage: false,
+        showInPopup: false,
+        showAsAdBanner: false,
         createdAt: '2026-10-25'
       },
       {
@@ -3772,10 +3772,10 @@ export const portalStore = {
         ticketInfo: 'Open to All VIP Guests • Table & Cabana Reservations Available',
         ctaLabel: 'Book Sunday Table / Suite',
         featuredSuiteId: 'super-executive',
-        isActive: true,
-        showOnHomepage: true,
-        showInPopup: true,
-        showAsAdBanner: true,
+        isActive: false,
+        showOnHomepage: false,
+        showInPopup: false,
+        showAsAdBanner: false,
         createdAt: '2026-10-26'
       },
       {
@@ -3791,8 +3791,8 @@ export const portalStore = {
         ticketInfo: '120+ VIP Dignitaries & Guests Hosted',
         ctaLabel: 'Book Your Own Event / Stay',
         featuredSuiteId: 'suites',
-        isActive: true,
-        showOnHomepage: true,
+        isActive: false,
+        showOnHomepage: false,
         showInPopup: false,
         showAsAdBanner: false,
         createdAt: '2026-10-19'
@@ -3810,8 +3810,8 @@ export const portalStore = {
         ticketInfo: '65+ Executive Delegates Hosted • 100% Suite Occupancy',
         ctaLabel: 'Inquire for Corporate Hosting',
         featuredSuiteId: 'executive',
-        isActive: true,
-        showOnHomepage: true,
+        isActive: false,
+        showOnHomepage: false,
         showInPopup: false,
         showAsAdBanner: false,
         createdAt: '2026-10-12'
@@ -3823,6 +3823,25 @@ export const portalStore = {
     const stored = getLocalItem(STORAGE_KEYS.HOTEL_EVENTS, null);
     if (stored && Array.isArray(stored) && stored.length > 0) {
       return stored;
+    }
+    // Check v1 legacy storage if available
+    const legacy = getLocalItem('ash_portal_hotel_events_v1', null);
+    if (legacy && Array.isArray(legacy) && legacy.length > 0) {
+      // Reconcile: default events are deactivated unless explicitly changed
+      const migrated = legacy.map(ev => {
+        if (['evt-upcoming-poolside-sax', 'evt-upcoming-sunday-soiree', 'evt-recap-grand-launch', 'evt-recap-exec-summit'].includes(ev.id)) {
+          return {
+            ...ev,
+            isActive: Boolean(ev.isActive && ev.isActive !== false && ev.isActive !== 'false' && ev.isActive !== 0 && ev.isActive !== 'inactive'),
+            showOnHomepage: Boolean(ev.showOnHomepage && ev.isActive),
+            showInPopup: Boolean(ev.showInPopup && ev.isActive),
+            showAsAdBanner: Boolean(ev.showAsAdBanner && ev.isActive)
+          };
+        }
+        return ev;
+      });
+      setLocalItem(STORAGE_KEYS.HOTEL_EVENTS, migrated);
+      return migrated;
     }
     const defaults = this.getDefaultEvents();
     setLocalItem(STORAGE_KEYS.HOTEL_EVENTS, defaults);
@@ -3863,6 +3882,12 @@ export const portalStore = {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ash_events_updated', { detail: updated }));
     }
+    const bc = getSharedBroadcastChannel();
+    if (bc) {
+      try {
+        bc.postMessage({ type: 'EVENTS_UPDATED', events: updated, timestamp: Date.now() });
+      } catch (e) {}
+    }
     return newEvent;
   },
 
@@ -3885,6 +3910,12 @@ export const portalStore = {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ash_events_updated', { detail: updated }));
     }
+    const bc = getSharedBroadcastChannel();
+    if (bc) {
+      try {
+        bc.postMessage({ type: 'EVENTS_UPDATED', events: updated, timestamp: Date.now() });
+      } catch (e) {}
+    }
     return updated;
   },
 
@@ -3898,6 +3929,12 @@ export const portalStore = {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ash_events_updated', { detail: updated }));
     }
+    const bc = getSharedBroadcastChannel();
+    if (bc) {
+      try {
+        bc.postMessage({ type: 'EVENTS_UPDATED', events: updated, timestamp: Date.now() });
+      } catch (e) {}
+    }
     return updated;
   },
 
@@ -3907,15 +3944,23 @@ export const portalStore = {
       callback(e.detail || this.getHotelEvents());
     };
     const storageHandler = (e) => {
-      if (e.key === STORAGE_KEYS.HOTEL_EVENTS) {
+      if (e.key === STORAGE_KEYS.HOTEL_EVENTS || e.key === 'ash_portal_hotel_events_v1') {
         callback(this.getHotelEvents());
+      }
+    };
+    const bc = getSharedBroadcastChannel();
+    const bcHandler = (ev) => {
+      if (ev.data?.type === 'EVENTS_UPDATED') {
+        callback(ev.data.events || this.getHotelEvents());
       }
     };
     window.addEventListener('ash_events_updated', handler);
     window.addEventListener('storage', storageHandler);
+    if (bc) bc.addEventListener('message', bcHandler);
     return () => {
       window.removeEventListener('ash_events_updated', handler);
       window.removeEventListener('storage', storageHandler);
+      if (bc) bc.removeEventListener('message', bcHandler);
     };
   },
 
