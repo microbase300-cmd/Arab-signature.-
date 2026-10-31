@@ -41,12 +41,14 @@ export default function HotelAiChat({ onOpenBooking, onNavigate }) {
     {
       id: "welcome-1",
       sender: "ai",
-      text: "Warm greetings and welcome to **Arab Signature Hotel & Suites**, Nsugbe, Onitsha! 👑\n\nI am **Amira**, your Royal AI Concierge. I can assist you with:\n• Checking **live room availability** right now\n• Securely tracking your **booking reference** (e.g. `ARS-BGD-7812AB` or `ARS-EXT-9421XK`)\n• Suite pricing, directions to Nsugbe, or dining menus.\n\nHow may I assist your stay today?",
+      text: "Warm royal greetings and welcome to **Arab Signature Hotel & Suites**, Nsugbe, Onitsha! 👑\n\nI am **Amira**, your Royal AI Concierge. I am trained with all hotel knowledge to guide you step by step with:\n• **Step-by-step suite bookings** & Paystack payment\n• **Live suite availability** across Main & Extension Wings\n• **The ₦120,000 Diplomatic Apartment with Parlour** details & photos\n• **Interactive Pool 360° View** & VIP Cabanas\n• **Al-Sultan Restaurant & VIP Bar Lounge Catalog**\n• **Customer Guest Portal (#guest-portal)** to view your digital room key & order in-suite dining\n• **Directions to Nsugbe** from anywhere in Anambra State.\n\nHow may I gracefully assist your stay today?",
       suggestions: [
+        "How to Book Step by Step",
         "Check Available Suites",
-        "Track My Booking Code",
-        "Directions to Nsugbe",
-        "View Suite Rates"
+        "120k Apartment with Parlour",
+        "View Pool 360",
+        "Dining & Drinks Menu",
+        "Directions to Nsugbe"
       ],
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
