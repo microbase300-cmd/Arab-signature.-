@@ -5486,6 +5486,17 @@ export const portalStore = {
     const target = String(orderId || '').trim().toUpperCase();
     const orders = this.getDiningOrders();
     const currentStaff = this.getCurrentUser();
+
+    // Guard: Extension reception staff is restricted from confirming food and drink orders
+    const isExtension = (
+      currentStaff?.buildingAccess === 'Extension Building' ||
+      (typeof window !== 'undefined' && (window.location.hash || '').toLowerCase().includes('100e'))
+    );
+    if (isExtension && currentStaff?.role !== 'admin') {
+      console.warn(`[portalStore] Dining order confirmation blocked: Extension Building reception is restricted from confirming food & drink orders.`);
+      return orders;
+    }
+
     const staffLabel = fulfilledBy || currentStaff?.name || 'Main Building Receptionist';
     const nowStr = new Date().toLocaleString();
 

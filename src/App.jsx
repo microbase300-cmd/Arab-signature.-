@@ -71,7 +71,7 @@ export default function App() {
       // 1. Direct Receptionist Front Desk Access (#desk-600m, #desk-100e, #reception, /reception)
       if (['desk-600m', 'reception', 'receptionist', 'reception-portal'].includes(rawHash)) {
         let user = portalStore.getCurrentUser();
-        if (!user || !['reception', 'admin'].includes(user.role)) {
+        if (!user || user.buildingAccess !== 'Main Building') {
           try {
             user = portalStore.loginReception('main@arabsignature.com', 'reception2026', 'Main Building');
           } catch (e) {
@@ -84,7 +84,7 @@ export default function App() {
 
       if (['desk-100e', 'extension-reception'].includes(rawHash)) {
         let user = portalStore.getCurrentUser();
-        if (!user || !['reception', 'admin'].includes(user.role)) {
+        if (!user || user.buildingAccess !== 'Extension Building') {
           try {
             user = portalStore.loginReception('extension@arabsignature.com', 'extension2026', 'Extension Building');
           } catch (e) {
@@ -215,10 +215,15 @@ export default function App() {
 
       // Protected Dashboards
       case SECURE_PORTAL_ROUTES.MAIN_RECEPTION_PORTAL:
+        return (
+          <ErrorBoundary fallbackLabel="Front Desk Reception Operations">
+            <ReceptionPortal onNavigate={handleNavigate} assignedDesk="Main Building" />
+          </ErrorBoundary>
+        );
       case SECURE_PORTAL_ROUTES.EXTENSION_RECEPTION_PORTAL:
         return (
           <ErrorBoundary fallbackLabel="Front Desk Reception Operations">
-            <ReceptionPortal onNavigate={handleNavigate} />
+            <ReceptionPortal onNavigate={handleNavigate} assignedDesk="Extension Building" />
           </ErrorBoundary>
         );
       case SECURE_PORTAL_ROUTES.ACCOUNTANT_PORTAL:

@@ -23,15 +23,21 @@ import {
   playLoudDiningOrderAlert, 
   playIntercomPing, 
   playWingIntercomRingtone8s,
+  stopAllAlertSounds,
   stopWingIntercomRingtone,
   isWingRingtoneActive,
+  isAlertActive,
   pushWingIntercomNotification,
+  pushReservationNotification,
+  pushDiningOrderNotification,
   requestNotificationPermission,
   testLoudAlert, 
-  initAudioUnlocker 
+  initAudioUnlocker,
+  ensureAudioUnlocked,
+  isAudioReady
 } from '../utils/hotelSoundAlerts';
 
-export default function ReceptionPortal({ onNavigate }) {
+export default function ReceptionPortal({ onNavigate, assignedDesk }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -65,9 +71,24 @@ export default function ReceptionPortal({ onNavigate }) {
     }
   }, [activeTab]);
 
-  // Request browser push notification permission on mount for wing intercom alerts
+  const [isAudioUnlockedState, setIsAudioUnlockedState] = useState(() => isAudioReady());
+
+  // Request browser push notification permission and attach one-time unlock listener
   useEffect(() => {
     requestNotificationPermission().catch(() => {});
+    initAudioUnlocker();
+
+    const handleGlobalClick = () => {
+      ensureAudioUnlocked().then((ok) => {
+        if (ok) setIsAudioUnlockedState(true);
+      });
+    };
+    window.addEventListener('click', handleGlobalClick, { once: true, passive: true });
+    window.addEventListener('touchstart', handleGlobalClick, { once: true, passive: true });
+    return () => {
+      window.removeEventListener('click', handleGlobalClick);
+      window.removeEventListener('touchstart', handleGlobalClick);
+    };
   }, []);
 
   const triggerWingAlert = (msg) => {
@@ -216,6 +237,18 @@ export default function ReceptionPortal({ onNavigate }) {
   // Resolve receptionist's designated building with strict fallback:
   // For receptionist roles, default is ALWAYS 'Main Building' unless explicitly Extension
   const getDeskBuilding = () => {
+    // 1. Direct URL hash check (100% authoritative for direct URL navigation like #desk-100e)
+    if (typeof window !== 'undefined') {
+      const h = (window.location.hash || '').toLowerCase();
+      if (h.includes('100e') || h.includes('ext')) return 'Extension Building';
+      if (h.includes('600m')) return 'Main Building';
+    }
+
+    // 2. Explicit prop passed from router
+    if (assignedDesk === 'Extension Building') return 'Extension Building';
+    if (assignedDesk === 'Main Building') return 'Main Building';
+
+    // 3. User session fallback
     const user = currentUser || portalStore.getCurrentUser();
     if (user?.role === 'admin') return 'all';
     const access = user?.buildingAccess;
@@ -416,7 +449,12 @@ export default function ReceptionPortal({ onNavigate }) {
     const unsubscribeBookings = portalStore.subscribeBookings((detail) => {
       refreshData();
       if (detail && detail.isNewReservation && detail.newBooking) {
-        // Play VERY LOUD multi-harmonic front desk fanfare & brass bell alert!
+        // Push notification + 8-second continuous loud reservation fanfare!
+        pushReservationNotification({
+          guestName: detail.newBooking.guestName,
+          roomNumber: detail.newBooking.roomNumber,
+          code: detail.newBooking.id
+        });
         if (!isMutedRef.current) {
           playLoudReservationAlert();
         }
@@ -437,14 +475,21 @@ export default function ReceptionPortal({ onNavigate }) {
         const o = detail.newOrder;
         const currentDesk = getDeskBuilding();
 
-        // Main Reception receives the VERY LOUD sound alert for ALL food and drink orders!
+        // Push notification for dining order
+        pushDiningOrderNotification({
+          orderId: o.id,
+          guestName: o.guestName,
+          serviceLocation: o.serviceLocation
+        });
+
+        // Main Reception receives the VERY LOUD 8s sound alert for ALL food and drink orders!
         if (currentDesk === 'Main Building' || currentDesk === 'all') {
           if (!isMutedRef.current) {
             playLoudDiningOrderAlert();
           }
           setIncomingDiningAlert(o);
         } else {
-          // Extension Building Reception receives loud sound if order is for Extension wing
+          // Extension Building Reception receives sound only if order is for Extension wing
           if (isDeskDiningOrder(o)) {
             if (!isMutedRef.current) {
               playLoudDiningOrderAlert();
@@ -1343,24 +1388,26 @@ export default function ReceptionPortal({ onNavigate }) {
               <span>Counter Walk-In</span>
             </button>
 
-            {/* Quick Order Code Verification Trigger */}
-            <button
-              onClick={() => {
-                setIsOrderLookupModalOpen(true);
-                setOrderLookupError('');
-              }}
-              className="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 text-[#f3e5ab] font-bold text-xs border border-amber-400/50 flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
-              title="Enter Customer Food / Drink Code (ARB-FDD / ARB-DRK) to Confirm Handover"
-            >
-              <Search size={14} className="text-[#d4af37]" />
-              <span className="hidden sm:inline">Confirm Order Code</span>
-              <span className="sm:hidden">Order Code</span>
-              {diningOrders.filter(isOutsideRoomOrder).filter(o => o.orderStatus !== 'Picked Up' && o.orderStatus !== 'Delivered' && o.orderStatus !== 'Cancelled').length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-amber-400 text-black text-[9px] font-mono font-extrabold animate-pulse">
-                  {diningOrders.filter(isOutsideRoomOrder).filter(o => o.orderStatus !== 'Picked Up' && o.orderStatus !== 'Delivered' && o.orderStatus !== 'Cancelled').length}
-                </span>
-              )}
-            </button>
+            {/* Quick Order Code Verification Trigger (Main Reception Only) */}
+            {(getDeskBuilding() === 'Main Building' || getDeskBuilding() === 'all') && (
+              <button
+                onClick={() => {
+                  setIsOrderLookupModalOpen(true);
+                  setOrderLookupError('');
+                }}
+                className="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 text-[#f3e5ab] font-bold text-xs border border-amber-400/50 flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+                title="Enter Customer Food / Drink Code (ARB-FDD / ARB-DRK) to Confirm Handover"
+              >
+                <Search size={14} className="text-[#d4af37]" />
+                <span className="hidden sm:inline">Confirm Order Code</span>
+                <span className="sm:hidden">Order Code</span>
+                {diningOrders.filter(isOutsideRoomOrder).filter(o => o.orderStatus !== 'Picked Up' && o.orderStatus !== 'Delivered' && o.orderStatus !== 'Cancelled').length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-amber-400 text-black text-[9px] font-mono font-extrabold animate-pulse">
+                    {diningOrders.filter(isOutsideRoomOrder).filter(o => o.orderStatus !== 'Picked Up' && o.orderStatus !== 'Delivered' && o.orderStatus !== 'Cancelled').length}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* View Dining Menu Prices (Read-Only Front Desk) */}
             <button
@@ -1437,6 +1484,33 @@ export default function ReceptionPortal({ onNavigate }) {
 
       </header>
 
+      {/* 0. Live Front Desk Audio Autoplay Unlocker Banner */}
+      {!isAudioUnlockedState && (
+        <div
+          onClick={() => {
+            ensureAudioUnlocked().then(() => {
+              setIsAudioUnlockedState(true);
+              testLoudAlert('intercom');
+              showToast('🔔 Front Desk Live Sound Alerts Activated & Ready!');
+            });
+          }}
+          className="bg-gradient-to-r from-amber-600 via-rose-600 to-amber-700 text-white px-4 sm:px-8 py-3 text-xs font-bold flex items-center justify-between cursor-pointer border-b-2 border-amber-300 shadow-xl animate-pulse sticky top-0 z-50"
+        >
+          <div className="flex items-center gap-2.5">
+            <BellRing size={18} className="text-[#f3e5ab] animate-bounce shrink-0" />
+            <div>
+              <span className="font-extrabold uppercase tracking-wider text-[#f3e5ab]">
+                ⚠️ FRONT DESK AUDIO STANDBY:
+              </span>{' '}
+              <span>Click anywhere on this screen to ensure loud 8-second ringing sounds play without browser autoplay blocking!</span>
+            </div>
+          </div>
+          <span className="bg-black/60 hover:bg-black/80 text-[#f3e5ab] px-3.5 py-1.5 rounded-xl border border-[#f3e5ab]/50 uppercase tracking-wider text-[11px] font-extrabold shadow-md shrink-0 ml-3">
+            Tap to Enable Sound 🔔
+          </span>
+        </div>
+      )}
+
       {/* Real-Time Incoming Online Reservation Alert Banner with Sound */}
       {incomingAlert && (() => {
         const desk = currentUser?.buildingAccess || getDeskBuilding();
@@ -1476,6 +1550,7 @@ export default function ReceptionPortal({ onNavigate }) {
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => {
+                  stopAllAlertSounds();
                   setIsCheckInModalOpen(true);
                   setIncomingAlert(null);
                 }}
@@ -1483,6 +1558,17 @@ export default function ReceptionPortal({ onNavigate }) {
               >
                 <CheckCircle2 size={14} className="stroke-[2.5]" />
                 <span>Confirm &amp; Check In Now</span>
+              </button>
+              <button
+                onClick={() => {
+                  stopAllAlertSounds();
+                  showToast('Reservation 8s sound silenced.');
+                }}
+                className="px-3 py-1.5 rounded-xl bg-black/35 hover:bg-black/55 text-black font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer border border-black/30"
+                title="Silence the 8-second continuous reservation sound"
+              >
+                <VolumeX size={14} className="stroke-[2.5]" />
+                <span>Silence (8s Ring)</span>
               </button>
               <button
                 onClick={() => playReceptionDeskBeep()}
@@ -1494,6 +1580,7 @@ export default function ReceptionPortal({ onNavigate }) {
               </button>
               <button
                 onClick={() => {
+                  stopAllAlertSounds();
                   setActiveTab('ledger');
                   setSearchQuery(incomingAlert.guestName);
                   setIncomingAlert(null);
@@ -1504,7 +1591,10 @@ export default function ReceptionPortal({ onNavigate }) {
                 <span>View In Ledger</span>
               </button>
               <button
-                onClick={() => setIncomingAlert(null)}
+                onClick={() => {
+                  stopAllAlertSounds();
+                  setIncomingAlert(null);
+                }}
                 className="px-3 py-1.5 rounded-xl bg-black/35 hover:bg-black/60 text-black hover:text-white font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer border border-black/30"
                 title="Dismiss reservation alert banner to continue other front desk tasks"
               >
@@ -1620,12 +1710,23 @@ export default function ReceptionPortal({ onNavigate }) {
           </div>
 
           {getDeskBuilding() === 'Extension Building' ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="px-3 py-1.5 rounded-xl bg-black/80 text-amber-300 font-bold text-xs border border-amber-500/40">
                 🏛️ Main Building Kitchen Fulfillment Only (Extension Desk View Only)
               </span>
               <button
                 onClick={() => {
+                  stopAllAlertSounds();
+                  showToast('Dining sound silenced.');
+                }}
+                className="px-3 py-1.5 rounded-xl bg-black/35 hover:bg-black/55 text-black font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer border border-black/30"
+              >
+                <VolumeX size={14} className="stroke-[2.5]" />
+                <span>Silence (8s Ring)</span>
+              </button>
+              <button
+                onClick={() => {
+                  stopAllAlertSounds();
                   setActiveTab('dining_orders');
                   setDiningOrderFilter('outside');
                   setInspectedDiningOrder(incomingDiningAlert);
@@ -1637,7 +1738,10 @@ export default function ReceptionPortal({ onNavigate }) {
                 <span>View Info</span>
               </button>
               <button
-                onClick={() => setIncomingDiningAlert(null)}
+                onClick={() => {
+                  stopAllAlertSounds();
+                  setIncomingDiningAlert(null);
+                }}
                 className="px-3 py-1.5 rounded-xl bg-black/35 hover:bg-black/60 text-black hover:text-white font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer border border-black/30"
                 title="Dismiss food/drink alert banner"
               >
@@ -1648,7 +1752,10 @@ export default function ReceptionPortal({ onNavigate }) {
           ) : (
             <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={() => handleMarkOrderReady(incomingDiningAlert.id)}
+                onClick={() => {
+                  stopAllAlertSounds();
+                  handleMarkOrderReady(incomingDiningAlert.id);
+                }}
                 className="px-3.5 py-1.5 rounded-xl bg-black text-emerald-300 hover:bg-black/85 font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer border border-emerald-400/50"
               >
                 <CheckCircle2 size={13} className="text-emerald-400" />
@@ -1656,6 +1763,18 @@ export default function ReceptionPortal({ onNavigate }) {
               </button>
               <button
                 onClick={() => {
+                  stopAllAlertSounds();
+                  showToast('Dining 8s sound silenced.');
+                }}
+                className="px-3 py-1.5 rounded-xl bg-black/35 hover:bg-black/55 text-black font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer border border-black/30"
+                title="Silence the 8-second continuous dining sound"
+              >
+                <VolumeX size={14} className="stroke-[2.5]" />
+                <span>Silence (8s Ring)</span>
+              </button>
+              <button
+                onClick={() => {
+                  stopAllAlertSounds();
                   setActiveTab('dining_orders');
                   setDiningOrderFilter('outside');
                   setInspectedDiningOrder(incomingDiningAlert);
@@ -1668,6 +1787,7 @@ export default function ReceptionPortal({ onNavigate }) {
               </button>
               <button
                 onClick={() => {
+                  stopAllAlertSounds();
                   portalStore.updateDiningOrderStatus(incomingDiningAlert.id, 'Picked Up', currentUser?.name || 'Front Desk');
                   refreshData();
                   showToast(`Order ${incomingDiningAlert.id} marked as PICKED UP!`);
@@ -1680,6 +1800,7 @@ export default function ReceptionPortal({ onNavigate }) {
               </button>
               <button
                 onClick={() => {
+                  stopAllAlertSounds();
                   portalStore.updateDiningOrderStatus(incomingDiningAlert.id, 'Delivered', currentUser?.name || 'Front Desk');
                   refreshData();
                   showToast(`Order ${incomingDiningAlert.id} marked as DELIVERED!`);
@@ -1691,7 +1812,10 @@ export default function ReceptionPortal({ onNavigate }) {
                 <span>Delivered</span>
               </button>
               <button
-                onClick={() => setIncomingDiningAlert(null)}
+                onClick={() => {
+                  stopAllAlertSounds();
+                  setIncomingDiningAlert(null);
+                }}
                 className="px-3 py-1.5 rounded-xl bg-black/35 hover:bg-black/60 text-black hover:text-white font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer border border-black/30"
                 title="Dismiss food/drink alert banner"
               >
@@ -1734,11 +1858,25 @@ export default function ReceptionPortal({ onNavigate }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                stopAllAlertSounds();
+                showToast('2-min reminder sound silenced.');
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-black/40 hover:bg-black/60 text-black hover:text-white font-extrabold text-xs flex items-center gap-1 transition-all border border-black/30 cursor-pointer"
+            >
+              <VolumeX size={13} />
+              <span>Silence (8s Ring)</span>
+            </button>
             {pendingOrdersReminder.orders.slice(0, 2).map((ord) => (
               <button
                 key={ord.id}
                 type="button"
-                onClick={() => handleMarkOrderReady(ord.id)}
+                onClick={() => {
+                  stopAllAlertSounds();
+                  handleMarkOrderReady(ord.id);
+                }}
                 className="px-3.5 py-1.5 rounded-xl bg-black text-emerald-300 hover:bg-black/90 font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer border border-emerald-400/40"
               >
                 <CheckCircle2 size={13} className="text-emerald-400" />
@@ -2735,19 +2873,41 @@ export default function ReceptionPortal({ onNavigate }) {
                 </p>
               </div>
 
-              <button
-                onClick={() => setIsDiningMenuOpen(true)}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 shadow-lg self-start md:self-auto"
-              >
-                <Plus size={14} />
-                <span>Counter Food / Drink Order</span>
-              </button>
+              {(getDeskBuilding() === 'Main Building' || getDeskBuilding() === 'all') && (
+                <button
+                  onClick={() => setIsDiningMenuOpen(true)}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 shadow-lg self-start md:self-auto"
+                >
+                  <Plus size={14} />
+                  <span>Counter Food / Drink Order</span>
+                </button>
+              )}
             </div>
 
             {/* ======================================================== */}
-            {/* DEDICATED ORDER CODE ENTRY & CONFIRMATION DESK */}
+            {/* DEDICATED ORDER CODE ENTRY & CONFIRMATION DESK (MAIN ONLY) */}
             {/* ======================================================== */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#2c0516] via-[#1b030e] to-[#120208] border-2 border-[#d4af37]/60 shadow-2xl space-y-4">
+            {getDeskBuilding() === 'Extension Building' ? (
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-950/40 via-[#1c0812] to-[#120208] border-2 border-amber-500/40 shadow-xl space-y-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 flex-shrink-0">
+                    <AlertCircle size={20} />
+                  </div>
+                  <div>
+                    <h4 className="font-cinzel font-bold text-sm sm:text-base text-amber-200">
+                      Main Building Kitchen &amp; Bar Fulfillment Only
+                    </h4>
+                    <span className="text-[11px] text-amber-300/90 font-mono">
+                      Extension Desk cannot confirm or fulfill food &amp; drink orders
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-300 leading-relaxed pl-1">
+                  All meal and drink orders (<span className="text-amber-300 font-mono font-bold">ARB-FDD</span> and <span className="text-purple-300 font-mono font-bold">ARB-DRK</span>) are routed to, prepared, verified, and fulfilled exclusively at the <strong>Main Building reception, kitchen, and bar</strong>. Extension receptionists do not have access to confirm food and drink order codes. Extension room guest orders appear in the ledger below for room billing and folio reference only.
+                </p>
+              </div>
+            ) : (
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#2c0516] via-[#1b030e] to-[#120208] border-2 border-[#d4af37]/60 shadow-2xl space-y-4">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 border-b border-white/10 pb-3">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-xl bg-[#5c0725] border border-[#d4af37]/50 text-[#d4af37] shadow">
@@ -3002,6 +3162,7 @@ export default function ReceptionPortal({ onNavigate }) {
                 </div>
               )}
             </div>
+            )}
 
             {/* MAIN RECEPTIONIST DEDICATED PICKUP & OUTSIDE-ROOM DINING DISPATCH SPACE */}
             {(getDeskBuilding() === 'Main Building' || getDeskBuilding() === 'all') && (
