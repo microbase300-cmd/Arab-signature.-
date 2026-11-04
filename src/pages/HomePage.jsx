@@ -103,15 +103,15 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
           1. PRESTIGE 5-STAR HERO SECTION & FLOATING RESERVATION CONSOLE
           ===================================================================== */}
       <section className="relative min-h-[78vh] sm:min-h-[86vh] flex items-center justify-center overflow-hidden pt-12 pb-20 sm:pb-28">
-        {/* Palace Architectural Backdrop */}
+        {/* Background Palace Imagery with Cinematic Glowing / Dimming Overlay */}
         <div className="absolute inset-0 z-0">
           <img
             src="/hero-palace.jpg"
-            alt="Arab Signature Hotel & Suites Exterior"
-            className="w-full h-full object-cover object-center scale-105 transition-transform duration-1000 brightness-95 contrast-110"
+            alt="Arab Signature Hotel Grand Exterior"
+            className="w-full h-full object-cover object-center scale-105 brightness-110 animate-pulse duration-[12000ms]"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0b0105]/85 via-[#1a020c]/60 to-[#120208]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,#0b0105_100%)] opacity-70" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-[#380314]/85 to-black/90" />
+          <div className="absolute inset-0 arabesque-pattern opacity-15 pointer-events-none" />
         </div>
 
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 text-center space-y-5 sm:space-y-6">
