@@ -314,41 +314,57 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
     window.open(`https://wa.me/${HOTEL_INFO.whatsapp}?text=${text}`, '_blank');
   };
 
-  // Book Food (ARB-FDD-...) or Drink (ARB-DRK-...) directly onto active In-Lodge Suite Bill
-  const handleChargeItemToRoomBill = (item) => {
+  // Order Food (ARB-FDD-...) or Drink (ARB-DRK-...) with immediate Paystack online payment
+  const handleChargeItemToRoomBill = async (item) => {
     const primary = customerProfile?.primaryBooking;
     if (!primary || customerProfile?.isPrimaryCleared) return;
 
     const isDrink = item.type === 'drinks' || ['drinks', 'spirits', 'wines', 'beers', 'softdrinks', 'energy', 'juices'].includes(item.category);
-    const created = portalStore.addDiningOrder({
-      orderType: isDrink ? 'drinks' : 'food',
-      guestName: customerProfile.guestName || primary.guestName,
-      phone: customerProfile.phone || primary.phone || '',
-      email: customerProfile.email || primary.email || '',
-      isLodgeGuest: true,
-      bookingId: primary.id,
-      roomNumber: primary.roomNumber,
-      building: primary.building || (String(primary.roomNumber || '').startsWith('1') ? 'Extension Building' : 'Main Building'),
-      serviceLocation: `Suite #${primary.roomNumber} (In-Suite Guest Portal Order)`,
-      chargeToRoom: true,
-      items: [
-        {
-          id: item.id,
-          name: item.name,
-          qty: 1,
-          unitPrice: Number(item.price) || 0,
-          totalPrice: Number(item.price) || 0,
-          type: isDrink ? 'drinks' : 'food'
-        }
-      ],
-      amount: Number(item.price) || 0,
-      source: 'Guest Portal In-Room Bill'
-    });
+    const amount = Number(item.price) || 0;
 
-    const refreshed = portalStore.getCustomerSession();
-    if (refreshed) setCustomerProfile({ ...refreshed });
-    setFolioTick((t) => t + 1);
-    setRecentRoomOrderBanner(created);
+    await payWithPaystack({
+      email: customerProfile.email || primary.email || 'guest@arabsignature.com',
+      amount,
+      guestName: customerProfile.guestName || primary.guestName,
+      guestPhone: customerProfile.phone || primary.phone || '',
+      roomName: `${item.name} - Suite #${primary.roomNumber}`,
+      onSuccess: (res) => {
+        const created = portalStore.addDiningOrder({
+          orderType: isDrink ? 'drinks' : 'food',
+          guestName: customerProfile.guestName || primary.guestName,
+          phone: customerProfile.phone || primary.phone || '',
+          email: customerProfile.email || primary.email || '',
+          isLodgeGuest: true,
+          bookingId: primary.id,
+          roomNumber: primary.roomNumber,
+          building: primary.building || (String(primary.roomNumber || '').startsWith('1') ? 'Extension Building' : 'Main Building'),
+          serviceLocation: `Suite #${primary.roomNumber} (In-Suite Paid Order)`,
+          chargeToRoom: false,
+          paymentStatus: 'Paid',
+          paymentMethod: 'Paystack (Online Verified)',
+          paystackReference: res.reference,
+          items: [
+            {
+              id: item.id,
+              name: item.name,
+              qty: 1,
+              unitPrice: amount,
+              totalPrice: amount,
+              type: isDrink ? 'drinks' : 'food'
+            }
+          ],
+          amount,
+          source: 'Guest Portal Paystack Order'
+        });
+
+        const refreshed = portalStore.getCustomerSession();
+        if (refreshed) setCustomerProfile({ ...refreshed });
+        setFolioTick((t) => t + 1);
+        setRecentRoomOrderBanner(created);
+      },
+      onClose: () => {},
+      onError: () => {}
+    });
   };
 
   // Settle Outstanding Suite Dining/Drink Bill via Paystack or Instant Demo
@@ -1308,7 +1324,7 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                           className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-[#d4af37]/35 text-xs font-bold text-[#f3e5ab] flex items-center gap-1.5 cursor-pointer"
                         >
                           <Plus size={14} className="text-[#d4af37]" />
-                          <span>Order Food / Drinks to Bill</span>
+                          <span>Order Food / Drinks Online</span>
                         </button>
                       )}
 
@@ -1732,7 +1748,7 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                       </div>
                     </div>
 
-                    {/* Order Buttons: Add Directly to Suite Bill (ARB-FDD / ARB-DRK) + WhatsApp */}
+                    {/* Order Buttons: Pay Online via Paystack (ARB-FDD / ARB-DRK) + WhatsApp */}
                     <div className="p-4 pt-0 space-y-2">
                       {!customerProfile.isPrimaryCleared && (
                         <button
@@ -1740,9 +1756,9 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                           onClick={() => handleChargeItemToRoomBill(item)}
                           className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa820a] hover:brightness-105 text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
                         >
-                          <Receipt size={13} />
+                          <CreditCard size={13} />
                           <span>
-                            Add to Suite Bill ({item.type === 'drinks' ? 'ARB-DRK' : 'ARB-FDD'})
+                            {item.type === 'drinks' ? 'Order Drink & Pay Online' : 'Order Food & Pay Online'}
                           </span>
                         </button>
                       )}

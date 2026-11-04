@@ -405,37 +405,21 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
       {/* 3. INTERACTIVE LIVE FOOD & DRINKS MENU */}
       <section id="menu-section" className="py-10 px-4 sm:px-6 max-w-7xl mx-auto space-y-8">
         
-        {/* Active Lodge Guest Auto-Link Banner + Order Code Lookup */}
+        {/* Instant Paystack Online Order Banner + Order Code Lookup */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           <div className="lg:col-span-7 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#2c0515] via-[#1c040e] to-[#15020a] border border-[#d4af37]/40 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-[#d4af37]/20 border border-[#d4af37]/50 flex items-center justify-center text-[#f3e5ab] flex-shrink-0">
-                <Building2 size={18} />
+                <Utensils size={18} />
               </div>
-              {activeLodgeSession?.activeBooking ? (
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-extrabold text-white">
-                      In-Lodge Suite Linked: {activeLodgeSession.activeBooking.guestName}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">
-                      Suite #{activeLodgeSession.activeBooking.roomNumber} ({activeLodgeSession.activeBooking.id})
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-gray-300">
-                    Order any food (<span className="font-mono text-[#f3e5ab]">ARB-FDD</span>) or drink (<span className="font-mono text-[#f3e5ab]">ARB-DRK</span>) below and add it directly to your Suite Bill!
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-0.5">
-                  <span className="text-xs font-extrabold text-[#f3e5ab] block">
-                    Staying in Our Hotel Lodge? Add Food & Drinks to Your Room Bill!
-                  </span>
-                  <p className="text-[11px] text-gray-300 leading-relaxed">
-                    Select any dishes or chilled bottles below — get your official <strong className="font-mono text-white">Order Code</strong> (<span className="font-mono text-[#f3e5ab]">ARB-FDD</span> / <span className="font-mono text-[#f3e5ab]">ARB-DRK</span>) to give to the Front Desk or charge straight to your Suite (<span className="font-mono text-[#f3e5ab]">ARS-BGD</span> / <span className="font-mono text-[#f3e5ab]">ARS-EXT</span>).
-                  </p>
-                </div>
-              )}
+              <div className="space-y-0.5">
+                <span className="text-xs font-extrabold text-[#f3e5ab] block">
+                  Order Fresh Food &amp; Chilled Drinks Online • Instant Paystack Payment
+                </span>
+                <p className="text-[11px] text-gray-300 leading-relaxed">
+                  Select your dishes or chilled bottles below and pay securely online via <strong className="text-emerald-300">Paystack</strong> to receive your official <strong className="font-mono text-white">Order Code</strong> (<span className="font-mono text-[#f3e5ab]">ARB-FDD</span> / <span className="font-mono text-[#f3e5ab]">ARB-DRK</span>) for the Front Desk.
+                </p>
+              </div>
             </div>
 
             <button
@@ -1205,9 +1189,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                 <span className="font-mono text-[#f3e5ab]">₦{totalTrayAmount.toLocaleString()}</span>
               </div>
               <p className="text-[10px] font-mono text-gray-300">
-                {activeLodgeSession?.activeBooking
-                  ? `Ready to add to Suite #${activeLodgeSession.activeBooking.roomNumber} (${activeLodgeSession.activeBooking.id}) bill`
-                  : 'Generates official Order Code • Give to Front Desk or Add to Suite Bill'}
+                Pay online via Paystack • Generates Official Front Desk Order Code
               </p>
             </div>
           </div>
@@ -1226,7 +1208,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
               className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl ${goldGradient} text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg`}
             >
               <Receipt size={14} />
-              <span>{activeLodgeSession?.activeBooking ? 'Order Food (Add to Suite Bill)' : 'Order Food & Get Code'}</span>
+              <span>Order Food &amp; Pay Online</span>
               <ArrowRight size={14} />
             </button>
           </div>
