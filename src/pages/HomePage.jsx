@@ -9,34 +9,65 @@ import RoomDetailsModal from '../components/RoomDetailsModal';
 import Pool360Viewer from '../components/Pool360Viewer';
 
 export default function HomePage({ onNavigate, onOpenBooking }) {
-  const [selectedRoomType, setSelectedRoomType] = useState('standard');
+  const [selectedRoomType, setSelectedRoomType] = useState('deluxe');
   const [selectedPreviewRoom, setSelectedPreviewRoom] = useState(null);
-  const [checkInDate, setCheckInDate] = useState('2025-03-20');
-  const [checkOutDate, setCheckOutDate] = useState('2025-03-23');
+  const [checkInDate, setCheckInDate] = useState('2026-11-05');
+  const [checkOutDate, setCheckOutDate] = useState('2026-11-07');
   const [guests, setGuests] = useState('2 Adults');
 
-  // Live Events from Central Store (Only show active events enabled by CEO/Admin)
-  const [liveEvents, setLiveEvents] = useState(() =>
-    portalStore.getEvents().filter((ev) => ev.active === true)
-  );
+  // Live Rooms & Events from Central Store (Only show active events enabled by CEO/Admin)
+  const [rooms, setRooms] = useState(() => {
+    try {
+      const rates = portalStore.getRoomRates?.();
+      return Array.isArray(rates) && rates.length > 0 ? rates : ROOMS;
+    } catch {
+      return ROOMS;
+    }
+  });
+
+  const filterActiveEvents = (list) =>
+    (Array.isArray(list) ? list : []).filter(
+      (ev) => ev && ev.isActive !== false && ev.active !== false && ev.status !== 'inactive'
+    );
+
+  const [liveEvents, setLiveEvents] = useState(() => {
+    try {
+      return filterActiveEvents(portalStore.getHotelEvents?.());
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
-    const syncActiveEvents = () => {
-      const allEvents = portalStore.getEvents();
-      setLiveEvents(allEvents.filter((ev) => ev.active === true));
+    const syncStoreData = () => {
+      try {
+        const rates = portalStore.getRoomRates?.();
+        if (Array.isArray(rates) && rates.length > 0) setRooms(rates);
+        setLiveEvents(filterActiveEvents(portalStore.getHotelEvents?.()));
+      } catch {
+        // fallback silently
+      }
     };
 
-    syncActiveEvents();
-    const unsub = portalStore.subscribeEvents((updatedEvents) => {
-      setLiveEvents((updatedEvents || []).filter((ev) => ev.active === true));
-    });
+    syncStoreData();
+    const unsubRates = portalStore.subscribeRates
+      ? portalStore.subscribeRates((updatedRates) => {
+          if (Array.isArray(updatedRates) && updatedRates.length > 0) setRooms(updatedRates);
+        })
+      : () => {};
+    const unsubEvents = portalStore.subscribeHotelEvents
+      ? portalStore.subscribeHotelEvents((updatedEvents) => {
+          setLiveEvents(filterActiveEvents(updatedEvents));
+        })
+      : () => {};
 
-    window.addEventListener('storage', syncActiveEvents);
-    window.addEventListener('focus', syncActiveEvents);
+    window.addEventListener('storage', syncStoreData);
+    window.addEventListener('focus', syncStoreData);
     return () => {
-      unsub();
-      window.removeEventListener('storage', syncActiveEvents);
-      window.removeEventListener('focus', syncActiveEvents);
+      if (typeof unsubRates === 'function') unsubRates();
+      if (typeof unsubEvents === 'function') unsubEvents();
+      window.removeEventListener('storage', syncStoreData);
+      window.removeEventListener('focus', syncStoreData);
     };
   }, []);
 
@@ -131,9 +162,9 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
                     onChange={(e) => setSelectedRoomType(e.target.value)}
                     className="bg-transparent text-white font-semibold text-xs w-full focus:outline-none cursor-pointer truncate"
                   >
-                    {ROOMS.map((r) => (
+                    {rooms.map((r) => (
                       <option key={r.id} value={r.id} className="bg-[#18020c] text-white">
-                        {r.name} ({r.priceFormatted})
+                        {r.name} ({r.priceFormatted || `₦${Number(r.price).toLocaleString()}`})
                       </option>
                     ))}
                   </select>
@@ -265,7 +296,7 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
               </p>
             </div>
             <button
-              onClick={() => onNavigate('rooms')}
+              onClick={() => onNavigate('suites')}
               className="self-start sm:self-auto px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-[#d4af37]/35 text-[#f3e5ab] text-xs font-bold flex items-center gap-1.5 transition-all"
             >
               <span>Compare All 34 Suites</span>
@@ -275,7 +306,7 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
 
           {/* Mobile Horizontal Snap Carousel / Desktop 3-Column Grid */}
           <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-6 scrollbar-none">
-            {ROOMS.map((room) => (
+            {rooms.map((room) => (
               <div 
                 key={room.id}
                 className="snap-center shrink-0 w-[85vw] max-w-[340px] sm:w-auto sm:max-w-none rounded-2xl overflow-hidden bg-[#1a030d] border border-[#d4af37]/30 hover:border-[#d4af37] transition-all duration-300 flex flex-col justify-between group shadow-xl"
@@ -295,9 +326,9 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
                     
                     <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
                       <span className="px-2.5 py-1 rounded-full bg-black/75 backdrop-blur-md text-[#f3e5ab] text-[10px] font-mono border border-[#d4af37]/40">
-                        {room.building === 'Extension Building' ? 'Extension Wing' : 'Main Building'}
+                        {room.buildingLabel || (Array.isArray(room.buildings) ? room.buildings.join(' & ') : 'Main & Extension')}
                       </span>
-                      {room.hasParlour && (
+                      {(room.hasParlour || room.id === 'suites') && (
                         <span className="px-2.5 py-1 rounded-full bg-[#d4af37] text-black text-[10px] font-mono font-extrabold shadow-md">
                           + Private Parlour
                         </span>
@@ -306,14 +337,14 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
 
                     <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
                       <div>
-                        <span className="text-[10px] font-mono text-gray-300 block">{room.size} • {room.capacity}</span>
+                        <span className="text-[10px] font-mono text-gray-300 block">{room.size || '45 sqm'} • {room.guests || '2 Adults'}</span>
                         <h3 className="font-cinzel text-lg sm:text-xl font-bold text-white leading-snug">
                           {room.name}
                         </h3>
                       </div>
                       <div className="text-right flex-shrink-0 bg-black/75 px-2.5 py-1 rounded-xl border border-[#d4af37]/40">
                         <span className="text-sm sm:text-base font-extrabold text-[#d4af37] font-mono block leading-tight">
-                          {room.priceFormatted}
+                          {room.priceFormatted || `₦${Number(room.price).toLocaleString()}`}
                         </span>
                         <span className="text-[9px] text-gray-300 font-mono">per night</span>
                       </div>
@@ -327,7 +358,7 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
                     </p>
 
                     <div className="flex flex-wrap gap-1.5">
-                      {room.amenities.slice(0, 3).map((item, idx) => (
+                      {(room.amenities || []).slice(0, 3).map((item, idx) => (
                         <span 
                           key={idx}
                           className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/5 text-gray-300 border border-white/10"
@@ -562,22 +593,22 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
                   <div>
                     <div className="relative h-44 overflow-hidden bg-black">
                       <img 
-                        src={ev.flyerUrl} 
+                        src={ev.banner || ev.flyerUrl || '/rooms/suite-royal-penthouse.jpg'} 
                         alt={ev.title} 
                         className="w-full h-full object-cover" 
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-[#120208] via-transparent to-transparent" />
                       <span className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full bg-[#5c0725]/90 border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] font-mono font-bold uppercase">
-                        {ev.category}
+                        {ev.highlightBadge || ev.category || 'Hotel Event'}
                       </span>
                     </div>
                     <div className="p-4 space-y-2">
                       <div className="text-[11px] font-mono text-[#d4af37] flex items-center gap-2">
                         <Calendar size={12} />
-                        <span>{ev.date} • {ev.time}</span>
+                        <span>{ev.dateLabel || ev.date || 'Upcoming'}</span>
                       </div>
                       <h3 className="font-cinzel text-base font-bold text-white">{ev.title}</h3>
-                      <p className="text-xs text-gray-400 line-clamp-2">{ev.description}</p>
+                      <p className="text-xs text-gray-400 line-clamp-2">{ev.writeUp || ev.description}</p>
                     </div>
                   </div>
                   <div className="px-4 pb-4 pt-1">
@@ -635,12 +666,16 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
       </section>
 
       {/* Interactive Room Pictures & Full Details Modal */}
-      <RoomDetailsModal
-        isOpen={Boolean(selectedPreviewRoom)}
-        room={selectedPreviewRoom}
-        onClose={() => setSelectedPreviewRoom(null)}
-        onBookRoom={(roomId) => onOpenBooking(roomId)}
-      />
+      {selectedPreviewRoom && (
+        <RoomDetailsModal
+          room={selectedPreviewRoom}
+          onClose={() => setSelectedPreviewRoom(null)}
+          onOpenBooking={(roomId) => {
+            setSelectedPreviewRoom(null);
+            onOpenBooking(roomId);
+          }}
+        />
+      )}
 
     </div>
   );

@@ -7,13 +7,11 @@ import {
 import { HOTEL_INFO } from '../data/hotelData';
 
 export default function RoomDetailsModal({ room, onClose, onOpenBooking, initialBuilding = 'all' }) {
-  if (!room) return null;
-
-  const extPhotos = room.extensionBuildingPhotos || [];
-  const mainPhotos = room.mainBuildingPhotos || [];
-  const allPhotos = room.gallery && room.gallery.length > 0
+  const extPhotos = room?.extensionBuildingPhotos || [];
+  const mainPhotos = room?.mainBuildingPhotos || [];
+  const allPhotos = room?.gallery && room.gallery.length > 0
     ? room.gallery
-    : [room.image || '/rooms/suite-royal-penthouse.jpg'];
+    : [room?.image || '/rooms/suite-royal-penthouse.jpg'];
 
   // Determine initial building filter
   const [buildingFilter, setBuildingFilter] = useState(() => {
@@ -35,23 +33,26 @@ export default function RoomDetailsModal({ room, onClose, onOpenBooking, initial
   // Reset photo index when filter changes or room changes
   useEffect(() => {
     setCurrentIdx(0);
-  }, [buildingFilter, room.id]);
+  }, [buildingFilter, room?.id]);
 
   // Handle keyboard navigation
   useEffect(() => {
+    if (!room) return;
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         if (isZoomed) setIsZoomed(false);
         else onClose();
       } else if (e.key === 'ArrowLeft') {
-        handlePrev();
+        setCurrentIdx((prev) => (prev === 0 ? displayedPhotos.length - 1 : prev - 1));
       } else if (e.key === 'ArrowRight') {
-        handleNext();
+        setCurrentIdx((prev) => (prev === displayedPhotos.length - 1 ? 0 : prev + 1));
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIdx, displayedPhotos.length, isZoomed]);
+  }, [room, currentIdx, displayedPhotos.length, isZoomed, onClose]);
+
+  if (!room) return null;
 
   const handlePrev = () => {
     setCurrentIdx((prev) => (prev === 0 ? displayedPhotos.length - 1 : prev - 1));
