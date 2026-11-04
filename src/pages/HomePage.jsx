@@ -80,7 +80,7 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
       tag: 'Architecture'
     },
     {
-      src: '/extension-rooms/120k/room-120k-1.webp',
+      src: '/rooms/ext-120k-apartment-parlour-1.webp',
       title: '120K Apartment & Parlour',
       tag: 'Extension Wing'
     },
