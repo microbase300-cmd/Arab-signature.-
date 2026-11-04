@@ -689,7 +689,14 @@ export default function ReceptionPortal({ onNavigate, assignedDesk }) {
     portalStore.updateDiningOrderStatus(orderId, newStatus, currentUser?.name || 'Main Receptionist');
     refreshData();
     const freshOrder = portalStore.getDiningOrderByCode(orderId);
-    if (freshOrder) {
+    if (newStatus === 'Delivered' || newStatus === 'Picked Up') {
+      // Disappear from top verification box & clear input as requested by user
+      setVerifiedOrder(null);
+      setOrderCodeInput('');
+      if (isOrderLookupModalOpen) {
+        setIsOrderLookupModalOpen(false);
+      }
+    } else if (freshOrder) {
       setVerifiedOrder(freshOrder);
     }
     // Remove from pending 2-minute reminder if status is ready or completed
@@ -701,7 +708,7 @@ export default function ReceptionPortal({ onNavigate, assignedDesk }) {
     if (incomingDiningAlert?.id === orderId) {
       setIncomingDiningAlert(null);
     }
-    showToast(`Order ${orderId} marked ${newStatus.toUpperCase()}!`);
+    showToast(`✓ Order ${orderId} marked ${newStatus.toUpperCase()}! Moved to History below.`);
   };
 
   const handleMarkOrderReady = (orderId) => {
@@ -1440,25 +1447,6 @@ export default function ReceptionPortal({ onNavigate, assignedDesk }) {
             >
               {isSoundMuted ? <VolumeX size={15} className="text-rose-400" /> : <Volume2 size={15} className="text-emerald-400" />}
               <span className="hidden sm:inline">{isSoundMuted ? 'Muted' : '🔊 Test Loud Bell'}</span>
-            </button>
-
-            {/* Test Wing Intercom 8s Continuation Ringtone */}
-            <button
-              onClick={async () => {
-                initAudioUnlocker();
-                await requestNotificationPermission();
-                triggerWingAlert({
-                  senderBadge: getDeskBuilding() === 'Main Building' ? 'Extension Wing Desk (100 Wing)' : 'Main Building Desk (600 Wing)',
-                  senderName: getDeskBuilding() === 'Main Building' ? 'Extension Reception' : 'Main Desk Concierge',
-                  text: 'Test cross-wing intercom message (8s continuation ringtone & push alert verification).'
-                });
-                showToast('🔔 Wing Intercom 8s continuation ringtone & push triggered!');
-              }}
-              className="p-2 sm:px-3 sm:py-2 rounded-xl text-xs font-bold border border-rose-500/40 bg-rose-950/40 hover:bg-rose-900/60 text-rose-200 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-              title="Test 8-second continuous wing ringtone and browser push notification"
-            >
-              <BellRing size={15} className="text-rose-400" />
-              <span className="hidden sm:inline">Test Wing Ring (8s)</span>
             </button>
 
             {/* Back to Guest Website */}
@@ -2971,27 +2959,31 @@ export default function ReceptionPortal({ onNavigate, assignedDesk }) {
                 </button>
               </form>
 
-              {/* Quick Select Chips */}
-              {diningOrders.filter(isOutsideRoomOrder).length > 0 && (
+              {/* Quick Select Chips - Active Pending Orders Only */}
+              {diningOrders.filter(isOutsideRoomOrder).filter(o => o.orderStatus !== 'Picked Up' && o.orderStatus !== 'Delivered' && o.orderStatus !== 'Cancelled').length > 0 && (
                 <div className="flex items-center gap-2 flex-wrap pt-0.5">
                   <span className="text-[11px] font-mono text-gray-400">Quick Select Pickup Order:</span>
-                  {diningOrders.filter(isOutsideRoomOrder).slice(0, 6).map((ord) => (
-                    <button
-                      key={ord.id}
-                      type="button"
-                      onClick={() => {
-                        setOrderCodeInput(ord.id);
-                        handleLookupOrderCode(null, ord.id);
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono text-[#f3e5ab] flex items-center gap-1.5 transition-all cursor-pointer"
-                    >
-                      <span className="font-bold">{ord.id}</span>
-                      <span className="text-gray-400 font-sans">({ord.guestName.split(' ')[0]})</span>
-                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-mono ${ord.orderStatus === 'Picked Up' ? 'bg-emerald-950 text-emerald-300' : 'bg-amber-950 text-amber-300'}`}>
-                        {ord.orderStatus}
-                      </span>
-                    </button>
-                  ))}
+                  {diningOrders
+                    .filter(isOutsideRoomOrder)
+                    .filter(o => o.orderStatus !== 'Picked Up' && o.orderStatus !== 'Delivered' && o.orderStatus !== 'Cancelled')
+                    .slice(0, 6)
+                    .map((ord) => (
+                      <button
+                        key={ord.id}
+                        type="button"
+                        onClick={() => {
+                          setOrderCodeInput(ord.id);
+                          handleLookupOrderCode(null, ord.id);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono text-[#f3e5ab] flex items-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <span className="font-bold">{ord.id}</span>
+                        <span className="text-gray-400 font-sans">({ord.guestName.split(' ')[0]})</span>
+                        <span className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-amber-950 text-amber-300">
+                          {ord.orderStatus}
+                        </span>
+                      </button>
+                    ))}
                 </div>
               )}
 
@@ -3196,14 +3188,21 @@ export default function ReceptionPortal({ onNavigate, assignedDesk }) {
                   </div>
                 </div>
 
-                {diningOrders.filter(isOutsideRoomOrder).length === 0 ? (
-                  <div className="p-6 rounded-xl bg-black/40 border border-white/10 text-center text-gray-400 text-xs">
-                    No outside-room pickup or dining orders yet. New non-lodge orders placed on the website will immediately alert here.
+                {diningOrders.filter(isOutsideRoomOrder).filter(o => o.orderStatus !== 'Picked Up' && o.orderStatus !== 'Delivered' && o.orderStatus !== 'Cancelled').length === 0 ? (
+                  <div className="p-6 rounded-xl bg-black/40 border border-white/10 text-center text-gray-400 text-xs flex flex-col items-center justify-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
+                      <CheckCircle2 size={20} />
+                    </div>
+                    <div className="text-white font-semibold text-sm">All Current Pickup &amp; Dining Orders Delivered</div>
+                    <p className="text-gray-400 text-xs max-w-md">
+                      There are no active orders waiting at the counter. All delivered and completed orders are permanently preserved in the <strong className="text-[#f3e5ab]">Food &amp; Drinks Order History &amp; Fulfillment Ledger</strong> below.
+                    </p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
                     {diningOrders
                       .filter(isOutsideRoomOrder)
+                      .filter(o => o.orderStatus !== 'Picked Up' && o.orderStatus !== 'Delivered' && o.orderStatus !== 'Cancelled')
                       .slice(0, 9)
                       .map((ord) => {
                         const isCompleted = ord.orderStatus === 'Picked Up' || ord.orderStatus === 'Delivered';
@@ -3320,7 +3319,7 @@ export default function ReceptionPortal({ onNavigate, assignedDesk }) {
                                   onClick={() => {
                                     portalStore.updateDiningOrderStatus(ord.id, 'Picked Up', currentUser?.name || 'Main Receptionist');
                                     refreshData();
-                                    showToast(`Order ${ord.id} marked PICKED UP from Main Reception!`);
+                                    showToast(`Order ${ord.id} marked PICKED UP! Moved to History below.`);
                                   }}
                                   className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
                                     ord.orderStatus === 'Picked Up'
@@ -3335,7 +3334,7 @@ export default function ReceptionPortal({ onNavigate, assignedDesk }) {
                                   onClick={() => {
                                     portalStore.updateDiningOrderStatus(ord.id, 'Delivered', currentUser?.name || 'Main Receptionist');
                                     refreshData();
-                                    showToast(`Order ${ord.id} marked DELIVERED!`);
+                                    showToast(`Order ${ord.id} marked DELIVERED! Moved to History below.`);
                                   }}
                                   className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
                                     ord.orderStatus === 'Delivered'
@@ -3355,10 +3354,36 @@ export default function ReceptionPortal({ onNavigate, assignedDesk }) {
               </div>
             )}
 
+            {/* ======================================================== */}
+            {/* FOOD & DRINKS ORDER HISTORY & FULFILLMENT LEDGER */}
+            {/* ======================================================== */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-[#1b030e] via-[#120208] to-[#0a0105] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+              <div>
+                <h4 className="font-cinzel font-bold text-base sm:text-lg text-white flex items-center gap-2">
+                  <Clock size={18} className="text-[#d4af37]" />
+                  <span>Food &amp; Drinks Order History &amp; Fulfillment Ledger</span>
+                </h4>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Permanent record of all hotel dining orders. When orders are marked <span className="text-sky-300 font-semibold">Delivered</span> or <span className="text-emerald-300 font-semibold">Picked Up</span>, they disappear from the top active dispatch and stay here permanently.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs font-mono flex-wrap">
+                <span className="px-3 py-1 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 flex items-center gap-1.5 font-bold">
+                  <CheckCircle2 size={13} />
+                  <span>{diningOrders.filter(o => o.orderStatus === 'Delivered' || o.orderStatus === 'Picked Up').length} Delivered in History</span>
+                </span>
+                <span className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300">
+                  {diningOrders.length} Total Records
+                </span>
+              </div>
+            </div>
+
             {/* Filter Pills */}
             <div className="flex flex-wrap items-center gap-2">
               {[
                 { id: 'all', label: `My Desk Orders (${diningOrders.filter(isDeskDiningOrder).length})` },
+                { id: 'delivered_history', label: `✓ Delivered History (${diningOrders.filter(o => o.orderStatus === 'Delivered' || o.orderStatus === 'Picked Up').length})` },
+                { id: 'active_orders', label: `Active Pending (${diningOrders.filter(o => o.orderStatus !== 'Delivered' && o.orderStatus !== 'Picked Up' && o.orderStatus !== 'Cancelled').length})` },
                 ...(getDeskBuilding() === 'Main Building' || getDeskBuilding() === 'all'
                   ? [
                       { id: 'outside', label: `Outside Room Orders (${diningOrders.filter(isOutsideRoomOrder).length})` },
@@ -3412,9 +3437,11 @@ export default function ReceptionPortal({ onNavigate, assignedDesk }) {
                         (o.serviceLocation && String(o.serviceLocation).toLowerCase().includes(q));
                       if (!matchQ) return false;
 
-                      // Desk assignment filter unless user chose 'view_all'
-                      if (diningOrderFilter !== 'view_all' && !isDeskDiningOrder(o)) return false;
+                      // Desk assignment filter unless user chose 'view_all' or 'delivered_history'
+                      if (diningOrderFilter !== 'view_all' && diningOrderFilter !== 'delivered_history' && !isDeskDiningOrder(o)) return false;
 
+                      if (diningOrderFilter === 'delivered_history') return o.orderStatus === 'Delivered' || o.orderStatus === 'Picked Up';
+                      if (diningOrderFilter === 'active_orders') return o.orderStatus !== 'Delivered' && o.orderStatus !== 'Picked Up' && o.orderStatus !== 'Cancelled';
                       if (diningOrderFilter === 'outside') return isOutsideRoomOrder(o);
                       if (diningOrderFilter === 'main_suites') return !isOutsideRoomOrder(o) && String(o.roomNumber || '').startsWith('6');
                       if (diningOrderFilter === 'ext_suites') return !isOutsideRoomOrder(o) && String(o.roomNumber || '').startsWith('1');
@@ -3477,43 +3504,50 @@ export default function ReceptionPortal({ onNavigate, assignedDesk }) {
                         </td>
 
                         <td className="py-3.5 px-4">
-                          {getDeskBuilding() === 'Extension Building' ? (
-                            <div>
-                              <span className="px-2.5 py-1 rounded-lg bg-black/60 border border-white/10 text-xs text-[#f3e5ab] font-mono font-semibold inline-block">
-                                {ord.orderStatus || 'Confirmed'}
+                          <div className="space-y-1.5">
+                            {ord.orderStatus === 'Delivered' && (
+                              <span className="px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/40 text-[10px] font-bold font-mono inline-flex items-center gap-1">
+                                <Check size={11} className="stroke-[3]" /> Delivered (Archived)
                               </span>
-                              {ord.fulfilledAt && (
-                                <span className="text-[9px] text-emerald-400 font-mono block mt-1">
-                                  ✓ {ord.orderStatus} • {ord.fulfilledAt}
+                            )}
+                            {ord.orderStatus === 'Picked Up' && (
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] font-bold font-mono inline-flex items-center gap-1">
+                                <CheckCircle2 size={11} /> Picked Up (Archived)
+                              </span>
+                            )}
+                            {getDeskBuilding() === 'Extension Building' ? (
+                              <div>
+                                <span className="px-2.5 py-1 rounded-lg bg-black/60 border border-white/10 text-xs text-[#f3e5ab] font-mono font-semibold inline-block">
+                                  {ord.orderStatus || 'Confirmed'}
                                 </span>
-                              )}
-                            </div>
-                          ) : (
-                            <>
-                              <select
-                                value={ord.orderStatus}
-                                onChange={(e) => {
-                                  portalStore.updateDiningOrderStatus(ord.id, e.target.value, currentUser?.name || 'Main Receptionist');
-                                  refreshData();
-                                  showToast(`Order ${ord.id} marked ${e.target.value}`);
-                                }}
-                                className="px-2.5 py-1.5 rounded-lg bg-black/70 border border-white/15 text-xs text-white focus:outline-none focus:border-[#d4af37]"
-                              >
-                                <option value="Confirmed">Confirmed</option>
-                                <option value="Preparing">Preparing</option>
-                                <option value="Ready">Ready</option>
-                                <option value="Ready for Pickup">Ready for Pickup</option>
-                                <option value="Picked Up">Picked Up</option>
-                                <option value="Delivered">Delivered</option>
-                                <option value="Cancelled">Cancelled</option>
-                              </select>
-                              {ord.fulfilledAt && (
-                                <span className="text-[9px] text-emerald-400 font-mono block mt-1">
-                                  ✓ {ord.orderStatus} • {ord.fulfilledAt}
-                                </span>
-                              )}
-                            </>
-                          )}
+                              </div>
+                            ) : (
+                              <div>
+                                <select
+                                  value={ord.orderStatus}
+                                  onChange={(e) => {
+                                    portalStore.updateDiningOrderStatus(ord.id, e.target.value, currentUser?.name || 'Main Receptionist');
+                                    refreshData();
+                                    showToast(`Order ${ord.id} marked ${e.target.value}`);
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-lg bg-black/70 border border-white/15 text-xs text-white focus:outline-none focus:border-[#d4af37]"
+                                >
+                                  <option value="Confirmed">Confirmed</option>
+                                  <option value="Preparing">Preparing</option>
+                                  <option value="Ready">Ready</option>
+                                  <option value="Ready for Pickup">Ready for Pickup</option>
+                                  <option value="Picked Up">Picked Up</option>
+                                  <option value="Delivered">Delivered</option>
+                                  <option value="Cancelled">Cancelled</option>
+                                </select>
+                              </div>
+                            )}
+                            {ord.fulfilledAt && (
+                              <span className="text-[9px] text-emerald-400 font-mono block">
+                                ✓ {ord.orderStatus} • {ord.fulfilledAt} {ord.fulfilledBy ? `(${ord.fulfilledBy})` : ''}
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         <td className="py-3.5 px-4 text-right">
@@ -3543,35 +3577,35 @@ export default function ReceptionPortal({ onNavigate, assignedDesk }) {
                                   </button>
                                 )}
 
-                                <button
-                                  onClick={() => {
-                                    portalStore.updateDiningOrderStatus(ord.id, 'Picked Up', currentUser?.name || 'Main Receptionist');
-                                    refreshData();
-                                    showToast(`Order ${ord.id} marked PICKED UP!`);
-                                  }}
-                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                                    ord.orderStatus === 'Picked Up'
-                                      ? 'bg-emerald-600 text-white'
-                                      : 'bg-emerald-600/25 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40'
-                                  }`}
-                                >
-                                  Picked Up
-                                </button>
+                                {ord.orderStatus !== 'Picked Up' && ord.orderStatus !== 'Delivered' ? (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        portalStore.updateDiningOrderStatus(ord.id, 'Picked Up', currentUser?.name || 'Main Receptionist');
+                                        refreshData();
+                                        showToast(`Order ${ord.id} marked PICKED UP! Moved to History below.`);
+                                      }}
+                                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all bg-emerald-600/25 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40 cursor-pointer"
+                                    >
+                                      Picked Up
+                                    </button>
 
-                                <button
-                                  onClick={() => {
-                                    portalStore.updateDiningOrderStatus(ord.id, 'Delivered', currentUser?.name || 'Main Receptionist');
-                                    refreshData();
-                                    showToast(`Order ${ord.id} marked DELIVERED!`);
-                                  }}
-                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                                    ord.orderStatus === 'Delivered'
-                                      ? 'bg-sky-600 text-white'
-                                      : 'bg-sky-600/25 hover:bg-sky-600 text-sky-300 hover:text-white border border-sky-500/40'
-                                  }`}
-                                >
-                                  Delivered
-                                </button>
+                                    <button
+                                      onClick={() => {
+                                        portalStore.updateDiningOrderStatus(ord.id, 'Delivered', currentUser?.name || 'Main Receptionist');
+                                        refreshData();
+                                        showToast(`Order ${ord.id} marked DELIVERED! Moved to History below.`);
+                                      }}
+                                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all bg-sky-600/25 hover:bg-sky-600 text-sky-300 hover:text-white border border-sky-500/40 cursor-pointer"
+                                    >
+                                      Delivered
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className="px-2 py-1 rounded-md bg-white/5 border border-white/10 text-emerald-300 text-[10px] font-mono flex items-center gap-1">
+                                    <Check size={11} /> In History
+                                  </span>
+                                )}
 
                                 {ord.paymentStatus !== 'Paid' && ord.orderStatus !== 'Cancelled' ? (
                                   <button
@@ -5016,20 +5050,24 @@ export default function ReceptionPortal({ onNavigate, assignedDesk }) {
               </button>
             </form>
 
-            {/* Quick Chips */}
-            {diningOrders.filter(isOutsideRoomOrder).length > 0 && (
+            {/* Quick Chips - Active Orders Waiting for Pickup Only */}
+            {diningOrders.filter(isOutsideRoomOrder).filter(o => o.orderStatus !== 'Picked Up' && o.orderStatus !== 'Delivered' && o.orderStatus !== 'Cancelled').length > 0 && (
               <div className="flex items-center gap-2 flex-wrap pt-0.5">
                 <span className="text-[11px] font-mono text-gray-400">Waiting for Pickup:</span>
-                {diningOrders.filter(isOutsideRoomOrder).slice(0, 5).map((ord) => (
-                  <button
-                    key={ord.id}
-                    type="button"
-                    onClick={() => {
-                      setOrderCodeInput(ord.id);
-                      handleLookupOrderCode(null, ord.id);
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono text-[#f3e5ab] flex items-center gap-1.5 transition-all"
-                  >
+                {diningOrders
+                  .filter(isOutsideRoomOrder)
+                  .filter(o => o.orderStatus !== 'Picked Up' && o.orderStatus !== 'Delivered' && o.orderStatus !== 'Cancelled')
+                  .slice(0, 5)
+                  .map((ord) => (
+                    <button
+                      key={ord.id}
+                      type="button"
+                      onClick={() => {
+                        setOrderCodeInput(ord.id);
+                        handleLookupOrderCode(null, ord.id);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono text-[#f3e5ab] flex items-center gap-1.5 transition-all"
+                    >
                     <span className="font-bold">{ord.id}</span>
                     <span className="text-gray-400 font-sans">({ord.guestName.split(' ')[0]})</span>
                   </button>
