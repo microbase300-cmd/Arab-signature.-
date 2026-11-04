@@ -4243,6 +4243,10 @@ export const portalStore = {
     return newMessage;
   },
 
+  sendIntercomMessage(options) {
+    return this.sendChatMessage(options);
+  },
+
   clearChatHistory() {
     setLocalItem(STORAGE_KEYS.INTERCOM_CHAT, []);
     if (typeof window !== 'undefined') {

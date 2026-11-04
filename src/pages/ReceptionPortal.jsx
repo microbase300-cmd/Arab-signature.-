@@ -22,6 +22,11 @@ import {
   playLoudReservationAlert, 
   playLoudDiningOrderAlert, 
   playIntercomPing, 
+  playWingIntercomRingtone8s,
+  stopWingIntercomRingtone,
+  isWingRingtoneActive,
+  pushWingIntercomNotification,
+  requestNotificationPermission,
   testLoudAlert, 
   initAudioUnlocker 
 } from '../utils/hotelSoundAlerts';
@@ -41,13 +46,63 @@ export default function ReceptionPortal({ onNavigate }) {
   const [copiedGeneratedCode, setCopiedGeneratedCode] = useState(false);
   const [returningPatronHint, setReturningPatronHint] = useState(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [incomingWingAlert, setIncomingWingAlert] = useState(null);
+  const [wingRingtoneRemaining, setWingRingtoneRemaining] = useState(0);
+  const wingCountdownIntervalRef = React.useRef(null);
+
   const activeTabRef = React.useRef(activeTab);
   useEffect(() => {
     activeTabRef.current = activeTab;
     if (activeTab === 'chat') {
       setUnreadChatCount(0);
+      stopWingIntercomRingtone();
+      setIncomingWingAlert(null);
+      setWingRingtoneRemaining(0);
+      if (wingCountdownIntervalRef.current) {
+        clearInterval(wingCountdownIntervalRef.current);
+        wingCountdownIntervalRef.current = null;
+      }
     }
   }, [activeTab]);
+
+  // Request browser push notification permission on mount for wing intercom alerts
+  useEffect(() => {
+    requestNotificationPermission().catch(() => {});
+  }, []);
+
+  const triggerWingAlert = (msg) => {
+    if (!msg) return;
+    // 1. Browser push notification
+    pushWingIntercomNotification({
+      senderBadge: msg.senderBadge,
+      senderName: msg.senderName,
+      text: msg.text
+    });
+
+    // 2. Play 8-second continuous ringtone if sound is not muted
+    if (!isMutedRef.current) {
+      playWingIntercomRingtone8s();
+    }
+
+    // 3. Set alert banner & start 8-second countdown
+    setIncomingWingAlert(msg);
+    setWingRingtoneRemaining(8);
+
+    if (wingCountdownIntervalRef.current) {
+      clearInterval(wingCountdownIntervalRef.current);
+    }
+    let timeLeft = 8;
+    wingCountdownIntervalRef.current = setInterval(() => {
+      timeLeft -= 1;
+      if (timeLeft <= 0) {
+        clearInterval(wingCountdownIntervalRef.current);
+        wingCountdownIntervalRef.current = null;
+        setWingRingtoneRemaining(0);
+      } else {
+        setWingRingtoneRemaining(timeLeft);
+      }
+    }, 1000);
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -425,7 +480,7 @@ export default function ReceptionPortal({ onNavigate }) {
         const currentDesk = getDeskBuilding();
         const isFromOtherDesk = (latestMsg.senderBuilding !== currentDesk || latestMsg.senderRole !== 'reception');
         if (isFromOtherDesk) {
-          playIntercomChime();
+          triggerWingAlert(latestMsg);
           showToast(`Intercom [${latestMsg.senderBadge}]: "${latestMsg.text.substring(0, 35)}..."`);
           if (activeTabRef.current !== 'chat') {
             setUnreadChatCount(prev => prev + 1);
@@ -465,6 +520,11 @@ export default function ReceptionPortal({ onNavigate }) {
     };
 
     const checkUnreadyOrdersReminder = () => {
+      const desk = getDeskBuilding();
+      // Extension receptionist cannot confirm or fulfill food & drink orders; reminder is for Main Building only!
+      if (desk === 'Extension Building') {
+        return;
+      }
       const allOrders = portalStore.getDiningOrders();
       const pending = allOrders.filter((o) => isDeskDiningOrder(o) && isUnreadyDiningOrder(o));
       if (pending.length > 0) {
@@ -491,6 +551,10 @@ export default function ReceptionPortal({ onNavigate }) {
       clearInterval(diningReminderInterval);
       clearInterval(timer);
       clearInterval(cloudSyncInterval);
+      if (wingCountdownIntervalRef.current) {
+        clearInterval(wingCountdownIntervalRef.current);
+      }
+      stopWingIntercomRingtone();
       if (sseSource) {
         try { sseSource.close(); } catch (e) {}
       }
@@ -572,6 +636,11 @@ export default function ReceptionPortal({ onNavigate }) {
   };
 
   const handleQuickConfirmOrder = (orderId, newStatus) => {
+    const desk = getDeskBuilding();
+    if (desk === 'Extension Building') {
+      showToast('⚠️ Extension Desk Restricted: Food & drink orders are fulfilled only at Main Building reception / kitchen!');
+      return;
+    }
     portalStore.updateDiningOrderStatus(orderId, newStatus, currentUser?.name || 'Main Receptionist');
     refreshData();
     const freshOrder = portalStore.getDiningOrderByCode(orderId);
@@ -1326,6 +1395,25 @@ export default function ReceptionPortal({ onNavigate }) {
               <span className="hidden sm:inline">{isSoundMuted ? 'Muted' : '🔊 Test Loud Bell'}</span>
             </button>
 
+            {/* Test Wing Intercom 8s Continuation Ringtone */}
+            <button
+              onClick={async () => {
+                initAudioUnlocker();
+                await requestNotificationPermission();
+                triggerWingAlert({
+                  senderBadge: getDeskBuilding() === 'Main Building' ? 'Extension Wing Desk (100 Wing)' : 'Main Building Desk (600 Wing)',
+                  senderName: getDeskBuilding() === 'Main Building' ? 'Extension Reception' : 'Main Desk Concierge',
+                  text: 'Test cross-wing intercom message (8s continuation ringtone & push alert verification).'
+                });
+                showToast('🔔 Wing Intercom 8s continuation ringtone & push triggered!');
+              }}
+              className="p-2 sm:px-3 sm:py-2 rounded-xl text-xs font-bold border border-rose-500/40 bg-rose-950/40 hover:bg-rose-900/60 text-rose-200 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              title="Test 8-second continuous wing ringtone and browser push notification"
+            >
+              <BellRing size={15} className="text-rose-400" />
+              <span className="hidden sm:inline">Test Wing Ring (8s)</span>
+            </button>
+
             {/* Back to Guest Website */}
             <button
               onClick={() => onNavigate('home')}
@@ -1428,6 +1516,82 @@ export default function ReceptionPortal({ onNavigate }) {
         );
       })()}
 
+      {/* 4. Real-Time Cross-Wing Intercom Alert Banner (8-Second Continuous Ringtone & Push) */}
+      {incomingWingAlert && (
+        <div className="bg-gradient-to-r from-rose-600 via-amber-600 to-indigo-700 text-white px-4 sm:px-8 py-3.5 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 border-b-2 border-amber-400 animate-pulse sticky top-0 z-50">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full bg-black/40 border border-white/30 text-amber-300 flex items-center justify-center flex-shrink-0 shadow-lg">
+              <MessageSquare size={22} className="animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold text-xs tracking-wider uppercase bg-black text-[#f3e5ab] px-3 py-0.5 rounded-full font-mono shadow-sm border border-amber-400/50">
+                  🚨 INCOMING WING INTERCOM CALL &bull; {incomingWingAlert.senderBadge || 'CROSS-WING'}
+                </span>
+                {wingRingtoneRemaining > 0 && (
+                  <span className="text-xs font-mono font-bold bg-rose-950/90 text-rose-300 px-2.5 py-0.5 rounded-md border border-rose-500/50 animate-pulse">
+                    🔔 Ringtone Active ({wingRingtoneRemaining}s)
+                  </span>
+                )}
+              </div>
+              <p className="text-xs sm:text-sm font-semibold text-white mt-1">
+                <span className="text-amber-200 font-bold">{incomingWingAlert.senderName}:</span> "{incomingWingAlert.text}"
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => {
+                stopWingIntercomRingtone();
+                setIncomingWingAlert(null);
+                setWingRingtoneRemaining(0);
+                if (wingCountdownIntervalRef.current) {
+                  clearInterval(wingCountdownIntervalRef.current);
+                  wingCountdownIntervalRef.current = null;
+                }
+                setActiveTab('chat');
+              }}
+              className="px-4 py-2 rounded-xl bg-black text-[#f3e5ab] hover:bg-black/85 font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-lg cursor-pointer border border-[#d4af37]"
+            >
+              <MessageSquare size={14} className="text-[#d4af37]" />
+              <span>💬 Open &amp; Reply on Intercom</span>
+            </button>
+            <button
+              onClick={() => {
+                stopWingIntercomRingtone();
+                setWingRingtoneRemaining(0);
+                if (wingCountdownIntervalRef.current) {
+                  clearInterval(wingCountdownIntervalRef.current);
+                  wingCountdownIntervalRef.current = null;
+                }
+                showToast('Wing ringtone silenced.');
+              }}
+              className="px-3.5 py-2 rounded-xl bg-black/40 hover:bg-black/60 text-white font-bold text-xs flex items-center gap-1 transition-all border border-white/20 cursor-pointer"
+            >
+              <VolumeX size={14} />
+              <span>Silence Ringtone</span>
+            </button>
+            <button
+              onClick={() => {
+                stopWingIntercomRingtone();
+                setIncomingWingAlert(null);
+                setWingRingtoneRemaining(0);
+                if (wingCountdownIntervalRef.current) {
+                  clearInterval(wingCountdownIntervalRef.current);
+                  wingCountdownIntervalRef.current = null;
+                }
+              }}
+              className="px-3 py-2 rounded-xl bg-black/30 hover:bg-black/60 text-white font-extrabold text-xs flex items-center gap-1 transition-all border border-white/10 cursor-pointer"
+              title="Dismiss wing alert banner"
+            >
+              <X size={14} />
+              <span>Dismiss</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Real-Time Incoming Food/Drink Pickup & Dining Alert Banner */}
       {incomingDiningAlert && isDeskDiningOrder(incomingDiningAlert) && (
         <div className="bg-gradient-to-r from-emerald-500 via-[#d4af37] to-amber-500 text-black px-4 sm:px-8 py-3.5 shadow-2xl flex flex-wrap items-center justify-between gap-3 border-b-2 border-black/30 animate-pulse">
@@ -1455,59 +1619,87 @@ export default function ReceptionPortal({ onNavigate }) {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => handleMarkOrderReady(incomingDiningAlert.id)}
-              className="px-3.5 py-1.5 rounded-xl bg-black text-emerald-300 hover:bg-black/85 font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer border border-emerald-400/50"
-            >
-              <CheckCircle2 size={13} className="text-emerald-400" />
-              <span>✓ Mark Ready</span>
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('dining_orders');
-                setDiningOrderFilter('outside');
-                setInspectedDiningOrder(incomingDiningAlert);
-                setIncomingDiningAlert(null);
-              }}
-              className="px-3.5 py-1.5 rounded-xl bg-black text-[#f3e5ab] hover:bg-black/85 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
-            >
-              <Utensils size={13} className="text-[#d4af37]" />
-              <span>Track &amp; Inspect Order</span>
-            </button>
-            <button
-              onClick={() => {
-                portalStore.updateDiningOrderStatus(incomingDiningAlert.id, 'Picked Up', currentUser?.name || 'Front Desk');
-                refreshData();
-                showToast(`Order ${incomingDiningAlert.id} marked as PICKED UP!`);
-                setIncomingDiningAlert(null);
-              }}
-              className="px-3 py-1.5 rounded-xl bg-emerald-950 text-emerald-200 hover:bg-emerald-900 font-bold text-xs flex items-center gap-1 transition-all cursor-pointer"
-            >
-              <CheckCircle2 size={13} />
-              <span>Picked Up</span>
-            </button>
-            <button
-              onClick={() => {
-                portalStore.updateDiningOrderStatus(incomingDiningAlert.id, 'Delivered', currentUser?.name || 'Front Desk');
-                refreshData();
-                showToast(`Order ${incomingDiningAlert.id} marked as DELIVERED!`);
-                setIncomingDiningAlert(null);
-              }}
-              className="px-3 py-1.5 rounded-xl bg-black/25 hover:bg-black/35 text-black font-bold text-xs flex items-center gap-1 transition-all cursor-pointer"
-            >
-              <Check size={13} />
-              <span>Delivered</span>
-            </button>
-            <button
-              onClick={() => setIncomingDiningAlert(null)}
-              className="px-3 py-1.5 rounded-xl bg-black/35 hover:bg-black/60 text-black hover:text-white font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer border border-black/30"
-              title="Dismiss food/drink alert banner"
-            >
-              <X size={14} className="stroke-[2.5]" />
-              <span>Dismiss</span>
-            </button>
-          </div>
+          {getDeskBuilding() === 'Extension Building' ? (
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1.5 rounded-xl bg-black/80 text-amber-300 font-bold text-xs border border-amber-500/40">
+                🏛️ Main Building Kitchen Fulfillment Only (Extension Desk View Only)
+              </span>
+              <button
+                onClick={() => {
+                  setActiveTab('dining_orders');
+                  setDiningOrderFilter('outside');
+                  setInspectedDiningOrder(incomingDiningAlert);
+                  setIncomingDiningAlert(null);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-black text-[#f3e5ab] hover:bg-black/85 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+              >
+                <Utensils size={13} className="text-[#d4af37]" />
+                <span>View Info</span>
+              </button>
+              <button
+                onClick={() => setIncomingDiningAlert(null)}
+                className="px-3 py-1.5 rounded-xl bg-black/35 hover:bg-black/60 text-black hover:text-white font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer border border-black/30"
+                title="Dismiss food/drink alert banner"
+              >
+                <X size={14} className="stroke-[2.5]" />
+                <span>Dismiss</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => handleMarkOrderReady(incomingDiningAlert.id)}
+                className="px-3.5 py-1.5 rounded-xl bg-black text-emerald-300 hover:bg-black/85 font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer border border-emerald-400/50"
+              >
+                <CheckCircle2 size={13} className="text-emerald-400" />
+                <span>✓ Mark Ready</span>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('dining_orders');
+                  setDiningOrderFilter('outside');
+                  setInspectedDiningOrder(incomingDiningAlert);
+                  setIncomingDiningAlert(null);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-black text-[#f3e5ab] hover:bg-black/85 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+              >
+                <Utensils size={13} className="text-[#d4af37]" />
+                <span>Track &amp; Inspect Order</span>
+              </button>
+              <button
+                onClick={() => {
+                  portalStore.updateDiningOrderStatus(incomingDiningAlert.id, 'Picked Up', currentUser?.name || 'Front Desk');
+                  refreshData();
+                  showToast(`Order ${incomingDiningAlert.id} marked as PICKED UP!`);
+                  setIncomingDiningAlert(null);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-emerald-950 text-emerald-200 hover:bg-emerald-900 font-bold text-xs flex items-center gap-1 transition-all cursor-pointer"
+              >
+                <CheckCircle2 size={13} />
+                <span>Picked Up</span>
+              </button>
+              <button
+                onClick={() => {
+                  portalStore.updateDiningOrderStatus(incomingDiningAlert.id, 'Delivered', currentUser?.name || 'Front Desk');
+                  refreshData();
+                  showToast(`Order ${incomingDiningAlert.id} marked as DELIVERED!`);
+                  setIncomingDiningAlert(null);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-black/25 hover:bg-black/35 text-black font-bold text-xs flex items-center gap-1 transition-all cursor-pointer"
+              >
+                <Check size={13} />
+                <span>Delivered</span>
+              </button>
+              <button
+                onClick={() => setIncomingDiningAlert(null)}
+                className="px-3 py-1.5 rounded-xl bg-black/35 hover:bg-black/60 text-black hover:text-white font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer border border-black/30"
+                title="Dismiss food/drink alert banner"
+              >
+                <X size={14} className="stroke-[2.5]" />
+                <span>Dismiss</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -2739,59 +2931,73 @@ export default function ReceptionPortal({ onNavigate }) {
 
                   {/* Instant Confirmation Buttons */}
                   <div className="pt-2 border-t border-white/10 space-y-2">
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#f3e5ab] font-bold block">
-                      Main Receptionist Handover Actions:
-                    </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-                      <button
-                        type="button"
-                        onClick={() => handleMarkOrderReady(verifiedOrder.id)}
-                        className={`py-3 px-3 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer ${
-                          verifiedOrder.orderStatus === 'Ready' || verifiedOrder.orderStatus === 'Ready for Pickup'
-                            ? 'bg-amber-500 text-black ring-2 ring-amber-300'
-                            : 'bg-amber-500/25 hover:bg-amber-500/40 text-amber-200 border border-amber-400/50'
-                        }`}
-                        title="Mark order ready to stop the 2-minute reminder"
-                      >
-                        <BellRing size={15} />
-                        <span>✓ Mark Ready</span>
-                      </button>
+                    {getDeskBuilding() === 'Extension Building' ? (
+                      <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs">
+                        <div className="flex items-center gap-2 font-bold mb-1">
+                          <AlertCircle size={16} className="text-amber-400 flex-shrink-0" />
+                          <span>Main Building Kitchen Fulfillment Only</span>
+                        </div>
+                        <p className="text-gray-300 text-[11px] leading-relaxed">
+                          Extension receptionists cannot confirm food &amp; drink order codes. All meal and beverage orders are prepared, verified, and fulfilled exclusively at the Main Building kitchen &amp; front desk.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="text-[10px] font-mono uppercase tracking-widest text-[#f3e5ab] font-bold block">
+                          Main Receptionist Handover Actions:
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => handleMarkOrderReady(verifiedOrder.id)}
+                            className={`py-3 px-3 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer ${
+                              verifiedOrder.orderStatus === 'Ready' || verifiedOrder.orderStatus === 'Ready for Pickup'
+                                ? 'bg-amber-500 text-black ring-2 ring-amber-300'
+                                : 'bg-amber-500/25 hover:bg-amber-500/40 text-amber-200 border border-amber-400/50'
+                            }`}
+                            title="Mark order ready to stop the 2-minute reminder"
+                          >
+                            <BellRing size={15} />
+                            <span>✓ Mark Ready</span>
+                          </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Picked Up')}
-                        className={`py-3 px-3 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer ${
-                          verifiedOrder.orderStatus === 'Picked Up'
-                            ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
-                            : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                        }`}
-                      >
-                        <CheckCircle2 size={15} />
-                        <span>✓ Picked Up</span>
-                      </button>
+                          <button
+                            type="button"
+                            onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Picked Up')}
+                            className={`py-3 px-3 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer ${
+                              verifiedOrder.orderStatus === 'Picked Up'
+                                ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
+                                : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                            }`}
+                          >
+                            <CheckCircle2 size={15} />
+                            <span>✓ Picked Up</span>
+                          </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Delivered')}
-                        className={`py-3 px-3 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer ${
-                          verifiedOrder.orderStatus === 'Delivered'
-                            ? 'bg-sky-600 text-white ring-2 ring-sky-400'
-                            : 'bg-sky-600 hover:bg-sky-500 text-white'
-                        }`}
-                      >
-                        <Check size={15} />
-                        <span>✓ Delivered</span>
-                      </button>
+                          <button
+                            type="button"
+                            onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Delivered')}
+                            className={`py-3 px-3 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer ${
+                              verifiedOrder.orderStatus === 'Delivered'
+                                ? 'bg-sky-600 text-white ring-2 ring-sky-400'
+                                : 'bg-sky-600 hover:bg-sky-500 text-white'
+                            }`}
+                          >
+                            <Check size={15} />
+                            <span>✓ Delivered</span>
+                          </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Ready for Pickup')}
-                        className="py-3 px-3 rounded-xl bg-white/5 hover:bg-white/15 border border-white/15 text-gray-300 text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                      >
-                        <Utensils size={14} />
-                        <span>Ready For Pickup</span>
-                      </button>
-                    </div>
+                          <button
+                            type="button"
+                            onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Ready for Pickup')}
+                            className="py-3 px-3 rounded-xl bg-white/5 hover:bg-white/15 border border-white/15 text-gray-300 text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                          >
+                            <Utensils size={14} />
+                            <span>Ready For Pickup</span>
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -3110,27 +3316,42 @@ export default function ReceptionPortal({ onNavigate }) {
                         </td>
 
                         <td className="py-3.5 px-4">
-                          <select
-                            value={ord.orderStatus}
-                            onChange={(e) => {
-                              portalStore.updateDiningOrderStatus(ord.id, e.target.value, currentUser?.name || 'Main Receptionist');
-                              refreshData();
-                              showToast(`Order ${ord.id} marked ${e.target.value}`);
-                            }}
-                            className="px-2.5 py-1.5 rounded-lg bg-black/70 border border-white/15 text-xs text-white focus:outline-none focus:border-[#d4af37]"
-                          >
-                            <option value="Confirmed">Confirmed</option>
-                            <option value="Preparing">Preparing</option>
-                            <option value="Ready">Ready</option>
-                            <option value="Ready for Pickup">Ready for Pickup</option>
-                            <option value="Picked Up">Picked Up</option>
-                            <option value="Delivered">Delivered</option>
-                            <option value="Cancelled">Cancelled</option>
-                          </select>
-                          {ord.fulfilledAt && (
-                            <span className="text-[9px] text-emerald-400 font-mono block mt-1">
-                              ✓ {ord.orderStatus} • {ord.fulfilledAt}
-                            </span>
+                          {getDeskBuilding() === 'Extension Building' ? (
+                            <div>
+                              <span className="px-2.5 py-1 rounded-lg bg-black/60 border border-white/10 text-xs text-[#f3e5ab] font-mono font-semibold inline-block">
+                                {ord.orderStatus || 'Confirmed'}
+                              </span>
+                              {ord.fulfilledAt && (
+                                <span className="text-[9px] text-emerald-400 font-mono block mt-1">
+                                  ✓ {ord.orderStatus} • {ord.fulfilledAt}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <>
+                              <select
+                                value={ord.orderStatus}
+                                onChange={(e) => {
+                                  portalStore.updateDiningOrderStatus(ord.id, e.target.value, currentUser?.name || 'Main Receptionist');
+                                  refreshData();
+                                  showToast(`Order ${ord.id} marked ${e.target.value}`);
+                                }}
+                                className="px-2.5 py-1.5 rounded-lg bg-black/70 border border-white/15 text-xs text-white focus:outline-none focus:border-[#d4af37]"
+                              >
+                                <option value="Confirmed">Confirmed</option>
+                                <option value="Preparing">Preparing</option>
+                                <option value="Ready">Ready</option>
+                                <option value="Ready for Pickup">Ready for Pickup</option>
+                                <option value="Picked Up">Picked Up</option>
+                                <option value="Delivered">Delivered</option>
+                                <option value="Cancelled">Cancelled</option>
+                              </select>
+                              {ord.fulfilledAt && (
+                                <span className="text-[9px] text-emerald-400 font-mono block mt-1">
+                                  ✓ {ord.orderStatus} • {ord.fulfilledAt}
+                                </span>
+                              )}
+                            </>
                           )}
                         </td>
 
@@ -3145,59 +3366,67 @@ export default function ReceptionPortal({ onNavigate }) {
                               <span>Info</span>
                             </button>
 
-                            {ord.orderStatus !== 'Ready' && ord.orderStatus !== 'Ready for Pickup' && ord.orderStatus !== 'Picked Up' && ord.orderStatus !== 'Delivered' && (
-                              <button
-                                onClick={() => handleMarkOrderReady(ord.id)}
-                                className="px-2.5 py-1 rounded-lg bg-amber-500/25 hover:bg-amber-500 text-amber-200 hover:text-black border border-amber-400/50 text-[10px] font-bold transition-all cursor-pointer"
-                                title="Mark order ready and clear 2-minute alarm"
-                              >
-                                Mark Ready
-                              </button>
-                            )}
-
-                            <button
-                              onClick={() => {
-                                portalStore.updateDiningOrderStatus(ord.id, 'Picked Up', currentUser?.name || 'Main Receptionist');
-                                refreshData();
-                                showToast(`Order ${ord.id} marked PICKED UP!`);
-                              }}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                                ord.orderStatus === 'Picked Up'
-                                  ? 'bg-emerald-600 text-white'
-                                  : 'bg-emerald-600/25 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40'
-                              }`}
-                            >
-                              Picked Up
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                portalStore.updateDiningOrderStatus(ord.id, 'Delivered', currentUser?.name || 'Main Receptionist');
-                                refreshData();
-                                showToast(`Order ${ord.id} marked DELIVERED!`);
-                              }}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                                ord.orderStatus === 'Delivered'
-                                  ? 'bg-sky-600 text-white'
-                                  : 'bg-sky-600/25 hover:bg-sky-600 text-sky-300 hover:text-white border border-sky-500/40'
-                              }`}
-                            >
-                              Delivered
-                            </button>
-
-                            {ord.paymentStatus !== 'Paid' && ord.orderStatus !== 'Cancelled' ? (
-                              <button
-                                onClick={() => {
-                                  portalStore.settleSingleDiningOrder(ord.id, 'POS Terminal (Front Desk)');
-                                  refreshData();
-                                  showToast(`Order ${ord.id} settled & marked PAID!`);
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-amber-600/80 hover:bg-amber-600 text-white text-[10px] font-bold transition-all"
-                              >
-                                Mark Paid
-                              </button>
+                            {getDeskBuilding() === 'Extension Building' ? (
+                              <span className="px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-mono font-medium">
+                                Main Building Fulfillment Only
+                              </span>
                             ) : (
-                              <span className="text-[10px] font-mono text-emerald-400 font-semibold px-1.5">Settled</span>
+                              <>
+                                {ord.orderStatus !== 'Ready' && ord.orderStatus !== 'Ready for Pickup' && ord.orderStatus !== 'Picked Up' && ord.orderStatus !== 'Delivered' && (
+                                  <button
+                                    onClick={() => handleMarkOrderReady(ord.id)}
+                                    className="px-2.5 py-1 rounded-lg bg-amber-500/25 hover:bg-amber-500 text-amber-200 hover:text-black border border-amber-400/50 text-[10px] font-bold transition-all cursor-pointer"
+                                    title="Mark order ready and clear 2-minute alarm"
+                                  >
+                                    Mark Ready
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => {
+                                    portalStore.updateDiningOrderStatus(ord.id, 'Picked Up', currentUser?.name || 'Main Receptionist');
+                                    refreshData();
+                                    showToast(`Order ${ord.id} marked PICKED UP!`);
+                                  }}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                                    ord.orderStatus === 'Picked Up'
+                                      ? 'bg-emerald-600 text-white'
+                                      : 'bg-emerald-600/25 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40'
+                                  }`}
+                                >
+                                  Picked Up
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    portalStore.updateDiningOrderStatus(ord.id, 'Delivered', currentUser?.name || 'Main Receptionist');
+                                    refreshData();
+                                    showToast(`Order ${ord.id} marked DELIVERED!`);
+                                  }}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                                    ord.orderStatus === 'Delivered'
+                                      ? 'bg-sky-600 text-white'
+                                      : 'bg-sky-600/25 hover:bg-sky-600 text-sky-300 hover:text-white border border-sky-500/40'
+                                  }`}
+                                >
+                                  Delivered
+                                </button>
+
+                                {ord.paymentStatus !== 'Paid' && ord.orderStatus !== 'Cancelled' ? (
+                                  <button
+                                    onClick={() => {
+                                      portalStore.settleSingleDiningOrder(ord.id, 'POS Terminal (Front Desk)');
+                                      refreshData();
+                                      showToast(`Order ${ord.id} settled & marked PAID!`);
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg bg-amber-600/80 hover:bg-amber-600 text-white text-[10px] font-bold transition-all"
+                                  >
+                                    Mark Paid
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] font-mono text-emerald-400 font-semibold px-1.5">Settled</span>
+                                )}
+                              </>
                             )}
                           </div>
                         </td>
@@ -3237,8 +3466,27 @@ export default function ReceptionPortal({ onNavigate }) {
                 </div>
               </div>
 
-              {/* Status Desks Info */}
-              <div className="flex items-center gap-2 self-start md:self-auto text-xs font-mono">
+              {/* Status Desks Info & Push / Ringtone Test Command */}
+              <div className="flex items-center gap-2 self-start md:self-auto text-xs font-mono flex-wrap">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    initAudioUnlocker();
+                    await requestNotificationPermission();
+                    triggerWingAlert({
+                      senderBadge: getDeskBuilding() === 'Main Building' ? 'Extension Wing Desk (100 Wing)' : 'Main Building Desk (600 Wing)',
+                      senderName: getDeskBuilding() === 'Main Building' ? 'Extension Reception' : 'Main Desk Concierge',
+                      text: 'Test cross-wing intercom message (8-second continuous ringtone & push notification).'
+                    });
+                    showToast('🔔 Wing Intercom test alert triggered (8s ringtone + push notification)!');
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl bg-rose-600/30 hover:bg-rose-600/50 border border-rose-500/50 text-rose-200 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                  title="Test the 8-second continuous ringtone and browser push notification"
+                >
+                  <BellRing size={13} className="text-rose-400 animate-bounce" />
+                  <span>Test Wing Alert (8s Ringtone & Push)</span>
+                </button>
+
                 <span className="px-2.5 py-1 rounded-xl bg-[#5c0725]/50 border border-[#d4af37]/30 text-[#f3e5ab]">
                   Main Desk (600 Wing)
                 </span>
@@ -4695,41 +4943,66 @@ export default function ReceptionPortal({ onNavigate }) {
                 )}
 
                 {/* Action buttons */}
-                <div className="pt-2 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Picked Up')}
-                    className={`py-2.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
-                      verifiedOrder.orderStatus === 'Picked Up'
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                    }`}
-                  >
-                    <CheckCircle2 size={15} />
-                    <span>✓ Mark Picked Up</span>
-                  </button>
+                {getDeskBuilding() === 'Extension Building' ? (
+                  <div className="pt-2 border-t border-white/10 space-y-2">
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-start gap-2">
+                      <AlertCircle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-bold">Main Building Kitchen Fulfillment Only</div>
+                        <p className="text-gray-300 text-[11px] mt-0.5 leading-relaxed">
+                          Extension receptionists cannot confirm food or drink order codes. All meal and drink orders are prepared, verified, and fulfilled exclusively at the Main Building kitchen &amp; bar.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInspectedDiningOrder(verifiedOrder);
+                        setIsOrderLookupModalOpen(false);
+                      }}
+                      className="w-full py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Eye size={13} className="text-[#d4af37]" />
+                      <span>View Order Details</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="pt-2 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Picked Up')}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
+                        verifiedOrder.orderStatus === 'Picked Up'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                      }`}
+                    >
+                      <CheckCircle2 size={15} />
+                      <span>✓ Mark Picked Up</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Delivered')}
-                    className="py-2.5 px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
-                  >
-                    <Check size={15} />
-                    <span>✓ Delivered</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Delivered')}
+                      className="py-2.5 px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      <Check size={15} />
+                      <span>✓ Delivered</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setInspectedDiningOrder(verifiedOrder);
-                      setIsOrderLookupModalOpen(false);
-                    }}
-                    className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
-                  >
-                    <Eye size={13} className="text-[#d4af37]" />
-                    <span>Full Details</span>
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInspectedDiningOrder(verifiedOrder);
+                        setIsOrderLookupModalOpen(false);
+                      }}
+                      className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      <Eye size={13} className="text-[#d4af37]" />
+                      <span>Full Details</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

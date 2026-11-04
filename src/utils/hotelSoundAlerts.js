@@ -192,6 +192,124 @@ export function playIntercomPing() {
 }
 
 /**
+ * 4. 8-SECOND CONTINUATION WING INTERCOM RINGTONE
+ * Specifically engineered to pierce through hotel lobby noise and command receptionist attention.
+ * Rings in a continuous hotel PBX / multi-chime cadence across an 8-second duration.
+ */
+let ringtoneIntervalId = null;
+let ringtoneTimeoutId = null;
+let isRingtonePlaying = false;
+
+export function stopWingIntercomRingtone() {
+  isRingtonePlaying = false;
+  if (ringtoneIntervalId) {
+    clearInterval(ringtoneIntervalId);
+    ringtoneIntervalId = null;
+  }
+  if (ringtoneTimeoutId) {
+    clearTimeout(ringtoneTimeoutId);
+    ringtoneTimeoutId = null;
+  }
+}
+
+export function isWingRingtoneActive() {
+  return isRingtonePlaying;
+}
+
+export function playWingIntercomRingtone8s() {
+  try {
+    stopWingIntercomRingtone();
+
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+
+    isRingtonePlaying = true;
+    const startTime = Date.now();
+    const DURATION_MS = 8000; // Exactly 8 seconds continuation ringtone
+
+    const playBurst = () => {
+      if (!isRingtonePlaying) return;
+      if (Date.now() - startTime >= DURATION_MS) {
+        stopWingIntercomRingtone();
+        return;
+      }
+
+      const c = getAudioContext();
+      if (!c) return;
+      if (c.state === 'suspended') c.resume();
+
+      const master = createMasterOutput(c, 1.0); // Very loud and clear
+
+      // Chime Strike 1 (Harmonic high bells A5, C6, E6)
+      playHarmonicBell(c, master, 880.00, 0.00, 0.30, 0.90);
+      playHarmonicBell(c, master, 1046.50, 0.03, 0.35, 0.95);
+      playHarmonicBell(c, master, 1318.51, 0.06, 0.40, 1.00);
+
+      // Chime Strike 2 (Rapid second ring burst)
+      playHarmonicBell(c, master, 880.00, 0.36, 0.30, 0.90);
+      playHarmonicBell(c, master, 1046.50, 0.39, 0.35, 0.95);
+      playHarmonicBell(c, master, 1318.51, 0.42, 0.48, 1.00);
+    };
+
+    // Play immediately
+    playBurst();
+
+    // Repeat cadence every 1.55s across 8s
+    ringtoneIntervalId = setInterval(playBurst, 1550);
+
+    // Hard stop at 8 seconds
+    ringtoneTimeoutId = setTimeout(() => {
+      stopWingIntercomRingtone();
+    }, DURATION_MS);
+
+    return stopWingIntercomRingtone;
+  } catch (err) {
+    console.warn('[Wing Intercom 8s Ringtone Error]:', err);
+  }
+}
+
+/**
+ * 5. BROWSER PUSH NOTIFICATION HELPER
+ * Issues standard OS/Browser desktop push notification to alert the receptionist
+ */
+export function requestNotificationPermission() {
+  if (typeof window !== 'undefined' && 'Notification' in window) {
+    try {
+      if (Notification.permission === 'default') {
+        return Notification.requestPermission();
+      }
+      return Promise.resolve(Notification.permission);
+    } catch (e) {
+      return Promise.resolve('denied');
+    }
+  }
+  return Promise.resolve('denied');
+}
+
+export function pushWingIntercomNotification({ senderBadge, senderName, text }) {
+  if (typeof window !== 'undefined' && 'Notification' in window) {
+    if (Notification.permission === 'granted') {
+      try {
+        const notif = new Notification(`🏨 Intercom Message • ${senderBadge || 'Wing Intercom'}`, {
+          body: `${senderName || 'Front Desk'}: "${text || 'Incoming message from other wing...'}"`,
+          icon: '/logo.jpg',
+          badge: '/logo.jpg',
+          tag: 'wing-intercom-alert',
+          requireInteraction: true
+        });
+        notif.onclick = () => {
+          window.focus();
+          notif.close();
+        };
+      } catch (e) {
+        console.warn('[Browser Push Notification Error]:', e);
+      }
+    }
+  }
+}
+
+/**
  * Test loud sound immediately (also unlocks audio on user click)
  */
 export function testLoudAlert(type = 'reservation') {
@@ -202,6 +320,8 @@ export function testLoudAlert(type = 'reservation') {
   }
   if (type === 'dining') {
     playLoudDiningOrderAlert();
+  } else if (type === 'wing_8s' || type === 'ringtone') {
+    playWingIntercomRingtone8s();
   } else if (type === 'intercom') {
     playIntercomPing();
   } else {
