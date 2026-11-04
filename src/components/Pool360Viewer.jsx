@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   RotateCcw, Compass, ChevronLeft, ChevronRight, Play, Pause,
-  Maximize2, X, Sparkles, Waves, MapPin, Eye
+  Maximize2, X, Waves
 } from 'lucide-react';
 
 const POOL_ANGLES = [
@@ -75,13 +75,10 @@ export default function Pool360Viewer({ className = '', onOpenBooking }) {
     const currentX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
     const diff = currentX - dragStartX;
 
-    // Rotate step threshold (e.g. 45px per step)
     if (Math.abs(diff) > 45) {
       if (diff > 0) {
-        // Drag right -> rotate counter-clockwise
         setCurrentIdx((prev) => (prev === 0 ? POOL_ANGLES.length - 1 : prev - 1));
       } else {
-        // Drag left -> rotate clockwise
         setCurrentIdx((prev) => (prev + 1) % POOL_ANGLES.length);
       }
       setDragStartX(currentX);
@@ -107,8 +104,8 @@ export default function Pool360Viewer({ className = '', onOpenBooking }) {
   const currentView = POOL_ANGLES[currentIdx];
 
   return (
-    <div className={`relative rounded-3xl overflow-hidden border-2 border-[#d4af37]/50 bg-black shadow-2xl ${className}`}>
-      {/* 360 Stage Viewport */}
+    <div className={`relative rounded-3xl overflow-hidden border border-[#d4af37]/50 bg-[#14020a] shadow-2xl ${className}`}>
+      {/* 1. UNOBSTRUCTED 360° POOL IMAGE VIEWPORT (No text blocking the pool on mobile) */}
       <div
         ref={containerRef}
         onMouseDown={handleMouseDown}
@@ -118,7 +115,7 @@ export default function Pool360Viewer({ className = '', onOpenBooking }) {
         onTouchStart={handleMouseDown}
         onTouchMove={handleMouseMove}
         onTouchEnd={handleMouseUp}
-        className="relative h-80 sm:h-[450px] w-full select-none cursor-grab active:cursor-grabbing overflow-hidden group"
+        className="relative h-72 sm:h-[440px] w-full select-none cursor-grab active:cursor-grabbing overflow-hidden group bg-black"
       >
         <img
           key={currentView.src}
@@ -132,129 +129,115 @@ export default function Pool360Viewer({ className = '', onOpenBooking }) {
           draggable="false"
         />
 
-        {/* Gradient Shadow Overlays */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
+        {/* Subtle bottom edge vignette only on desktop */}
+        <div className="hidden sm:block absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
 
-        {/* Top Badges & 360 Compass Indicator */}
-        <div className="absolute top-4 left-4 right-4 flex items-center justify-between gap-2 flex-wrap pointer-events-none">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="px-3 py-1.5 rounded-full bg-black/80 backdrop-blur-md border border-[#d4af37]/60 text-[#f3e5ab] text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg">
-              <Compass size={14} className="text-[#d4af37] animate-spin" style={{ animationDuration: '10s' }} />
-              <span>360° Virtual Tour &bull; Drag to Spin</span>
-            </span>
+        {/* Minimal Corner Controls (Does not block the pool view) */}
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
+          <span className="px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] sm:text-xs font-mono font-bold flex items-center gap-1.5 shadow-md">
+            <Compass size={12} className="text-[#d4af37] animate-spin" style={{ animationDuration: '10s' }} />
+            <span>360° View &bull; {currentIdx + 1}/{POOL_ANGLES.length}</span>
+          </span>
 
-            <span className="px-3 py-1.5 rounded-full bg-emerald-950/90 backdrop-blur-md border border-emerald-400/60 text-emerald-200 text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg">
-              <Waves size={13} className="text-emerald-400" />
-              <span>Lodge Guests: Free &bull; Visitors: ₦3,000/hr</span>
-            </span>
-
-            <span className="px-2.5 py-1 rounded-full bg-[#5c0725]/85 backdrop-blur-md border border-[#d4af37]/40 text-[#f3e5ab] text-[10px] font-mono font-bold uppercase">
-              {currentView.angle}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 pointer-events-auto">
+          <div className="flex items-center gap-1.5 pointer-events-auto">
             <button
               type="button"
               onClick={() => setIsPlaying(!isPlaying)}
-              className="px-3 py-1.5 rounded-full bg-black/80 hover:bg-black text-[#f3e5ab] border border-white/20 text-xs font-mono flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+              className="px-2.5 py-1 rounded-full bg-black/65 hover:bg-black text-[#f3e5ab] border border-white/20 text-[10px] sm:text-xs font-mono flex items-center gap-1 transition-all shadow-md cursor-pointer"
             >
-              {isPlaying ? <Pause size={13} className="text-amber-400" /> : <Play size={13} className="text-emerald-400" />}
-              <span>{isPlaying ? 'Pause' : 'Auto 360° Spin'}</span>
+              {isPlaying ? <Pause size={11} className="text-amber-400" /> : <Play size={11} className="text-emerald-400" />}
+              <span>{isPlaying ? 'Pause' : 'Auto Spin'}</span>
             </button>
 
             <button
               type="button"
               onClick={() => setIsFullscreen(true)}
-              className="p-2 rounded-full bg-black/80 hover:bg-black text-white border border-white/20 transition-all cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-full bg-black/65 hover:bg-black text-white border border-white/20 transition-all cursor-pointer"
               title="Fullscreen view"
             >
-              <Maximize2 size={14} className="text-[#d4af37]" />
+              <Maximize2 size={13} className="text-[#d4af37]" />
             </button>
           </div>
         </div>
 
-        {/* Left & Right Step Buttons */}
+        {/* Left & Right Step Arrows */}
         <button
           type="button"
           onClick={handlePrev}
-          className="absolute left-3 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/70 hover:bg-black text-white border border-white/20 shadow-xl transition-all cursor-pointer opacity-85 hover:opacity-100 hover:scale-105"
+          className="absolute left-2.5 top-1/2 -translate-y-1/2 p-2 sm:p-3 rounded-full bg-black/60 hover:bg-black text-white border border-white/20 shadow-xl transition-all cursor-pointer opacity-85 hover:opacity-100"
           title="Previous angle"
         >
-          <ChevronLeft size={22} />
+          <ChevronLeft size={18} />
         </button>
 
         <button
           type="button"
           onClick={handleNext}
-          className="absolute right-3 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/70 hover:bg-black text-white border border-white/20 shadow-xl transition-all cursor-pointer opacity-85 hover:opacity-100 hover:scale-105"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 sm:p-3 rounded-full bg-black/60 hover:bg-black text-white border border-white/20 shadow-xl transition-all cursor-pointer opacity-85 hover:opacity-100"
           title="Next angle"
         >
-          <ChevronRight size={22} />
+          <ChevronRight size={18} />
         </button>
-
-        {/* Bottom Angle Overlay Banner */}
-        <div className="absolute bottom-4 left-4 right-4 space-y-2 pointer-events-none">
-          <div className="flex items-end justify-between gap-3">
-            <div className="space-y-1 max-w-lg">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-[#d4af37] font-bold block">
-                Arab Signature VIP Poolside &bull; Vantage {currentIdx + 1} of {POOL_ANGLES.length}
-              </span>
-              <h4 className="font-cinzel text-lg sm:text-2xl font-extrabold text-white">
-                {currentView.title}
-              </h4>
-              <p className="text-xs text-gray-200 line-clamp-1 sm:line-clamp-2">
-                {currentView.desc}
-              </p>
-            </div>
-
-            {onOpenBooking && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenBooking('suites');
-                }}
-                className="pointer-events-auto px-4 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black text-xs font-extrabold uppercase tracking-wider shrink-0 shadow-lg hover:scale-105 transition-all cursor-pointer hidden sm:block"
-              >
-                Book Poolside Suite
-              </button>
-            )}
-          </div>
-        </div>
       </div>
 
-      {/* 360 Angle Selector Bar */}
-      <div className="p-3 sm:p-4 bg-[#14020a] border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-          {POOL_ANGLES.map((vantage, idx) => (
+      {/* 2. DEDICATED CAPTION, PRICING & ANGLE BAR BELOW THE IMAGE (Never blocks the pool photo) */}
+      <div className="p-4 sm:p-5 bg-[#14020a] border-t border-[#d4af37]/30 space-y-3.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-[#d4af37] font-bold">
+                {currentView.angle}
+              </span>
+              <span className="text-gray-600">&bull;</span>
+              <span className="px-2 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[10px] font-mono font-bold inline-flex items-center gap-1">
+                <Waves size={11} className="text-emerald-400" />
+                <span>Lodge Guests: FREE &bull; Visitors: ₦3,000/hr</span>
+              </span>
+            </div>
+            <h4 className="font-cinzel text-base sm:text-xl font-bold text-white">
+              {currentView.title}
+            </h4>
+            <p className="text-xs text-gray-300 leading-relaxed">
+              {currentView.desc}
+            </p>
+          </div>
+
+          {onOpenBooking && (
             <button
-              key={vantage.id}
               type="button"
-              onClick={() => {
-                setIsPlaying(false);
-                setCurrentIdx(idx);
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                currentIdx === idx
-                  ? 'bg-[#d4af37] text-black shadow-md shadow-[#d4af37]/30 scale-105'
-                  : 'bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10'
-              }`}
+              onClick={() => onOpenBooking('suites')}
+              className="self-start sm:self-center px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#aa820a] text-black text-xs font-extrabold uppercase tracking-wider shrink-0 shadow-md hover:brightness-110 transition-all cursor-pointer"
             >
-              <span>{vantage.angle}</span>
+              Book Poolside Suite
             </button>
-          ))}
+          )}
         </div>
 
-        <div className="flex items-center justify-between sm:justify-end gap-3 text-xs font-mono text-gray-400">
-          <span className="px-2.5 py-1 rounded-lg bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 font-bold flex items-center gap-1.5 shadow-sm">
-            <Waves size={12} className="text-emerald-400" />
-            <span>Lodge Guests: Free &bull; Visitors: ₦3,000/hr</span>
-          </span>
-          <span className="text-gray-500 hidden sm:inline">|</span>
-          <span className="flex items-center gap-1 text-[#f3e5ab]">
-            <RotateCcw size={13} className="text-[#d4af37]" />
-            <span>Drag to Spin 360°</span>
+        {/* 360 Angle Selector Pills */}
+        <div className="flex items-center justify-between gap-3 pt-2 border-t border-white/10">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+            {POOL_ANGLES.map((vantage, idx) => (
+              <button
+                key={vantage.id}
+                type="button"
+                onClick={() => {
+                  setIsPlaying(false);
+                  setCurrentIdx(idx);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-mono font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                  currentIdx === idx
+                    ? 'bg-[#d4af37] text-black shadow-md shadow-[#d4af37]/30'
+                    : 'bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10'
+                }`}
+              >
+                <span>{vantage.angle}</span>
+              </button>
+            ))}
+          </div>
+
+          <span className="hidden md:flex items-center gap-1 text-[11px] font-mono text-[#f3e5ab] shrink-0">
+            <RotateCcw size={12} className="text-[#d4af37]" />
+            <span>Swipe or Drag Photo to Spin</span>
           </span>
         </div>
       </div>
@@ -287,25 +270,25 @@ export default function Pool360Viewer({ className = '', onOpenBooking }) {
               alt={currentView.title}
               className="w-full h-full max-h-[85vh] object-contain rounded-2xl"
             />
-            <div className="absolute bottom-4 left-4 right-4 bg-black/80 backdrop-blur-md p-4 rounded-xl border border-white/10 text-white flex items-center justify-between">
+            <div className="mt-3 bg-black/85 backdrop-blur-md p-4 rounded-xl border border-white/10 text-white flex items-center justify-between gap-3">
               <div>
-                <h3 className="font-cinzel text-lg font-bold">{currentView.title}</h3>
+                <h3 className="font-cinzel text-base sm:text-lg font-bold">{currentView.title}</h3>
                 <p className="text-xs text-gray-300">{currentView.desc}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={handlePrev}
                   className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white"
                 >
-                  <ChevronLeft size={20} />
+                  <ChevronLeft size={18} />
                 </button>
                 <button
                   type="button"
                   onClick={handleNext}
                   className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white"
                 >
-                  <ChevronRight size={20} />
+                  <ChevronRight size={18} />
                 </button>
               </div>
             </div>

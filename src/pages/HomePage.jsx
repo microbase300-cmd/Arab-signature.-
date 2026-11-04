@@ -100,135 +100,175 @@ export default function HomePage({ onNavigate, onOpenBooking }) {
     <div className="bg-[#120208] text-gray-100 overflow-x-hidden">
       
       {/* =====================================================================
-          1. LUXURY HERO SECTION (CLEAN, BREATHABLE & MOBILE-FIRST)
+          1. PRESTIGE 5-STAR HERO SECTION & FLOATING RESERVATION CONSOLE
           ===================================================================== */}
-      <section className="relative min-h-[82vh] sm:min-h-[88vh] flex items-center justify-center overflow-hidden pt-8 pb-24 sm:pb-32">
+      <section className="relative min-h-[78vh] sm:min-h-[86vh] flex items-center justify-center overflow-hidden pt-12 pb-20 sm:pb-28">
+        {/* Palace Architectural Backdrop */}
         <div className="absolute inset-0 z-0">
           <img
             src="/hero-palace.jpg"
             alt="Arab Signature Hotel & Suites Exterior"
-            className="w-full h-full object-cover object-center scale-105 transition-transform duration-1000 brightness-95 contrast-105"
+            className="w-full h-full object-cover object-center scale-105 transition-transform duration-1000 brightness-95 contrast-110"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#1a010b]/75 via-[#18010a]/55 to-[#120208]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0b0105]/85 via-[#1a020c]/60 to-[#120208]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,#0b0105_100%)] opacity-70" />
         </div>
 
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-5 sm:space-y-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/55 border border-[#d4af37]/50 text-[#f3e5ab] text-[10px] sm:text-xs font-mono tracking-widest uppercase backdrop-blur-md shadow-lg">
-            <Sparkles size={13} className="text-[#d4af37]" />
-            <span>5-STAR ROYAL HOSPITALITY • NSUGBE, ANAMBRA</span>
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 text-center space-y-5 sm:space-y-6">
+          {/* 5-Star Rating & Verified Crest Badge */}
+          <div className="inline-flex flex-wrap items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-black/65 border border-[#d4af37]/55 text-[#f3e5ab] text-[10px] sm:text-xs font-mono tracking-widest uppercase backdrop-blur-md shadow-2xl">
+            <span className="flex items-center gap-0.5 text-[#d4af37]">
+              <Star size={11} fill="#d4af37" />
+              <Star size={11} fill="#d4af37" />
+              <Star size={11} fill="#d4af37" />
+              <Star size={11} fill="#d4af37" />
+              <Star size={11} fill="#d4af37" />
+            </span>
+            <span className="text-white/30">|</span>
+            <span>THE ONLY VERIFIED SIGNATURE IN NSUGBE</span>
           </div>
 
-          <h1 className="font-cinzel text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-wide text-white leading-[1.15] drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]">
-            Arab Signature <br className="sm:hidden" />
-            <span className="gold-text-gradient">Hotel &amp; Suites</span>
-          </h1>
+          {/* Editorial Overline & Grand Display Title */}
+          <div className="space-y-2.5">
+            <span className="block text-[10px] sm:text-xs font-mono uppercase tracking-[0.28em] text-[#d4af37] font-semibold">
+              ARAB SIGNATURE HOTEL &amp; SUITES • ANAMBRA
+            </span>
+            <h1 className="font-cinzel text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-wide text-white leading-[1.14] drop-shadow-[0_6px_28px_rgba(0,0,0,0.95)]">
+              Where Palace Elegance Meets <br className="hidden xs:inline" />
+              <span className="gold-text-gradient">Legendary Hospitality</span>
+            </h1>
+          </div>
 
-          <p className="max-w-xl mx-auto text-xs sm:text-base text-gray-200 font-light leading-relaxed px-2">
-            Experience 34 royal suites and private parlour apartments, 24/7 uninterrupted power, an Olympic poolside oasis, and Al-Sultan fine dining.
+          {/* Decorative Gold Filigree Divider */}
+          <div className="flex items-center justify-center gap-3">
+            <span className="h-[1px] w-12 sm:w-20 bg-gradient-to-r from-transparent to-[#d4af37]/80" />
+            <Sparkles size={13} className="text-[#d4af37]" />
+            <span className="h-[1px] w-12 sm:w-20 bg-gradient-to-l from-transparent to-[#d4af37]/80" />
+          </div>
+
+          {/* Refined Executive Subtitle */}
+          <p className="max-w-2xl mx-auto text-xs sm:text-base text-gray-200/95 font-light leading-relaxed px-2">
+            Retreat to 34 private royal suites and parlour apartments across our Main Palace and Extension Wings—complete with 24/7 uninterrupted power, an Olympic poolside oasis, and Al-Sultan gourmet dining.
           </p>
 
-          {/* Primary Mobile-Friendly CTAs */}
-          <div className="flex flex-col xs:flex-row items-center justify-center gap-3 pt-1 max-w-md sm:max-w-none mx-auto">
+          {/* Primary Luxury CTAs */}
+          <div className="flex flex-col xs:flex-row items-center justify-center gap-3 pt-2 max-w-md sm:max-w-none mx-auto">
             <button
               onClick={() => onOpenBooking(selectedRoomType)}
-              className={`w-full xs:w-auto px-7 py-3.5 rounded-xl ${goldGradient} font-extrabold text-xs sm:text-sm uppercase tracking-wider shadow-2xl shadow-[#d4af37]/30 hover:scale-105 transition-all flex items-center justify-center gap-2`}
+              className={`w-full xs:w-auto px-8 py-3.5 sm:py-4 rounded-xl ${goldGradient} font-extrabold text-xs sm:text-sm uppercase tracking-wider shadow-[0_10px_30px_rgba(212,175,55,0.35)] hover:scale-[1.02] transition-all flex items-center justify-center gap-2 cursor-pointer`}
             >
-              <span>Book Your Stay</span>
+              <span>Reserve Your Suite</span>
               <ChevronRight size={16} />
             </button>
 
             <button
               onClick={() => onNavigate('dining')}
-              className="w-full xs:w-auto px-7 py-3.5 rounded-xl bg-black/65 hover:bg-[#5c0725]/80 text-[#f3e5ab] font-bold text-xs sm:text-sm uppercase tracking-wider border border-[#d4af37]/50 backdrop-blur-md transition-all flex items-center justify-center gap-2"
+              className="w-full xs:w-auto px-8 py-3.5 sm:py-4 rounded-xl bg-black/70 hover:bg-[#5c0725]/85 text-[#f3e5ab] font-bold text-xs sm:text-sm uppercase tracking-wider border border-[#d4af37]/55 backdrop-blur-md transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xl"
             >
               <Utensils size={15} className="text-[#d4af37]" />
               <span>Order Food &amp; Drinks</span>
             </button>
           </div>
-        </div>
 
-        {/* Compact Quick-Reservation Bar */}
-        <div className="absolute bottom-3 sm:bottom-6 inset-x-0 z-20 max-w-5xl mx-auto px-3 sm:px-6">
-          <div className="glass-panel rounded-2xl p-3 sm:p-4 border border-[#d4af37]/40 shadow-2xl bg-[#16020b]/90 backdrop-blur-xl">
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3 items-center">
-              
-              {/* Suite Select */}
-              <div className="col-span-2 sm:col-span-1 flex items-center gap-2.5 bg-white/5 p-2.5 rounded-xl border border-white/10">
-                <Award className="text-[#d4af37] flex-shrink-0" size={16} />
-                <div className="text-left w-full min-w-0">
-                  <label className="block text-[9px] uppercase tracking-wider text-gray-400 font-mono">Suite Tier</label>
-                  <select 
-                    value={selectedRoomType}
-                    onChange={(e) => setSelectedRoomType(e.target.value)}
-                    className="bg-transparent text-white font-semibold text-xs w-full focus:outline-none cursor-pointer truncate"
-                  >
-                    {rooms.map((r) => (
-                      <option key={r.id} value={r.id} className="bg-[#18020c] text-white">
-                        {r.name} ({r.priceFormatted || `₦${Number(r.price).toLocaleString()}`})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Check-in */}
-              <div className="flex items-center gap-2 bg-white/5 p-2.5 rounded-xl border border-white/10">
-                <Calendar className="text-[#d4af37] flex-shrink-0" size={15} />
-                <div className="text-left w-full min-w-0">
-                  <label className="block text-[9px] uppercase tracking-wider text-gray-400 font-mono">Check-In</label>
-                  <input 
-                    type="date" 
-                    value={checkInDate}
-                    onChange={(e) => setCheckInDate(e.target.value)}
-                    className="bg-transparent text-white font-semibold text-[11px] sm:text-xs w-full focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Check-out */}
-              <div className="flex items-center gap-2 bg-white/5 p-2.5 rounded-xl border border-white/10">
-                <Calendar className="text-[#d4af37] flex-shrink-0" size={15} />
-                <div className="text-left w-full min-w-0">
-                  <label className="block text-[9px] uppercase tracking-wider text-gray-400 font-mono">Check-Out</label>
-                  <input 
-                    type="date" 
-                    value={checkOutDate}
-                    onChange={(e) => setCheckOutDate(e.target.value)}
-                    className="bg-transparent text-white font-semibold text-[11px] sm:text-xs w-full focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Guests (Hidden on tiny screens to keep mobile bar ultra-compact) */}
-              <div className="hidden sm:flex items-center gap-2 bg-white/5 p-2.5 rounded-xl border border-white/10">
-                <Users className="text-[#d4af37] flex-shrink-0" size={15} />
-                <div className="text-left w-full">
-                  <label className="block text-[9px] uppercase tracking-wider text-gray-400 font-mono">Guests</label>
-                  <select 
-                    value={guests}
-                    onChange={(e) => setGuests(e.target.value)}
-                    className="bg-transparent text-white font-semibold text-xs w-full focus:outline-none cursor-pointer"
-                  >
-                    <option value="1 Adult" className="bg-[#18020c]">1 Adult</option>
-                    <option value="2 Adults" className="bg-[#18020c]">2 Adults</option>
-                    <option value="2 Adults, 1 Child" className="bg-[#18020c]">2 Adults, 1 Child</option>
-                    <option value="VIP Family (4)" className="bg-[#18020c]">VIP Family (4)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Reserve CTA */}
-              <button
-                onClick={() => onOpenBooking(selectedRoomType)}
-                className={`col-span-2 sm:col-span-1 h-full py-3 px-4 rounded-xl ${goldGradient} font-extrabold text-xs uppercase tracking-wider shadow-lg hover:brightness-110 transition-all flex items-center justify-center gap-1.5`}
-              >
-                <span>Check Availability</span>
-                <ChevronRight size={14} />
-              </button>
-            </div>
+          {/* Subtle Trust Micro-Bar */}
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-[11px] font-mono text-gray-300">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              Instant Online Paystack Booking
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#d4af37]" />
+              Free Pool for Lodge Guests
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#d4af37]" />
+              24/7 Armed Diplomatic Guard
+            </span>
           </div>
         </div>
       </section>
+
+      {/* Floating Quick-Reservation Console (Cleanly overlaps hero bottom without crowding content) */}
+      <div className="relative z-20 -mt-10 sm:-mt-14 max-w-5xl mx-auto px-4 sm:px-6 pb-4">
+        <div className="rounded-2xl p-3.5 sm:p-5 border border-[#d4af37]/50 shadow-[0_20px_50px_rgba(0,0,0,0.85)] bg-gradient-to-r from-[#1b030d]/95 via-[#14020a]/95 to-[#1b030d]/95 backdrop-blur-xl">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3 items-center">
+            
+            {/* Suite Select */}
+            <div className="col-span-2 sm:col-span-1 flex items-center gap-2.5 bg-black/50 p-2.5 sm:p-3 rounded-xl border border-white/10">
+              <Award className="text-[#d4af37] flex-shrink-0" size={16} />
+              <div className="text-left w-full min-w-0">
+                <label className="block text-[9px] uppercase tracking-wider text-[#d4af37] font-mono">Select Suite</label>
+                <select 
+                  value={selectedRoomType}
+                  onChange={(e) => setSelectedRoomType(e.target.value)}
+                  className="bg-transparent text-white font-semibold text-xs w-full focus:outline-none cursor-pointer truncate"
+                >
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.id} className="bg-[#18020c] text-white">
+                      {r.name} ({r.priceFormatted || `₦${Number(r.price).toLocaleString()}`})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Check-in */}
+            <div className="flex items-center gap-2 bg-black/50 p-2.5 sm:p-3 rounded-xl border border-white/10">
+              <Calendar className="text-[#d4af37] flex-shrink-0" size={15} />
+              <div className="text-left w-full min-w-0">
+                <label className="block text-[9px] uppercase tracking-wider text-gray-400 font-mono">Check-In</label>
+                <input 
+                  type="date" 
+                  value={checkInDate}
+                  onChange={(e) => setCheckInDate(e.target.value)}
+                  className="bg-transparent text-white font-semibold text-[11px] sm:text-xs w-full focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Check-out */}
+            <div className="flex items-center gap-2 bg-black/50 p-2.5 sm:p-3 rounded-xl border border-white/10">
+              <Calendar className="text-[#d4af37] flex-shrink-0" size={15} />
+              <div className="text-left w-full min-w-0">
+                <label className="block text-[9px] uppercase tracking-wider text-gray-400 font-mono">Check-Out</label>
+                <input 
+                  type="date" 
+                  value={checkOutDate}
+                  onChange={(e) => setCheckOutDate(e.target.value)}
+                  className="bg-transparent text-white font-semibold text-[11px] sm:text-xs w-full focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Guests */}
+            <div className="hidden sm:flex items-center gap-2 bg-black/50 p-3 rounded-xl border border-white/10">
+              <Users className="text-[#d4af37] flex-shrink-0" size={15} />
+              <div className="text-left w-full">
+                <label className="block text-[9px] uppercase tracking-wider text-gray-400 font-mono">Guests</label>
+                <select 
+                  value={guests}
+                  onChange={(e) => setGuests(e.target.value)}
+                  className="bg-transparent text-white font-semibold text-xs w-full focus:outline-none cursor-pointer"
+                >
+                  <option value="1 Adult" className="bg-[#18020c]">1 Adult</option>
+                  <option value="2 Adults" className="bg-[#18020c]">2 Adults</option>
+                  <option value="2 Adults, 1 Child" className="bg-[#18020c]">2 Adults, 1 Child</option>
+                  <option value="VIP Family (4)" className="bg-[#18020c]">VIP Family (4)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Reserve CTA */}
+            <button
+              onClick={() => onOpenBooking(selectedRoomType)}
+              className={`col-span-2 sm:col-span-1 h-full py-3 sm:py-3.5 px-4 rounded-xl ${goldGradient} font-extrabold text-xs uppercase tracking-wider shadow-lg hover:brightness-110 transition-all flex items-center justify-center gap-1.5 cursor-pointer`}
+            >
+              <span>Check Availability</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* =====================================================================
           2. SIGNATURE LUXURY PILLARS (SCANNABLE 4-STAT STRIP)
