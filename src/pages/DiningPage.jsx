@@ -423,7 +423,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                     </span>
                   </div>
                   <p className="text-[11px] text-gray-300">
-                    Book any food (<span className="font-mono text-[#f3e5ab]">ARB-FDD</span>) or drink (<span className="font-mono text-[#f3e5ab]">ARB-DRK</span>) below and add it directly to your Suite Bill!
+                    Order any food (<span className="font-mono text-[#f3e5ab]">ARB-FDD</span>) or drink (<span className="font-mono text-[#f3e5ab]">ARB-DRK</span>) below and add it directly to your Suite Bill!
                   </p>
                 </div>
               ) : (
@@ -432,7 +432,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                     Staying in Our Hotel Lodge? Add Food & Drinks to Your Room Bill!
                   </span>
                   <p className="text-[11px] text-gray-300 leading-relaxed">
-                    Select any dishes or chilled bottles below — get your official <strong className="font-mono text-white">ARB-FDD-...</strong> or <strong className="font-mono text-white">ARB-DRK-...</strong> code and charge straight to your Suite (<span className="font-mono text-[#f3e5ab]">ARS-BGD</span> / <span className="font-mono text-[#f3e5ab]">ARS-EXT</span>) or pay online.
+                    Select any dishes or chilled bottles below — get your official <strong className="font-mono text-white">Order Code</strong> (<span className="font-mono text-[#f3e5ab]">ARB-FDD</span> / <span className="font-mono text-[#f3e5ab]">ARB-DRK</span>) to give to the Front Desk or charge straight to your Suite (<span className="font-mono text-[#f3e5ab]">ARS-BGD</span> / <span className="font-mono text-[#f3e5ab]">ARS-EXT</span>).
                   </p>
                 </div>
               )}
@@ -448,7 +448,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
             </button>
           </div>
 
-          {/* Track Existing Food / Drink Booking Code (ARB-FDD / ARB-DRK) */}
+          {/* Track Existing Food / Drink Order Code (ARB-FDD / ARB-DRK) */}
           <div className="lg:col-span-5 p-4 sm:p-5 rounded-2xl bg-[#18030c] border border-white/15 shadow-xl space-y-2.5">
             <form onSubmit={handleLookupOrderCode} className="flex items-center gap-2">
               <div className="relative flex-1">
@@ -1140,7 +1140,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
                                   className={`px-3 py-2.5 rounded-xl ${goldGradient} text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md transition-all`}
                                 >
                                   {item.type === 'drinks' ? <Wine size={13} /> : <Utensils size={13} />}
-                                  <span>{item.type === 'drinks' ? 'Book Drink' : 'Book Food'}</span>
+                                  <span>{item.type === 'drinks' ? 'Order Drink' : 'Order Food'}</span>
                                 </button>
                               </div>
                             </div>
@@ -1207,7 +1207,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
               <p className="text-[10px] font-mono text-gray-300">
                 {activeLodgeSession?.activeBooking
                   ? `Ready to add to Suite #${activeLodgeSession.activeBooking.roomNumber} (${activeLodgeSession.activeBooking.id}) bill`
-                  : 'Generates official ARB-FDD / ARB-DRK code • Add to Suite Bill or Pay Online'}
+                  : 'Generates official Order Code • Give to Front Desk or Add to Suite Bill'}
               </p>
             </div>
           </div>
@@ -1226,7 +1226,7 @@ export default function DiningPage({ onNavigate, onOpenBooking }) {
               className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl ${goldGradient} text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg`}
             >
               <Receipt size={14} />
-              <span>{activeLodgeSession?.activeBooking ? 'Add to Suite Bill / Checkout' : 'Checkout & Get Code'}</span>
+              <span>{activeLodgeSession?.activeBooking ? 'Order Food (Add to Suite Bill)' : 'Order Food & Get Code'}</span>
               <ArrowRight size={14} />
             </button>
           </div>

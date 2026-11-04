@@ -57,6 +57,7 @@ export default function ReceptionPortal({ onNavigate }) {
   const [selectedProofBooking, setSelectedProofBooking] = useState(null);
   const [isCompressingProof, setIsCompressingProof] = useState(false);
   const [incomingDiningAlert, setIncomingDiningAlert] = useState(null);
+  const [pendingOrdersReminder, setPendingOrdersReminder] = useState(null);
   const [inspectedDiningOrder, setInspectedDiningOrder] = useState(null);
   const [feedbackMsg, setFeedbackMsg] = useState('');
 
@@ -452,7 +453,42 @@ export default function ReceptionPortal({ onNavigate }) {
       }
     }, 1500);
 
+    // 3.5 Recurring 2-Minute Front Desk Reminder for Unready Dining Orders
+    const isUnreadyDiningOrder = (ord) => {
+      const s = String(ord?.orderStatus || '').toLowerCase();
+      return (
+        !s.includes('ready') &&
+        !s.includes('picked up') &&
+        !s.includes('delivered') &&
+        !s.includes('cancel')
+      );
+    };
+
+    const checkUnreadyOrdersReminder = () => {
+      const allOrders = portalStore.getDiningOrders();
+      const pending = allOrders.filter((o) => isDeskDiningOrder(o) && isUnreadyDiningOrder(o));
+      if (pending.length > 0) {
+        if (!isMutedRef.current) {
+          playLoudDiningOrderAlert();
+        }
+        setPendingOrdersReminder({
+          orders: pending,
+          alertTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now()
+        });
+        showToast(`⏰ 2-MIN REMINDER: ${pending.length} order(s) waiting for kitchen/bar! Mark Ready when prepared.`);
+      } else {
+        setPendingOrdersReminder(null);
+      }
+    };
+
+    // Check once after 10s warmup, then run every 2 minutes (120,000 ms)
+    const warmupTimer = setTimeout(checkUnreadyOrdersReminder, 10000);
+    const diningReminderInterval = setInterval(checkUnreadyOrdersReminder, 2 * 60 * 1000);
+
     return () => {
+      clearTimeout(warmupTimer);
+      clearInterval(diningReminderInterval);
       clearInterval(timer);
       clearInterval(cloudSyncInterval);
       if (sseSource) {
@@ -542,7 +578,21 @@ export default function ReceptionPortal({ onNavigate }) {
     if (freshOrder) {
       setVerifiedOrder(freshOrder);
     }
+    // Remove from pending 2-minute reminder if status is ready or completed
+    setPendingOrdersReminder((prev) => {
+      if (!prev?.orders) return null;
+      const remaining = prev.orders.filter((o) => o.id !== orderId);
+      return remaining.length > 0 ? { ...prev, orders: remaining } : null;
+    });
+    if (incomingDiningAlert?.id === orderId) {
+      setIncomingDiningAlert(null);
+    }
     showToast(`Order ${orderId} marked ${newStatus.toUpperCase()}!`);
+  };
+
+  const handleMarkOrderReady = (orderId) => {
+    handleQuickConfirmOrder(orderId, 'Ready');
+    showToast(`Order ${orderId} marked as READY! Kitchen/bar alarm cleared.`);
   };
 
   // Logout handler
@@ -1378,8 +1428,8 @@ export default function ReceptionPortal({ onNavigate }) {
         );
       })()}
 
-      {/* Real-Time Incoming Food/Drink Pickup & Dining Alert Banner for Main Receptionist */}
-      {incomingDiningAlert && getDeskBuilding() !== 'Extension Building' && (
+      {/* Real-Time Incoming Food/Drink Pickup & Dining Alert Banner */}
+      {incomingDiningAlert && isDeskDiningOrder(incomingDiningAlert) && (
         <div className="bg-gradient-to-r from-emerald-500 via-[#d4af37] to-amber-500 text-black px-4 sm:px-8 py-3.5 shadow-2xl flex flex-wrap items-center justify-between gap-3 border-b-2 border-black/30 animate-pulse">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center flex-shrink-0">
@@ -1388,7 +1438,7 @@ export default function ReceptionPortal({ onNavigate }) {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-extrabold text-xs tracking-wider uppercase bg-black text-[#f3e5ab] px-2.5 py-0.5 rounded-full font-mono shadow-sm">
-                  🔔 NEW PICKUP / DINING ORDER FOR MAIN RECEPTION!
+                  🔔 NEW FOOD / DRINK ORDER RECEIVED AT FRONT DESK!
                 </span>
                 <span className="text-xs font-mono font-extrabold text-black">
                   ({incomingDiningAlert.id})
@@ -1407,6 +1457,13 @@ export default function ReceptionPortal({ onNavigate }) {
 
           <div className="flex flex-wrap items-center gap-2">
             <button
+              onClick={() => handleMarkOrderReady(incomingDiningAlert.id)}
+              className="px-3.5 py-1.5 rounded-xl bg-black text-emerald-300 hover:bg-black/85 font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer border border-emerald-400/50"
+            >
+              <CheckCircle2 size={13} className="text-emerald-400" />
+              <span>✓ Mark Ready</span>
+            </button>
+            <button
               onClick={() => {
                 setActiveTab('dining_orders');
                 setDiningOrderFilter('outside');
@@ -1416,13 +1473,13 @@ export default function ReceptionPortal({ onNavigate }) {
               className="px-3.5 py-1.5 rounded-xl bg-black text-[#f3e5ab] hover:bg-black/85 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
             >
               <Utensils size={13} className="text-[#d4af37]" />
-              <span>Track & Inspect Order</span>
+              <span>Track &amp; Inspect Order</span>
             </button>
             <button
               onClick={() => {
-                portalStore.updateDiningOrderStatus(incomingDiningAlert.id, 'Picked Up', currentUser?.name || 'Main Building Receptionist');
+                portalStore.updateDiningOrderStatus(incomingDiningAlert.id, 'Picked Up', currentUser?.name || 'Front Desk');
                 refreshData();
-                showToast(`Order ${incomingDiningAlert.id} marked as PICKED UP at Main Reception!`);
+                showToast(`Order ${incomingDiningAlert.id} marked as PICKED UP!`);
                 setIncomingDiningAlert(null);
               }}
               className="px-3 py-1.5 rounded-xl bg-emerald-950 text-emerald-200 hover:bg-emerald-900 font-bold text-xs flex items-center gap-1 transition-all cursor-pointer"
@@ -1432,7 +1489,7 @@ export default function ReceptionPortal({ onNavigate }) {
             </button>
             <button
               onClick={() => {
-                portalStore.updateDiningOrderStatus(incomingDiningAlert.id, 'Delivered', currentUser?.name || 'Main Building Receptionist');
+                portalStore.updateDiningOrderStatus(incomingDiningAlert.id, 'Delivered', currentUser?.name || 'Front Desk');
                 refreshData();
                 showToast(`Order ${incomingDiningAlert.id} marked as DELIVERED!`);
                 setIncomingDiningAlert(null);
@@ -1449,6 +1506,72 @@ export default function ReceptionPortal({ onNavigate }) {
             >
               <X size={14} className="stroke-[2.5]" />
               <span>Dismiss</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 2-Minute Recurring Front Desk Reminder Banner for Unready Dining Orders */}
+      {pendingOrdersReminder && pendingOrdersReminder.orders?.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-500 via-rose-500 to-[#d4af37] text-black px-4 sm:px-8 py-3.5 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 border-b-2 border-black/40 animate-pulse">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-black text-amber-300 flex items-center justify-center flex-shrink-0 shadow-lg">
+              <BellRing size={20} className="animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold text-xs tracking-wider uppercase bg-black text-[#f3e5ab] px-3 py-0.5 rounded-full font-mono shadow-sm">
+                  ⏰ 2-MIN KITCHEN/BAR REMINDER • {pendingOrdersReminder.orders.length} ORDER(S) NOT READY YET!
+                </span>
+                <span className="text-xs font-mono font-bold text-black/80">
+                  (Alerted: {pendingOrdersReminder.alertTime})
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm font-semibold text-black mt-1">
+                {pendingOrdersReminder.orders.slice(0, 3).map((ord) => (
+                  <span key={ord.id} className="inline-block mr-3">
+                    <strong className="underline">{ord.id}</strong>: {ord.guestName} ({ord.serviceLocation}) &bull;{' '}
+                    <span className="font-mono font-bold uppercase">{ord.orderStatus || 'Preparing'}</span>
+                  </span>
+                ))}
+                {pendingOrdersReminder.orders.length > 3 && (
+                  <span className="font-bold">+ {pendingOrdersReminder.orders.length - 3} more</span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {pendingOrdersReminder.orders.slice(0, 2).map((ord) => (
+              <button
+                key={ord.id}
+                type="button"
+                onClick={() => handleMarkOrderReady(ord.id)}
+                className="px-3.5 py-1.5 rounded-xl bg-black text-emerald-300 hover:bg-black/90 font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer border border-emerald-400/40"
+              >
+                <CheckCircle2 size={13} className="text-emerald-400" />
+                <span>Mark {ord.id} Ready</span>
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('dining_orders');
+                setDiningOrderFilter('all');
+              }}
+              className="px-3 py-1.5 rounded-xl bg-black/40 hover:bg-black/60 text-black hover:text-white font-bold text-xs flex items-center gap-1 transition-all cursor-pointer border border-black/20"
+            >
+              <Utensils size={13} />
+              <span>Inspect All ({pendingOrdersReminder.orders.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPendingOrdersReminder(null)}
+              className="px-3 py-1.5 rounded-xl bg-black/25 hover:bg-black/45 text-black hover:text-white font-extrabold text-xs flex items-center gap-1 transition-all cursor-pointer border border-black/20"
+              title="Snooze reminder for 2 minutes"
+            >
+              <X size={14} />
+              <span>Snooze (2 min)</span>
             </button>
           </div>
         </div>
@@ -2619,40 +2742,54 @@ export default function ReceptionPortal({ onNavigate }) {
                     <span className="text-[10px] font-mono uppercase tracking-widest text-[#f3e5ab] font-bold block">
                       Main Receptionist Handover Actions:
                     </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => handleMarkOrderReady(verifiedOrder.id)}
+                        className={`py-3 px-3 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer ${
+                          verifiedOrder.orderStatus === 'Ready' || verifiedOrder.orderStatus === 'Ready for Pickup'
+                            ? 'bg-amber-500 text-black ring-2 ring-amber-300'
+                            : 'bg-amber-500/25 hover:bg-amber-500/40 text-amber-200 border border-amber-400/50'
+                        }`}
+                        title="Mark order ready to stop the 2-minute reminder"
+                      >
+                        <BellRing size={15} />
+                        <span>✓ Mark Ready</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Picked Up')}
-                        className={`py-3 px-4 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer ${
+                        className={`py-3 px-3 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer ${
                           verifiedOrder.orderStatus === 'Picked Up'
                             ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
                             : 'bg-emerald-600 hover:bg-emerald-500 text-white'
                         }`}
                       >
-                        <CheckCircle2 size={16} />
-                        <span>✓ Customer Picked Up</span>
+                        <CheckCircle2 size={15} />
+                        <span>✓ Picked Up</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Delivered')}
-                        className={`py-3 px-4 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer ${
+                        className={`py-3 px-3 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer ${
                           verifiedOrder.orderStatus === 'Delivered'
                             ? 'bg-sky-600 text-white ring-2 ring-sky-400'
                             : 'bg-sky-600 hover:bg-sky-500 text-white'
                         }`}
                       >
-                        <Check size={16} />
-                        <span>✓ Mark Delivered</span>
+                        <Check size={15} />
+                        <span>✓ Delivered</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleQuickConfirmOrder(verifiedOrder.id, 'Ready for Pickup')}
-                        className="py-3 px-4 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/50 text-amber-200 text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer"
+                        className="py-3 px-3 rounded-xl bg-white/5 hover:bg-white/15 border border-white/15 text-gray-300 text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                       >
-                        <BellRing size={15} />
-                        <span>Ready for Pickup</span>
+                        <Utensils size={14} />
+                        <span>Ready For Pickup</span>
                       </button>
                     </div>
                   </div>
@@ -2984,6 +3121,7 @@ export default function ReceptionPortal({ onNavigate }) {
                           >
                             <option value="Confirmed">Confirmed</option>
                             <option value="Preparing">Preparing</option>
+                            <option value="Ready">Ready</option>
                             <option value="Ready for Pickup">Ready for Pickup</option>
                             <option value="Picked Up">Picked Up</option>
                             <option value="Delivered">Delivered</option>
@@ -3000,12 +3138,22 @@ export default function ReceptionPortal({ onNavigate }) {
                           <div className="flex items-center justify-end gap-1.5 flex-wrap">
                             <button
                               onClick={() => setInspectedDiningOrder(ord)}
-                              className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[10px] font-semibold flex items-center gap-1 transition-all"
+                              className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[10px] font-semibold flex items-center gap-1 transition-all cursor-pointer"
                               title="Inspect Order Details"
                             >
                               <Eye size={11} className="text-[#d4af37]" />
                               <span>Info</span>
                             </button>
+
+                            {ord.orderStatus !== 'Ready' && ord.orderStatus !== 'Ready for Pickup' && ord.orderStatus !== 'Picked Up' && ord.orderStatus !== 'Delivered' && (
+                              <button
+                                onClick={() => handleMarkOrderReady(ord.id)}
+                                className="px-2.5 py-1 rounded-lg bg-amber-500/25 hover:bg-amber-500 text-amber-200 hover:text-black border border-amber-400/50 text-[10px] font-bold transition-all cursor-pointer"
+                                title="Mark order ready and clear 2-minute alarm"
+                              >
+                                Mark Ready
+                              </button>
+                            )}
 
                             <button
                               onClick={() => {

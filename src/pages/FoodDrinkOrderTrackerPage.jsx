@@ -422,7 +422,7 @@ export default function FoodDrinkOrderTrackerPage({ onNavigate }) {
                         Pickup & Dining Collection at Main Building Reception Desk
                       </h4>
                       <p className="text-xs text-gray-300 leading-relaxed">
-                        Your booking has been notified to the <strong>Main Building Receptionist (600 Wing Lobby)</strong>. Please present your order code <strong className="font-mono text-white">{trackedOrder.id}</strong> at the Main Reception Desk to pick up your delivery or be seated for dining ({trackedOrder.serviceLocation}).
+                        Your order has been notified to the <strong>Front Desk (Reception)</strong>. Please present your order code <strong className="font-mono text-white">{trackedOrder.id}</strong> to the Front Desk to collect your order or be seated ({trackedOrder.serviceLocation}). The Front Desk is reminded every 2 minutes until your order is marked Ready!
                       </p>
                     </div>
                   </div>

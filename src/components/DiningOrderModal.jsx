@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   X, Utensils, Wine, Sparkles, CheckCircle2, AlertCircle, Building2,
   CreditCard, Plus, Minus, Trash2, Copy, Check, Printer, MessageSquare,
-  ShieldCheck, KeyRound, UserCheck, Receipt, MapPin, Phone, User, Mail, ArrowRight
+  ShieldCheck, KeyRound, UserCheck, Receipt, MapPin, Phone, User, Mail, ArrowRight, BellRing
 } from 'lucide-react';
 import { portalStore } from '../data/portalStore';
 import { payWithPaystack, getPaystackMode } from '../utils/paystack';
@@ -178,7 +178,7 @@ export default function DiningOrderModal({
     if (onClearCart) onClearCart();
   };
 
-  const handleSubmitOrder = async (useInstantDemoPay = false) => {
+  const handleSubmitOrder = async () => {
     setFormError('');
     if (cartItems.length === 0) {
       setFormError('Your dining & drinks tray is empty. Please add at least one item.');
@@ -210,18 +210,7 @@ export default function DiningOrderModal({
         return;
       }
 
-      // Lodge guest chose to pay immediately online
-      if (useInstantDemoPay) {
-        setIsProcessing(true);
-        finalizeOrderCreation({
-          chargeToRoom: false,
-          paymentStatus: 'Paid',
-          paymentMethod: 'Paystack Online (Instant Verified)',
-          paystackReference: `ASH-DIN-DEMO-${Date.now().toString(36).toUpperCase()}`
-        });
-        return;
-      }
-
+      // Lodge guest chose to pay immediately online with Paystack
       setIsProcessing(true);
       await payWithPaystack({
         email: verifiedLodge.booking.email || 'guest@arabsignature.com',
@@ -248,7 +237,7 @@ export default function DiningOrderModal({
 
     // 2. WEBSITE / LOUNGE / WALK-IN DINER FLOW
     if (!guestName.trim() || guestName.trim().length < 2) {
-      setFormError('Please enter your full name for your Dining / Drink Booking Pass.');
+      setFormError('Please enter your full name for your Dining / Drink Order Pass.');
       return;
     }
     if (!guestPhone.trim() || guestPhone.replace(/[^0-9]/g, '').length < 7) {
@@ -272,24 +261,14 @@ export default function DiningOrderModal({
       return;
     }
 
-    if (useInstantDemoPay) {
-      setIsProcessing(true);
-      finalizeOrderCreation({
-        chargeToRoom: false,
-        paymentStatus: 'Paid',
-        paymentMethod: 'Paystack Online (Instant Verified)',
-        paystackReference: `ASH-DIN-DEMO-${Date.now().toString(36).toUpperCase()}`
-      });
-      return;
-    }
-
+    // Pay online via Paystack
     setIsProcessing(true);
     await payWithPaystack({
-      email: guestEmail.trim() || 'diner@arabsignature.com',
+      email: guestEmail.trim() || `${guestPhone.replace(/[^0-9]/g, '')}@arabsignature.com`,
       amount: grandTotal,
       guestName: guestName.trim(),
       guestPhone: guestPhone.trim(),
-      roomName: `Al-Sultan Dining & VIP Bar (${serviceLocation})`,
+      roomName: `Al-Sultan Dining (${serviceLocation})`,
       onSuccess: (res) => {
         finalizeOrderCreation({
           chargeToRoom: false,
@@ -342,7 +321,7 @@ export default function DiningOrderModal({
                 AL-SULTAN KITCHEN & VIP BOTTLE SERVICE
               </span>
               <h3 className="font-cinzel text-lg sm:text-xl font-extrabold text-white">
-                {completedResult ? 'Official Food & Drink Booking Pass' : 'Book Food & Drinks'}
+                {completedResult ? 'Official Food & Drink Order Pass' : 'Order Food & Drinks'}
               </h3>
             </div>
           </div>
@@ -362,21 +341,33 @@ export default function DiningOrderModal({
                CONFIRMATION PASS VIEW (SHOWS ARB-FDD-... & ARB-DRK-...)
                ============================================================ */
             <div className="space-y-6">
-              <div className="p-5 rounded-2xl bg-emerald-950/35 border border-emerald-400/40 text-center space-y-2">
-                <CheckCircle2 size={36} className="text-emerald-400 mx-auto" />
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-[#2c0515] via-[#1b030e] to-[#120208] border-2 border-[#d4af37] text-center space-y-3 shadow-2xl">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-xs font-mono font-bold uppercase tracking-wider">
+                  <CheckCircle2 size={16} className="text-emerald-400" />
+                  <span>Order Successfully Placed!</span>
+                </div>
                 <h4 className="font-cinzel text-xl sm:text-2xl font-extrabold text-white">
                   {completedResult.createdOrders[0]?.chargeToRoom
                     ? 'Added Directly to Your Suite Bill!'
-                    : 'Food & Drink Booking Confirmed!'}
+                    : 'Food & Drink Order Confirmed!'}
                 </h4>
-                <p className="text-xs text-gray-300 max-w-lg mx-auto">
-                  {completedResult.createdOrders[0]?.chargeToRoom
-                    ? `Your order has been linked to Suite #${completedResult.createdOrders[0]?.roomNumber} (${completedResult.createdOrders[0]?.bookingId}) and reflected on your Guest Portal, Reception & Accountant folios.`
-                    : 'Present your unique booking code(s) below at Al-Sultan Restaurant, VIP Bar Lounge, or Front Desk.'}
-                </p>
+                
+                {/* Prominent Front Desk Instruction Alert Box */}
+                <div className="p-4 rounded-xl bg-black/80 border border-[#d4af37]/60 space-y-2 max-w-xl mx-auto shadow-inner">
+                  <span className="text-[11px] font-mono uppercase tracking-widest text-amber-300 font-extrabold flex items-center justify-center gap-1.5">
+                    <BellRing size={15} className="text-amber-400 animate-bounce" />
+                    <span>PLEASE GIVE THIS ORDER CODE TO THE FRONT DESK</span>
+                  </span>
+                  <p className="text-xs text-gray-200 leading-relaxed">
+                    Present your unique <strong className="text-white font-mono uppercase">Order Code</strong> below to the Front Desk receptionists upon arrival or order pickup.
+                  </p>
+                  <div className="text-[11px] font-mono text-emerald-300 bg-emerald-950/70 py-1.5 px-3 rounded-lg border border-emerald-500/35">
+                    🔔 Front Desk Alert Active: The Front Desk is reminded every 2 minutes until your order is marked Ready!
+                  </div>
+                </div>
               </div>
 
-              {/* Generated Official Booking Codes */}
+              {/* Generated Official Order Codes */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {completedResult.createdOrders.map((order) => {
                   const isDrink = order.orderType === 'drinks';
@@ -394,7 +385,7 @@ export default function DiningOrderModal({
                       <div className="flex items-center justify-between">
                         <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest px-2.5 py-1 rounded-full bg-black/50 border border-white/15 text-[#f3e5ab]">
                           {isDrink ? <Wine size={12} className="text-purple-300" /> : <Utensils size={12} className="text-[#d4af37]" />}
-                          {isDrink ? 'Drink Booking Code (ARB-DRK)' : 'Food Booking Code (ARB-FDD)'}
+                          {isDrink ? 'Drink Order Code (ARB-DRK)' : 'Food Order Code (ARB-FDD)'}
                         </span>
                         <span
                           className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full border ${
@@ -409,17 +400,17 @@ export default function DiningOrderModal({
 
                       <div className="flex items-center justify-between gap-3 bg-black/60 px-4 py-3.5 rounded-xl border border-[#d4af37]/40">
                         <div>
-                          <span className="text-[10px] font-mono text-gray-400 block">OFFICIAL BOOKING CODE</span>
+                          <span className="text-[10px] font-mono text-gray-400 block">OFFICIAL ORDER CODE • GIVE TO FRONT DESK</span>
                           <span className="font-mono text-xl sm:text-2xl font-extrabold tracking-wider text-[#f3e5ab]">
                             {order.id}
                           </span>
                         </div>
                         <button
                           onClick={() => handleCopyCode(order.id)}
-                          className="px-3.5 py-2 rounded-xl bg-[#d4af37]/20 hover:bg-[#d4af37] hover:text-black text-[#f3e5ab] border border-[#d4af37]/40 text-xs font-mono font-bold flex items-center gap-1.5 transition-all"
+                          className="px-3.5 py-2 rounded-xl bg-[#d4af37]/20 hover:bg-[#d4af37] hover:text-black text-[#f3e5ab] border border-[#d4af37]/40 text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer"
                         >
                           {copiedCode === order.id ? <Check size={14} /> : <Copy size={14} />}
-                          <span>{copiedCode === order.id ? 'Copied' : 'Copy'}</span>
+                          <span>{copiedCode === order.id ? 'Copied' : 'Copy Code'}</span>
                         </button>
                       </div>
 
@@ -1018,44 +1009,30 @@ export default function DiningOrderModal({
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
-              {/* Instant Simulated Payment helper when online payment is selected in Test Mode */}
-              {paystackMode.isTest &&
-                ((dinerMode === 'lodge' && lodgePaymentChoice === 'pay_now' && verifiedLodge?.booking) ||
-                  (dinerMode === 'walkin' && walkinPaymentChoice === 'paystack')) && (
-                  <button
-                    type="button"
-                    disabled={isProcessing || cartItems.length === 0}
-                    onClick={() => handleSubmitOrder(true)}
-                    className="px-4 py-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-400/40 text-emerald-200 text-xs font-bold transition-all disabled:opacity-50"
-                  >
-                    Instant Demo Pay
-                  </button>
-                )}
-
               <button
                 type="button"
                 disabled={isProcessing || cartItems.length === 0}
-                onClick={() => handleSubmitOrder(false)}
-                className={`px-6 py-3.5 rounded-xl ${goldGradient} font-extrabold text-xs uppercase tracking-wider shadow-xl flex items-center gap-2 disabled:opacity-50`}
+                onClick={() => handleSubmitOrder()}
+                className={`px-6 py-3.5 rounded-xl ${goldGradient} font-extrabold text-xs uppercase tracking-wider shadow-xl flex items-center gap-2 disabled:opacity-50 cursor-pointer`}
               >
                 {isProcessing ? (
                   <span>Processing...</span>
                 ) : dinerMode === 'lodge' && lodgePaymentChoice === 'room_bill' ? (
                   <>
                     <Receipt size={15} />
-                    <span>Add ₦{grandTotal.toLocaleString()} to Suite Bill</span>
+                    <span>Order Food &amp; Add ₦{grandTotal.toLocaleString()} to Suite Bill</span>
                     <ArrowRight size={14} />
                   </>
                 ) : (dinerMode === 'walkin' && walkinPaymentChoice === 'counter_pos') ? (
                   <>
                     <CheckCircle2 size={15} />
-                    <span>Generate Booking Code</span>
+                    <span>Order Food &amp; Get Code</span>
                     <ArrowRight size={14} />
                   </>
                 ) : (
                   <>
                     <CreditCard size={15} />
-                    <span>Pay ₦{grandTotal.toLocaleString()} & Get Code</span>
+                    <span>Order Food &amp; Pay ₦{grandTotal.toLocaleString()}</span>
                     <ArrowRight size={14} />
                   </>
                 )}
