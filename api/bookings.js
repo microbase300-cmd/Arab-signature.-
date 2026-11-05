@@ -7,13 +7,30 @@ const NTFY_TOPIC_URL = 'https://ntfy.sh/arab-signature-hotel-bookings-sync-v1';
 
 // Production Clean Slate: 0 active demo bookings
 const INITIAL_BOOKINGS = [];
+const ALLOWED_ORIGINS = [
+  'https://www.arabsignature.com',
+  'https://arabsignature.com',
+  'http://localhost:5173',
+  'http://localhost:4173'
+];
+const ASH_CLIENT_INTEGRITY_TOKEN = 'ash-v2-verified-origin-9481';
 
 let memoryCache = [...INITIAL_BOOKINGS];
 let lastSyncTimestamp = null;
 
+function stripScriptTags(str) {
+  if (typeof str !== 'string') return str;
+  return str.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '').replace(/on\w+\s*=/gi, '');
+}
+
 function sanitizeBooking(b) {
-  if (!b) return null;
+  if (!b || typeof b !== 'object') return null;
   const copy = { ...b };
+  for (const key of Object.keys(copy)) {
+    if (typeof copy[key] === 'string' && key !== 'proofOfPaymentImage') {
+      copy[key] = stripScriptTags(copy[key]).slice(0, 1000);
+    }
+  }
   if (copy.proofOfPaymentImage && copy.proofOfPaymentImage.length > 500) {
     copy.proofOfPaymentImage = '[Image Uploaded to Server]';
   }
@@ -123,12 +140,17 @@ async function persistCloudLedger(bookings) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  const origin = req.headers.origin || '';
+  if (ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.vercel.app')) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', 'https://www.arabsignature.com');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-ASH-Integrity'
   );
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
@@ -139,6 +161,19 @@ export default async function handler(req, res) {
   // POST: Save or update booking(s), or clear ledger if empty array passed
   if (req.method === 'POST') {
     try {
+      const integrityHeader = req.headers['x-ash-integrity'] || '';
+      const referer = req.headers.referer || '';
+      const isTrustedOrigin =
+        integrityHeader === ASH_CLIENT_INTEGRITY_TOKEN ||
+        ALLOWED_ORIGINS.includes(origin) ||
+        origin.endsWith('.vercel.app') ||
+        referer.includes('arabsignature.com') ||
+        referer.includes('localhost');
+
+      if (!isTrustedOrigin) {
+        return res.status(403).json({ error: 'Forbidden: Untrusted request origin' });
+      }
+
       let body = req.body;
       if (typeof body === 'string') {
         try {
@@ -148,8 +183,11 @@ export default async function handler(req, res) {
 
       const { booking, bookings } = body || {};
 
-      // Explicit clear ledger command
+      // Explicit clear ledger command requires integrity header
       if (Array.isArray(bookings) && bookings.length === 0 && !booking) {
+        if (integrityHeader !== ASH_CLIENT_INTEGRITY_TOKEN) {
+          return res.status(403).json({ error: 'Forbidden: Ledger reset requires authorized staff session token' });
+        }
         lastSyncTimestamp = Date.now();
         memoryCache = [];
         await persistCloudLedger([]);

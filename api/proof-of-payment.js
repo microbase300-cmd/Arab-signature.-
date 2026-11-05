@@ -2,17 +2,29 @@
 // Backed by persistent cloud storage (MantleDB) and memory cache so Admin and Accountant can inspect receipts across all devices.
 
 const MANTLE_ENDPOINT = 'https://mantledb.sh/v2/arab-signature-hotel-34rooms-prod-v1/proofs';
+const ALLOWED_ORIGINS = [
+  'https://www.arabsignature.com',
+  'https://arabsignature.com',
+  'http://localhost:5173',
+  'http://localhost:4173'
+];
+const SAFE_IMAGE_DATA_URI_REGEX = /^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=\s]+$/i;
 
 let proofsMemoryCache = {};
 
 export default async function handler(req, res) {
   // CORS Headers
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  const origin = req.headers.origin || '';
+  if (ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.vercel.app')) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', 'https://www.arabsignature.com');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-ASH-Integrity'
   );
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
@@ -31,19 +43,28 @@ export default async function handler(req, res) {
       }
 
       const { bookingId, imageBase64, reference, guestName, uploadedBy, metadata } = body || {};
+      const cleanBookingId = String(bookingId || '').trim();
 
-      if (!bookingId || !imageBase64) {
-        return res.status(400).json({ error: 'Missing bookingId or imageBase64 payload' });
+      if (!cleanBookingId || !/^[A-Za-z0-9_-]{3,40}$/.test(cleanBookingId) || !imageBase64) {
+        return res.status(400).json({ error: 'Missing or invalid bookingId or imageBase64 payload' });
+      }
+
+      if (
+        typeof imageBase64 !== 'string' ||
+        imageBase64.length > 2000000 ||
+        !SAFE_IMAGE_DATA_URI_REGEX.test(imageBase64)
+      ) {
+        return res.status(400).json({ error: 'Invalid image format or size exceeds 1.5MB limit. Allowed: JPEG, PNG, WEBP.' });
       }
 
       const proofRecord = {
-        bookingId,
+        bookingId: cleanBookingId,
         imageBase64,
-        reference: reference || '',
-        guestName: guestName || '',
-        uploadedBy: uploadedBy || 'Receptionist',
+        reference: String(reference || '').slice(0, 80),
+        guestName: String(guestName || '').slice(0, 120),
+        uploadedBy: String(uploadedBy || 'Receptionist').slice(0, 80),
         uploadedAt: new Date().toISOString(),
-        metadata: metadata || {}
+        metadata: metadata && typeof metadata === 'object' ? metadata : {}
       };
 
       // Store in memory cache

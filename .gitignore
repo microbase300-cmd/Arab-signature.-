@@ -5,10 +5,11 @@ node_modules/
 dist/
 dist-ssr/
 
-# Local Environment Variables
+# Local Environment Variables & Confidential Credentials
 .env
 .env.local
 .env.*.local
+STAFF_PORTAL_CREDENTIALS.txt
 
 # Logs
 npm-debug.log*

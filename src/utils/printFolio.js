@@ -1,6 +1,15 @@
 // Arab Signature Hotel & Suites — High-Performance Clean Folio Printer
 // Resolves browser "Loading preview..." freeze by printing via an isolated, unblurred iframe
 
+function escapeHtml(val) {
+  return String(val ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function printFolioReceipt(booking) {
   if (!booking) return;
 
@@ -12,6 +21,7 @@ export function printFolioReceipt(booking) {
 
   const iframe = document.createElement('iframe');
   iframe.id = 'ash-print-iframe';
+  iframe.setAttribute('sandbox', 'allow-same-origin allow-modals');
   iframe.style.position = 'fixed';
   iframe.style.top = '-9999px';
   iframe.style.left = '-9999px';
@@ -22,15 +32,26 @@ export function printFolioReceipt(booking) {
   iframe.style.pointerEvents = 'none';
   document.body.appendChild(iframe);
 
-  const code = booking.id || booking.bookingCode || 'ARS-CONFIRMED';
-  const isExt = code.includes('EXT') || String(booking.roomNumber || '').startsWith('1') || (booking.roomName || '').toLowerCase().includes('ext');
-  const wing = booking.buildingLabel || (isExt ? 'Extension Building (100 Wing)' : 'Main Building (600 Wing)');
+  const rawCode = booking.id || booking.bookingCode || 'ARS-CONFIRMED';
+  const code = escapeHtml(rawCode);
+  const isExt = String(rawCode).includes('EXT') || String(booking.roomNumber || '').startsWith('1') || (booking.roomName || '').toLowerCase().includes('ext');
+  const wing = escapeHtml(booking.buildingLabel || (isExt ? 'Extension Building (100 Wing)' : 'Main Building (600 Wing)'));
   const amountFormatted = Number(booking.amount || 0).toLocaleString();
-  const nights = Number(booking.nights) || 1;
+  const nights = Math.max(1, Number(booking.nights) || 1);
   const nightlyRate = Math.round((Number(booking.amount) || 0) / nights).toLocaleString();
-  const paystackRef = booking.paystackReference || booking.paymentRef || 'PAYSTACK-VERIFIED';
-  const paymentMethod = booking.paymentMethod || 'Paystack (Online Verified)';
-  const roomNumberDisplay = booking.roomNumber && booking.roomNumber !== 'Unassigned' ? `#${booking.roomNumber}` : 'Front Desk Keycard Allocation';
+  const paystackRef = escapeHtml(booking.paystackReference || booking.paymentRef || 'PAYSTACK-VERIFIED');
+  const paymentMethod = escapeHtml(booking.paymentMethod || 'Paystack (Online Verified)');
+  const roomNumberDisplay = escapeHtml(booking.roomNumber && booking.roomNumber !== 'Unassigned' ? `#${booking.roomNumber}` : 'Front Desk Keycard Allocation');
+  const safeGuestName = escapeHtml(booking.guestName || 'Valued Guest');
+  const safePhone = escapeHtml(booking.phone || 'N/A');
+  const safeEmail = escapeHtml(booking.email || 'N/A');
+  const safeHomeAddress = booking.homeAddress ? escapeHtml(booking.homeAddress) : '';
+  const safeNextOfKinName = booking.nextOfKinName ? escapeHtml(booking.nextOfKinName) : '';
+  const safeNextOfKinPhone = booking.nextOfKinPhone ? escapeHtml(booking.nextOfKinPhone) : '';
+  const safeNextOfKinRel = booking.nextOfKinRelationship ? escapeHtml(booking.nextOfKinRelationship) : '';
+  const safeRoomName = escapeHtml(booking.roomName || 'Executive Suite');
+  const safeCheckIn = escapeHtml(booking.checkIn || 'Confirmed');
+  const safeCheckOut = escapeHtml(booking.checkOut || 'Confirmed');
 
   const doc = iframe.contentWindow.document;
   doc.open();
@@ -249,20 +270,20 @@ export function printFolioReceipt(booking) {
   <div class="grid-2">
     <div class="card">
       <div class="card-title">Guest Stay Registration</div>
-      <div class="row"><span class="label">Primary Guest:</span><span class="val">${booking.guestName || 'Valued Guest'}</span></div>
-      <div class="row"><span class="label">Phone / WhatsApp:</span><span class="val">${booking.phone || 'N/A'}</span></div>
-      <div class="row"><span class="label">Email Address:</span><span class="val">${booking.email || 'N/A'}</span></div>
-      ${booking.homeAddress ? `<div class="row"><span class="label">Residential Address:</span><span class="val">${booking.homeAddress}</span></div>` : ''}
-      ${booking.nextOfKinName ? `<div class="row"><span class="label">Next of Kin:</span><span class="val">${booking.nextOfKinName} (${booking.nextOfKinPhone || ''}${booking.nextOfKinRelationship ? ' • ' + booking.nextOfKinRelationship : ''})</span></div>` : ''}
+      <div class="row"><span class="label">Primary Guest:</span><span class="val">${safeGuestName}</span></div>
+      <div class="row"><span class="label">Phone / WhatsApp:</span><span class="val">${safePhone}</span></div>
+      <div class="row"><span class="label">Email Address:</span><span class="val">${safeEmail}</span></div>
+      ${safeHomeAddress ? `<div class="row"><span class="label">Residential Address:</span><span class="val">${safeHomeAddress}</span></div>` : ''}
+      ${safeNextOfKinName ? `<div class="row"><span class="label">Next of Kin:</span><span class="val">${safeNextOfKinName} (${safeNextOfKinPhone}${safeNextOfKinRel ? ' • ' + safeNextOfKinRel : ''})</span></div>` : ''}
     </div>
 
     <div class="card">
       <div class="card-title">Suite &amp; Stay Schedule</div>
-      <div class="row"><span class="label">Suite Reserved:</span><span class="val">${booking.roomName || 'Executive Suite'}</span></div>
+      <div class="row"><span class="label">Suite Reserved:</span><span class="val">${safeRoomName}</span></div>
       <div class="row"><span class="label">Assigned Suite:</span><span class="val" style="color: #3d0519; font-weight: bold;">${roomNumberDisplay}</span></div>
       <div class="row"><span class="label">Building Wing:</span><span class="val">${wing}</span></div>
-      <div class="row"><span class="label">Check-In Date:</span><span class="val">${booking.checkIn || 'Confirmed'} (from 2:00 PM)</span></div>
-      <div class="row"><span class="label">Check-Out Date:</span><span class="val">${booking.checkOut || 'Confirmed'} (by 12:00 PM)</span></div>
+      <div class="row"><span class="label">Check-In Date:</span><span class="val">${safeCheckIn} (from 2:00 PM)</span></div>
+      <div class="row"><span class="label">Check-Out Date:</span><span class="val">${safeCheckOut} (by 12:00 PM)</span></div>
       <div class="row"><span class="label">Duration of Stay:</span><span class="val">${nights} ${nights === 1 ? 'Night' : 'Nights'}</span></div>
     </div>
   </div>
@@ -279,9 +300,9 @@ export function printFolioReceipt(booking) {
     <tbody>
       <tr>
         <td>
-          <strong>${booking.roomName || 'Luxury Suite Accommodation'}</strong>
+          <strong>${safeRoomName}</strong>
           <div style="font-size: 11px; color: #666; margin-top: 2px;">
-            ${wing} &bull; Check-in: ${booking.checkIn} &bull; Check-out: ${booking.checkOut}
+            ${wing} &bull; Check-in: ${safeCheckIn} &bull; Check-out: ${safeCheckOut}
           </div>
         </td>
         <td style="text-align: center;">${nights}</td>
@@ -436,6 +457,6 @@ export function openWhatsAppReceipt(phone, booking) {
   const text = buildWhatsAppReceiptText(booking);
   const encoded = encodeURIComponent(text);
   const url = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
-  window.open(url, '_blank');
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 

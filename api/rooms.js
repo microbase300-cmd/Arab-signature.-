@@ -53,14 +53,24 @@ const DEFAULT_INVENTORY = [
 let memoryCache = null;
 let lastSyncTimestamp = null;
 
+const ALLOWED_ORIGINS = [
+  'https://www.arabsignature.com',
+  'https://arabsignature.com',
+  'http://localhost:5173',
+  'http://localhost:4173'
+];
+
 export default async function handler(req, res) {
+  const origin = req.headers.origin || '';
+  const isAllowedOrigin = ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.vercel.app');
+
   // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Origin', isAllowedOrigin ? origin : 'https://www.arabsignature.com');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-ASH-Integrity'
   );
 
   // Disable caching so updates are received with 0 delay across all devices
@@ -72,6 +82,11 @@ export default async function handler(req, res) {
 
   // POST: Receptionist updates room inventory (e.g. Occupy, Make Available, Check Out)
   if (req.method === 'POST') {
+    const integrityHeader = req.headers['x-ash-integrity'] || '';
+    if (!isAllowedOrigin && integrityHeader !== 'ash-v2-verified-origin-9481') {
+      return res.status(403).json({ error: 'Forbidden origin' });
+    }
+
     try {
       let body = req.body;
       if (typeof body === 'string') {
@@ -81,27 +96,33 @@ export default async function handler(req, res) {
       }
 
       const { rooms } = body || {};
-      if (rooms && Array.isArray(rooms) && rooms.length > 0) {
+      if (rooms && Array.isArray(rooms) && rooms.length === 34) {
+        const sanitizedRooms = rooms.map(r => ({
+          ...r,
+          roomNumber: String(r.roomNumber || '').replace(/[<>"'`]/g, '').slice(0, 10),
+          status: ['available', 'occupied', 'reserved', 'cancellation_pending', 'early_termination_pending'].includes(r.status) ? r.status : 'available',
+          currentGuest: r.currentGuest ? String(r.currentGuest).replace(/[<>"'`]/g, '').slice(0, 120) : null
+        }));
         lastSyncTimestamp = Date.now();
-        memoryCache = rooms;
+        memoryCache = sanitizedRooms;
 
         // Persist to MantleDB
         try {
           await fetch(MANTLE_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rooms, updatedAt: lastSyncTimestamp }),
+            body: JSON.stringify({ rooms: sanitizedRooms, updatedAt: lastSyncTimestamp }),
             signal: AbortSignal.timeout(3000)
           });
         } catch (storageErr) {
           console.warn('MantleDB write warning in /api/rooms:', storageErr);
         }
 
-        const availableCount = rooms.filter(r => r.status === 'available').length;
+        const availableCount = sanitizedRooms.filter(r => r.status === 'available').length;
         return res.status(200).json({
           success: true,
           availableCount,
-          totalRooms: rooms.length,
+          totalRooms: sanitizedRooms.length,
           updatedAt: lastSyncTimestamp
         });
       }

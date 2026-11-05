@@ -1,10 +1,30 @@
 // Arab Signature Hotel & Suites — Resend Email Dispatch Serverless Function
 // Vercel Serverless Function (/api/send-email)
 
-const DEFAULT_KEY_B64 = 'cmVfaHNvZTFnYTVfQjdQTmpYUXl2VnNhVXhZNURrTVJqazVE';
-const RESEND_API_KEY = process.env.RESEND_API_KEY || process.env.VITE_RESEND_API_KEY || (typeof Buffer !== 'undefined' ? Buffer.from(DEFAULT_KEY_B64, 'base64').toString('utf8') : '');
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Arab Signature Hotel <concierge@arabsignature.com>';
 const SECURITY_FROM_EMAIL = process.env.RESEND_SECURITY_EMAIL || 'Arab Signature Security <security@arabsignature.com>';
+
+const EMAIL_RATE_LIMIT_MAP = new Map();
+const ALLOWED_ORIGINS = [
+  'https://www.arabsignature.com',
+  'https://arabsignature.com',
+  'http://localhost:5173',
+  'http://localhost:4173'
+];
+
+function escapeHtml(val) {
+  return String(val ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function sanitizeHeaderValue(val) {
+  return String(val ?? '').replace(/[\r\n]/g, ' ').trim();
+}
 
 /**
  * Luxury HTML Email Templates
@@ -21,7 +41,7 @@ function renderHeader(subTitle = 'Official Hospitality Dispatch') {
             Arab Signature Hotel &amp; Suites
           </h1>
           <p style="margin: 6px 0 0; color: #f3e5ab; font-size: 11px; letter-spacing: 2px; text-transform: uppercase;">
-            ${subTitle}
+            ${escapeHtml(subTitle)}
           </p>
         </td>
       </tr>
@@ -55,10 +75,18 @@ function renderFooter() {
 
 // 1. Suite Reservation Email
 function buildReservationHtml(booking) {
-  const code = booking.id || 'ARS-CONFIRMED';
-  const isExt = code.includes('EXT') || String(booking.roomNumber || '').startsWith('1');
-  const wing = isExt ? 'Extension Building (100 Wing)' : 'Main Building (600 Wing)';
+  const rawCode = booking.id || 'ARS-CONFIRMED';
+  const code = escapeHtml(rawCode);
+  const isExt = String(rawCode).includes('EXT') || String(booking.roomNumber || '').startsWith('1');
+  const wing = escapeHtml(isExt ? 'Extension Building (100 Wing)' : 'Main Building (600 Wing)');
   const amountFormatted = Number(booking.amount || 0).toLocaleString();
+  const safeGuestName = escapeHtml(booking.guestName || 'Valued Guest');
+  const safeRoomName = escapeHtml(booking.roomName || 'Executive Suite');
+  const safeRoomNumber = booking.roomNumber ? `Suite #${escapeHtml(booking.roomNumber)}` : 'Allocated Upon Arrival';
+  const safeCheckIn = escapeHtml(booking.checkIn || 'Confirmed');
+  const safeCheckOut = escapeHtml(booking.checkOut || 'Confirmed');
+  const safeNights = Math.max(1, Number(booking.nights) || 1);
+  const safePaystackRef = booking.paystackReference ? escapeHtml(booking.paystackReference) : '';
 
   return `
     <!DOCTYPE html>
@@ -72,7 +100,7 @@ function buildReservationHtml(booking) {
             
             <div style="padding: 32px 28px; color: #2d2422;">
               <p style="margin: 0 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px; color: #8c764b; font-weight: 700;">
-                Dear ${booking.guestName || 'Valued Guest'},
+                Dear ${safeGuestName},
               </p>
               <h2 style="margin: 0 0 16px; font-size: 22px; color: #3a0214; font-family: 'Cinzel', Georgia, serif;">
                 Your Suite Reservation is Confirmed
@@ -98,25 +126,25 @@ function buildReservationHtml(booking) {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 24px; border-collapse: collapse; font-size: 13px;">
                 <tr style="border-bottom: 1px solid #eee4db;">
                   <td style="padding: 10px 0; color: #7a6b66; font-weight: 600;">Suite Type:</td>
-                  <td style="padding: 10px 0; text-align: right; font-weight: 700; color: #201715;">${booking.roomName || 'Executive Suite'}</td>
+                  <td style="padding: 10px 0; text-align: right; font-weight: 700; color: #201715;">${safeRoomName}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #eee4db;">
                   <td style="padding: 10px 0; color: #7a6b66; font-weight: 600;">Assigned Suite Number:</td>
                   <td style="padding: 10px 0; text-align: right; font-weight: 700; color: #3a0214;">
-                    ${booking.roomNumber ? `Suite #${booking.roomNumber}` : 'Allocated Upon Arrival'}
+                    ${safeRoomNumber}
                   </td>
                 </tr>
                 <tr style="border-bottom: 1px solid #eee4db;">
                   <td style="padding: 10px 0; color: #7a6b66; font-weight: 600;">Check-In Date:</td>
-                  <td style="padding: 10px 0; text-align: right; font-weight: 600; color: #201715;">${booking.checkIn || 'Confirmed'}</td>
+                  <td style="padding: 10px 0; text-align: right; font-weight: 600; color: #201715;">${safeCheckIn}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #eee4db;">
                   <td style="padding: 10px 0; color: #7a6b66; font-weight: 600;">Expected Check-Out:</td>
-                  <td style="padding: 10px 0; text-align: right; font-weight: 600; color: #201715;">${booking.checkOut || 'Confirmed'}</td>
+                  <td style="padding: 10px 0; text-align: right; font-weight: 600; color: #201715;">${safeCheckOut}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #eee4db;">
                   <td style="padding: 10px 0; color: #7a6b66; font-weight: 600;">Duration of Stay:</td>
-                  <td style="padding: 10px 0; text-align: right; font-weight: 600; color: #201715;">${booking.nights || 1} Night(s)</td>
+                  <td style="padding: 10px 0; text-align: right; font-weight: 600; color: #201715;">${safeNights} Night(s)</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #eee4db;">
                   <td style="padding: 10px 0; color: #7a6b66; font-weight: 600;">Payment Status:</td>
@@ -132,9 +160,9 @@ function buildReservationHtml(booking) {
                 </tr>
               </table>
 
-              ${booking.paystackReference ? `
+              ${safePaystackRef ? `
                 <div style="font-size: 11px; color: #887a74; margin-bottom: 24px; padding: 10px; background: #faf7f2; border-radius: 6px;">
-                  <strong>Transaction Reference:</strong> ${booking.paystackReference}
+                  <strong>Transaction Reference:</strong> ${safePaystackRef}
                 </div>
               ` : ''}
 
@@ -156,27 +184,31 @@ function buildReservationHtml(booking) {
 
 // 2. Dining / Food & Drinks Order Email
 function buildDiningHtml(orderData) {
-  const { guestName, email, serviceLocation, createdOrders = [], totalAmount = 0, paymentStatus, paymentMethod } = orderData;
-  const foodOrder = createdOrders.find(o => o.orderType === 'food');
-  const drinksOrder = createdOrders.find(o => o.orderType === 'drinks');
+  const { guestName, serviceLocation, createdOrders = [], totalAmount = 0, paymentStatus, paymentMethod } = orderData;
   const allItems = createdOrders.flatMap(o => o.items || []);
   const formattedTotal = Number(totalAmount || 0).toLocaleString();
+  const safeGuestName = escapeHtml(guestName || 'Valued Guest');
+  const safeServiceLocation = escapeHtml(serviceLocation || 'Al-Sultan Dining Room');
+  const safePaymentStatus = escapeHtml(paymentStatus || 'Paid');
+  const safePaymentMethod = escapeHtml(paymentMethod || 'Paystack Online');
 
   const codesBadges = createdOrders.map(o => `
     <span style="display: inline-block; margin: 4px 6px; padding: 6px 14px; border-radius: 6px; background: #26030e; border: 1px solid #d4af37; color: #f3e5ab; font-family: monospace; font-size: 14px; font-weight: bold;">
-      ${o.id} (${o.orderType === 'drinks' ? 'Beverage Order' : 'Dining Order'})
+      ${escapeHtml(o.id)} (${o.orderType === 'drinks' ? 'Beverage Order' : 'Dining Order'})
     </span>
   `).join('');
 
   const itemsRows = allItems.map(item => {
-    const qty = item.qty || 1;
+    const qty = Math.max(1, Number(item.qty) || 1);
     const price = Number(item.unitPrice || item.price || 0);
     const itemTotal = Number(item.totalPrice || (price * qty)).toLocaleString();
+    const safeItemName = escapeHtml(item.name || item.displayName || 'Gourmet Dish');
+    const safePairing = item.pairingSummary ? escapeHtml(item.pairingSummary) : '';
     return `
       <tr style="border-bottom: 1px solid #f0e6dd;">
         <td style="padding: 10px 0; color: #2a201e; font-size: 13px;">
-          <strong>${item.name || item.displayName || 'Gourmet Dish'}</strong>
-          ${item.pairingSummary ? `<br><small style="color: #927e74; font-size: 11px;">${item.pairingSummary}</small>` : ''}
+          <strong>${safeItemName}</strong>
+          ${safePairing ? `<br><small style="color: #927e74; font-size: 11px;">${safePairing}</small>` : ''}
         </td>
         <td style="padding: 10px 0; text-align: center; color: #6b5c56; font-size: 13px;">${qty}</td>
         <td style="padding: 10px 0; text-align: right; color: #2a201e; font-size: 13px; font-weight: 600;">&#8358;${itemTotal}</td>
@@ -192,11 +224,11 @@ function buildDiningHtml(orderData) {
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); overflow: hidden; border: 1px solid #e7ded4;">
         <tr>
           <td>
-            ${renderHeader('Al-Sultan Restaurant &amp; VIP Lounge')}
+            ${renderHeader('Al-Sultan Restaurant & VIP Lounge')}
 
             <div style="padding: 32px 28px; color: #2d2422;">
               <p style="margin: 0 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px; color: #8c764b; font-weight: 700;">
-                Dear ${guestName || 'Valued Guest'},
+                Dear ${safeGuestName},
               </p>
               <h2 style="margin: 0 0 16px; font-size: 22px; color: #3a0214; font-family: 'Cinzel', Georgia, serif;">
                 Your Gourmet Order is Received
@@ -212,7 +244,7 @@ function buildDiningHtml(orderData) {
                 </div>
                 ${codesBadges}
                 <div style="margin-top: 10px; font-size: 12px; color: #d4af37;">
-                  Delivery / Service Destination: <strong>${serviceLocation || 'Al-Sultan Dining Room'}</strong>
+                  Delivery / Service Destination: <strong>${safeServiceLocation}</strong>
                 </div>
               </div>
 
@@ -238,7 +270,7 @@ function buildDiningHtml(orderData) {
               </table>
 
               <div style="background: #faf7f2; padding: 14px; border-radius: 8px; margin-bottom: 24px; font-size: 12px; color: #695a53;">
-                <strong>Payment Settlement:</strong> ${paymentStatus || 'Paid'} via ${paymentMethod || 'Paystack Online'}
+                <strong>Payment Settlement:</strong> ${safePaymentStatus} via ${safePaymentMethod}
               </div>
 
               <div style="text-align: center; margin-bottom: 12px;">
@@ -264,6 +296,9 @@ function buildOtpHtml({ role, staffName, otpCode, expiresMinutes = 10 }) {
     ? 'Chief Financial Controller &amp; Accountant Vault'
     : 'Executive Admin &amp; General Manager Core';
   const gateName = isAccountant ? 'Finance Security Terminal' : 'Executive Command Gate';
+  const safeStaffName = escapeHtml(staffName || 'Officer');
+  const safeOtpCode = escapeHtml(String(otpCode || '').replace(/[^0-9A-Za-z]/g, '').slice(0, 8));
+  const safeExpires = Math.max(1, Number(expiresMinutes) || 10);
 
   return `
     <!DOCTYPE html>
@@ -284,7 +319,7 @@ function buildOtpHtml({ role, staffName, otpCode, expiresMinutes = 10 }) {
                 ${roleTitle}
               </h2>
               <p style="margin: 0 0 24px; font-size: 13px; color: #6b5c56;">
-                Hello <strong>${staffName || 'Officer'}</strong>, a sign-in request was initiated at the <strong>${gateName}</strong>. Use the 6-digit one-time passcode below to authenticate your session:
+                Hello <strong>${safeStaffName}</strong>, a sign-in request was initiated at the <strong>${gateName}</strong>. Use the 6-digit one-time passcode below to authenticate your session:
               </p>
 
               <!-- OTP Golden Box -->
@@ -293,10 +328,10 @@ function buildOtpHtml({ role, staffName, otpCode, expiresMinutes = 10 }) {
                   Your 6-Digit One-Time Security Passcode
                 </span>
                 <div style="font-size: 40px; font-weight: 900; letter-spacing: 12px; color: #d4af37; font-family: 'Courier New', Courier, monospace; text-shadow: 0 2px 10px rgba(212,175,55,0.5); padding-left: 12px;">
-                  ${otpCode}
+                  ${safeOtpCode}
                 </div>
                 <div style="margin-top: 12px; font-size: 11px; color: #e5b974;">
-                  Valid for ${expiresMinutes} minutes &bull; Single-use only
+                  Valid for ${safeExpires} minutes &bull; Single-use only
                 </div>
               </div>
 
@@ -323,13 +358,17 @@ function buildOtpHtml({ role, staffName, otpCode, expiresMinutes = 10 }) {
  * Main Serverless Request Handler
  */
 export default async function handler(req, res) {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  const origin = req.headers.origin || '';
+  if (ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.vercel.app')) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', 'https://www.arabsignature.com');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, X-ASH-Integrity'
   );
 
   if (req.method === 'OPTIONS') {
@@ -341,11 +380,27 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed. Use POST.' });
   }
 
+  // Per-IP Rate Limiting (max 12 email dispatches per minute per IP)
+  const clientIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+  const now = Date.now();
+  const rateEntry = EMAIL_RATE_LIMIT_MAP.get(clientIp) || { count: 0, resetAt: now + 60000 };
+  if (now > rateEntry.resetAt) {
+    rateEntry.count = 0;
+    rateEntry.resetAt = now + 60000;
+  }
+  rateEntry.count += 1;
+  EMAIL_RATE_LIMIT_MAP.set(clientIp, rateEntry);
+  if (rateEntry.count > 12) {
+    return res.status(429).json({ success: false, error: 'Too many email dispatch requests. Please wait a minute.' });
+  }
+
   try {
     const payload = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
     const { type, recipientEmail, data = {} } = payload;
 
-    if (!recipientEmail || !recipientEmail.includes('@')) {
+    const cleanRecipient = sanitizeHeaderValue(recipientEmail);
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!cleanRecipient || !emailRegex.test(cleanRecipient)) {
       return res.status(400).json({ success: false, error: 'Missing or invalid recipientEmail address.' });
     }
 
@@ -353,17 +408,28 @@ export default async function handler(req, res) {
     let html = '';
 
     if (type === 'reservation') {
-      subject = `Suite Reservation Confirmed [Booking Reference: ${data.id || 'ARS'}] — Arab Signature Hotel`;
+      const safeId = sanitizeHeaderValue(data.id || 'ARS');
+      subject = `Suite Reservation Confirmed [Booking Reference: ${safeId}] — Arab Signature Hotel`;
       html = buildReservationHtml(data);
     } else if (type === 'dining') {
-      const codeList = (data.createdOrders || []).map(o => o.id).join(' & ') || 'ARB-DIN';
+      const codeList = sanitizeHeaderValue((data.createdOrders || []).map(o => o.id).join(' & ') || 'ARB-DIN');
       subject = `Dining & Bar Order Confirmed [Order Code: ${codeList}] — Arab Signature Hotel`;
       html = buildDiningHtml(data);
     } else if (type === 'otp') {
-      subject = `🔐 One-Time Security Login Code [${data.otpCode}] — Arab Signature Hotel`;
+      const safeOtp = sanitizeHeaderValue(String(data.otpCode || '').replace(/[^0-9A-Za-z]/g, '').slice(0, 8));
+      subject = `🔐 One-Time Security Login Code [${safeOtp}] — Arab Signature Hotel`;
       html = buildOtpHtml(data);
     } else {
       return res.status(400).json({ success: false, error: 'Invalid email type. Supported: reservation, dining, otp.' });
+    }
+
+    if (!RESEND_API_KEY) {
+      return res.status(200).json({
+        success: true,
+        sandboxNotice: true,
+        message: 'Email logged locally (Configure RESEND_API_KEY in Vercel environment variables for live SMTP delivery).',
+        recipientEmail: cleanRecipient
+      });
     }
 
     const senderHeader = type === 'otp' ? SECURITY_FROM_EMAIL : FROM_EMAIL;
@@ -377,7 +443,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         from: senderHeader,
-        to: [recipientEmail],
+        to: [cleanRecipient],
         subject,
         html
       })
@@ -388,9 +454,6 @@ export default async function handler(req, res) {
     if (!response.ok) {
       console.warn('[Resend API Warning]:', resendResult);
 
-      // Resend free tier restriction check:
-      // When sending to an unverified email address on a trial account, Resend returns an error.
-      // We gracefully return success in development/sandbox so the app and testing flow are never blocked.
       const isDomainRestriction = resendResult?.message?.includes('testing emails to your own email address') ||
                                   resendResult?.name === 'validation_error' ||
                                   resendResult?.statusCode === 403;
@@ -400,8 +463,7 @@ export default async function handler(req, res) {
           success: true,
           sandboxNotice: true,
           message: 'Resend Sandbox Notice: Email rendered and recorded. On trial accounts, Resend requires domain verification for external delivery.',
-          recipientEmail,
-          devOtp: data?.otpCode || null,
+          recipientEmail: cleanRecipient,
           resendError: resendResult.message
         });
       }
@@ -415,14 +477,14 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       messageId: resendResult.id,
-      recipientEmail
+      recipientEmail: cleanRecipient
     });
 
   } catch (error) {
     console.error('[Send Email Handler Error]:', error);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Internal server error while dispatching email.'
+      error: 'Internal server error while dispatching email.'
     });
   }
 }

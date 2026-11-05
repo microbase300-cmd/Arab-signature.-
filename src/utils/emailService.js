@@ -1,8 +1,8 @@
 // Arab Signature Hotel & Suites — Email Dispatch Service
 // Supports Suite Reservation Confirmations, Al-Sultan Dining Order Tracking, and Executive OTP Passcodes
 
-const RESEND_PUBLIC_FALLBACK_KEY = import.meta.env.VITE_RESEND_API_KEY || '';
 const STORAGE_EMAIL_LOGS = 'ash_dispatched_email_logs';
+const ASH_CLIENT_INTEGRITY_TOKEN = 'ash-v2-verified-origin-9481';
 
 /**
  * Record sent email into client audit logs (for Admin and Accountant review)
@@ -31,7 +31,10 @@ async function dispatchEmailEndpoint(payload) {
   try {
     const res = await fetch('/api/send-email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-ASH-Integrity': ASH_CLIENT_INTEGRITY_TOKEN
+      },
       body: JSON.stringify(payload)
     });
 

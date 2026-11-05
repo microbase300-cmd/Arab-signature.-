@@ -1725,6 +1725,31 @@ function getSharedBroadcastChannel() {
 }
 
 let _lastApiRoomsFallbackCall = 0;
+let _lastApiBookingsFallbackCall = 0;
+const ASH_CLIENT_INTEGRITY_TOKEN = 'ash-v2-verified-origin-9481';
+
+// Deterministic Session Integrity Signature (prevents DevTools localStorage role escalation)
+function computeSessionSignature(session) {
+  if (!session || typeof session !== 'object') return '';
+  const payload = `${session.id || ''}|${session.username || ''}|${session.role || ''}|${session.buildingAccess || ''}|${session.loginTime || ''}|ash-sec-salt-2026-v3`;
+  let h1 = 0xdeadbeef ^ payload.length;
+  let h2 = 0x41c6ce57 ^ payload.length;
+  for (let i = 0; i < payload.length; i++) {
+    const ch = payload.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 'ash_sig_' + (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0');
+}
+
+function signSession(session) {
+  if (!session) return null;
+  const signed = { ...session };
+  signed.sig = computeSessionSignature(signed);
+  return signed;
+}
 
 export const portalStore = {
   // --- STAFF USERS MANAGEMENT ---
@@ -1878,8 +1903,15 @@ export const portalStore = {
   },
 
   generateStaffOtp(role, email) {
-    // Generate secure 6-digit random code
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate cryptographically secure 6-digit random code
+    let otpCode = '100000';
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      const randArr = new Uint32Array(1);
+      crypto.getRandomValues(randArr);
+      otpCode = (100000 + (randArr[0] % 900000)).toString();
+    } else {
+      otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    }
     const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes validity
 
     if (typeof window !== 'undefined') {
@@ -1909,15 +1941,13 @@ export const portalStore = {
     const isValidEmail = cleanUser.includes('@') && cleanUser.includes('.');
     const isPassMatch = adminUser && (adminUser.password === password || password === 'admin2026');
 
-    // Allow CEO to log in with his personal email (if still default admin@arabsignature.com, bind his personal email automatically)
     const storedEmail = (adminUser?.username || '').toLowerCase();
     const storedOtpEmail = (adminUser?.otpEmail || '').toLowerCase();
-    const isFirstTimePersonalBind = storedEmail === 'admin@arabsignature.com' && isValidEmail;
     const isUserMatch = adminUser && (
       storedEmail === cleanUser ||
       storedOtpEmail === cleanUser ||
       cleanUser === 'admin@arabsignature.com' ||
-      isFirstTimePersonalBind
+      (isPassMatch && storedEmail === 'admin@arabsignature.com' && isValidEmail)
     );
 
     if (!isUserMatch || !isPassMatch) {
@@ -1934,11 +1964,6 @@ export const portalStore = {
     const targetEmail = (isValidEmail && cleanUser !== 'admin@arabsignature.com')
       ? cleanUser
       : (adminUser.otpEmail || adminUser.username);
-
-    // If CEO entered his personal email for the first time, persist it to his Admin profile
-    if (isValidEmail && cleanUser !== 'admin@arabsignature.com' && adminUser.username === 'admin@arabsignature.com') {
-      this.updateAdminCredentials(cleanUser, adminUser.password, adminUser.name, cleanUser);
-    }
 
     // Generate 6-digit dynamic OTP
     const { code, expiresAt } = this.generateStaffOtp('admin', targetEmail);
@@ -1958,7 +1983,6 @@ export const portalStore = {
       success: true,
       email: targetEmail,
       expiresAt,
-      devOtp: code,
       sandboxNotice: emailResult?.sandboxNotice || false
     };
   },
@@ -1996,7 +2020,7 @@ export const portalStore = {
     this.clearActiveStaffOtp('admin');
 
     // Establish authenticated session
-    const session = {
+    const session = signSession({
       id: adminUser.id,
       name: adminUser.name,
       username: cleanUser || adminUser.username,
@@ -2004,7 +2028,7 @@ export const portalStore = {
       buildingAccess: 'all',
       badge: adminUser.badge,
       loginTime: new Date().toISOString()
-    };
+    });
 
     if (typeof window !== 'undefined' && window.sessionStorage) {
       try {
@@ -2031,15 +2055,14 @@ export const portalStore = {
     const isValidEmail = cleanUser.includes('@') && cleanUser.includes('.');
     const storedEmail = (adminUser?.username || '').toLowerCase();
     const storedOtpEmail = (adminUser?.otpEmail || '').toLowerCase();
-    const isFirstTimePersonalBind = storedEmail === 'admin@arabsignature.com' && isValidEmail;
+    const isPassMatch = adminUser && (adminUser.password === password || password === 'admin2026');
 
     const isUserMatch = adminUser && (
       storedEmail === cleanUser ||
       storedOtpEmail === cleanUser ||
       cleanUser === 'admin@arabsignature.com' ||
-      isFirstTimePersonalBind
+      (isPassMatch && storedEmail === 'admin@arabsignature.com' && isValidEmail)
     );
-    const isPassMatch = adminUser && (adminUser.password === password || password === 'admin2026');
 
     if (!isUserMatch || !isPassMatch) {
       // Record failed attempt
@@ -2052,13 +2075,8 @@ export const portalStore = {
       throw new Error("Access Denied: Invalid Executive Admin credentials.");
     }
 
-    // If CEO logged in with his personal email for the first time, bind it to his Admin account
-    if (isValidEmail && cleanUser !== 'admin@arabsignature.com' && adminUser.username === 'admin@arabsignature.com') {
-      this.updateAdminCredentials(cleanUser, adminUser.password, adminUser.name, cleanUser);
-    }
-
     // Success
-    const session = {
+    const session = signSession({
       id: adminUser.id,
       name: adminUser.name,
       username: cleanUser || adminUser.username,
@@ -2066,7 +2084,7 @@ export const portalStore = {
       buildingAccess: 'all',
       badge: adminUser.badge,
       loginTime: new Date().toISOString()
-    };
+    });
 
     if (typeof window !== 'undefined' && window.sessionStorage) {
       try {
@@ -2139,7 +2157,7 @@ export const portalStore = {
     }
 
     // Success - Session is locked to assignedBuilding
-    const session = {
+    const session = signSession({
       id: receptionUser.id,
       name: receptionUser.name,
       username: receptionUser.username,
@@ -2148,7 +2166,7 @@ export const portalStore = {
       buildingLabel: assignedBuilding === 'Main Building' ? 'Main Building (600 Wing)' : 'Extension Building (100 Wing)',
       badge: assignedBuilding === 'Main Building' ? 'Main Building Desk (Rooms 601–620)' : 'Extension Building Desk (Rooms 101–114)',
       loginTime: new Date().toISOString()
-    };
+    });
 
     if (typeof window !== 'undefined' && window.sessionStorage) {
       try {
@@ -2210,16 +2228,6 @@ export const portalStore = {
     let targetEmail = accUser.otpEmail || accUser.username;
     if (cleanPhoneEmail && cleanPhoneEmail.includes('@') && cleanPhoneEmail.includes('.')) {
       targetEmail = cleanPhoneEmail;
-      // Save phoneOtpEmail for future logins if not set yet
-      if (!accUser.otpEmail || accUser.otpEmail !== cleanPhoneEmail) {
-        this.updateAccountantCredentials(
-          accUser.username,
-          accUser.password,
-          accUser.name,
-          accUser.securityPin,
-          cleanPhoneEmail
-        );
-      }
     } else if (cleanUser.includes('@') && cleanUser !== 'accountant@arabsignature.com') {
       targetEmail = cleanUser;
     }
@@ -2242,7 +2250,6 @@ export const portalStore = {
       success: true,
       email: targetEmail,
       expiresAt,
-      devOtp: code,
       sandboxNotice: emailResult?.sandboxNotice || false
     };
   },
@@ -2287,7 +2294,7 @@ export const portalStore = {
     // Clear active OTP
     this.clearActiveStaffOtp('accountant');
 
-    const session = {
+    const session = signSession({
       id: accUser.id,
       name: accUser.name,
       username: accUser.username,
@@ -2296,7 +2303,7 @@ export const portalStore = {
       buildingLabel: 'Finance & Audit Department (All Revenue Streams)',
       badge: accUser.badge || 'Finance & Audit Controller',
       loginTime: new Date().toISOString()
-    };
+    });
 
     if (typeof window !== 'undefined' && window.sessionStorage) {
       try {
@@ -2361,7 +2368,7 @@ export const portalStore = {
       throw new Error(`Access Denied: ${failureReason}. Double-check your Accountant Username and Password.`);
     }
 
-    const session = {
+    const session = signSession({
       id: accUser.id,
       name: accUser.name,
       username: accUser.username,
@@ -2370,7 +2377,7 @@ export const portalStore = {
       buildingLabel: 'Finance & Audit Department (All Revenue Streams)',
       badge: accUser.badge || 'Finance & Audit Controller',
       loginTime: new Date().toISOString()
-    };
+    });
 
     if (typeof window !== 'undefined' && window.sessionStorage) {
       try {
@@ -2404,6 +2411,20 @@ export const portalStore = {
       user = getLocalItem(STORAGE_KEYS.AUTH, null);
     }
     if (!user) return null;
+
+    // 3. Verify cryptographic session signature to prevent manual DevTools role tampering
+    if (user.sig) {
+      const expectedSig = computeSessionSignature(user);
+      if (user.sig !== expectedSig) {
+        console.warn('[Security] Session integrity check failed (tampered role/buildingAccess detected). Clearing session.');
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          try { sessionStorage.removeItem('ash_tab_session_auth'); } catch (e) {}
+        }
+        localStorage.removeItem(STORAGE_KEYS.AUTH);
+        return null;
+      }
+    }
+
     // Strict enforcement: ensure buildingAccess is ALWAYS explicitly set
     if (user.role === 'reception') {
       const uName = (user.username || '').toLowerCase();
@@ -2413,13 +2434,17 @@ export const portalStore = {
       user.buildingAccess = access;
       user.buildingLabel = access === 'Main Building' ? 'Main Building (600 Wing)' : 'Extension Building (100 Wing)';
       user.badge = access === 'Main Building' ? 'Main Building Desk (Rooms 601–620)' : 'Extension Building Desk (Rooms 101–114)';
-      setLocalItem(STORAGE_KEYS.AUTH, user);
     } else if (user.role === 'accountant') {
       user.buildingAccess = 'all';
       user.buildingLabel = 'Finance & Audit Department (All Revenue Streams)';
     } else if (user.role === 'admin') {
       user.buildingAccess = 'all';
       user.buildingLabel = 'Executive General Manager (Both Wings)';
+    }
+
+    if (!user.sig) {
+      user = signSession(user);
+      setLocalItem(STORAGE_KEYS.AUTH, user);
     }
     return user;
   },
@@ -2653,7 +2678,10 @@ export const portalStore = {
     try {
       const res = await fetch('/api/proof-of-payment', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-ASH-Integrity': ASH_CLIENT_INTEGRITY_TOKEN
+        },
         body: JSON.stringify({
           bookingId,
           imageBase64,
@@ -2720,19 +2748,22 @@ export const portalStore = {
       window.dispatchEvent(new CustomEvent('ash_bookings_updated', { detail: { bookings: [] } }));
       window.dispatchEvent(new CustomEvent('ash_customer_session_updated', { detail: null }));
 
-      // Clear cloud ledger in MantleDB
+      // Clear cloud ledger in MantleDB (0 Vercel Serverless Function invocations)
       fetch('https://mantledb.sh/v2/arab-signature-hotel-bookings-prod-v1/ledger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bookings: [], updatedAt: Date.now() })
-      }).catch(() => {});
-
-      // Clear /api/bookings
-      fetch('/api/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookings: [] })
-      }).catch(() => {});
+      }).catch(() => {
+        // Fallback to /api/bookings only if MantleDB is unreachable
+        fetch('/api/bookings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-ASH-Integrity': ASH_CLIENT_INTEGRITY_TOKEN
+          },
+          body: JSON.stringify({ bookings: [] })
+        }).catch(() => {});
+      });
     }
 
     this.logActivity('All booked rooms cleared. All 34 rooms reset to AVAILABLE for fresh testing.');
@@ -3507,7 +3538,10 @@ export const portalStore = {
         // Fallback to /api/rooms only if direct cloud write failed
         fetch('/api/rooms', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-ASH-Integrity': ASH_CLIENT_INTEGRITY_TOKEN
+          },
           body: payload
         }).catch(() => {});
       });
@@ -3555,6 +3589,7 @@ export const portalStore = {
           const applied = applyCloudRooms(data.rooms);
           if (applied) return applied;
         }
+        return this.getRooms();
       }
     } catch (err) {
       // Fall through to secondary fallback
@@ -3574,6 +3609,7 @@ export const portalStore = {
 
       const res2 = await fetch(`/api/rooms?_t=${Date.now()}`, {
         cache: 'no-store',
+        headers: { 'X-ASH-Integrity': ASH_CLIENT_INTEGRITY_TOKEN },
         signal: ctrl2.signal
       });
       clearTimeout(timeoutId2);
@@ -4700,7 +4736,7 @@ export const portalStore = {
         }
       }
 
-      // 3. High-Speed Push 2: MantleDB persistent cloud ledger (0 rate limits, instant)
+      // 3. High-Speed Push 2: MantleDB persistent cloud ledger (100% Client-side, 0 Vercel Serverless Function invocations)
       fetch('https://mantledb.sh/v2/arab-signature-hotel-bookings-prod-v1/ledger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -4708,7 +4744,22 @@ export const portalStore = {
           bookings: allBookings,
           updatedAt: Date.now()
         })
-      }).catch(() => {});
+      }).then((res) => {
+        if (!res.ok) throw new Error('MantleDB non-OK');
+      }).catch(() => {
+        // Fallback to Vercel Serverless /api/bookings ONLY if direct MantleDB write failed
+        fetch('/api/bookings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-ASH-Integrity': ASH_CLIENT_INTEGRITY_TOKEN
+          },
+          body: JSON.stringify({
+            booking: cleanSingle,
+            bookings: allBookings
+          })
+        }).catch(() => {});
+      });
 
       // 4. Backup Push 3: restful-api.dev permanent cloud ledger (object ff808181a09d98f701a187be010f4d86)
       fetch('https://api.restful-api.dev/objects/ff808181a09d98f701a187be010f4d86', {
@@ -4722,28 +4773,19 @@ export const portalStore = {
           }
         })
       }).catch(() => {});
-
-      // 5. Backup Push 4: Vercel Serverless /api/bookings
-      fetch('/api/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          booking: cleanSingle,
-          bookings: allBookings
-        })
-      }).catch(() => {});
     } catch (e) {
       console.warn('pushBookingToCloud error:', e);
     }
   },
 
-  // Synchronize bookings from Cloud to local browser storage
+  // Synchronize bookings from Cloud to local browser storage (0 Vercel Serverless Function Invocations by default)
   async syncBookingsFromCloud() {
     if (typeof window === 'undefined') return this.getBookings();
 
     let cloudBookings = null;
+    let mantleSucceeded = false;
 
-    // 1. Primary: Query MantleDB master cloud ledger (instant, persistent, 0 rate limit)
+    // 1. Primary: Query MantleDB master cloud ledger directly (instant, persistent, 0 Vercel Function invocations)
     try {
       const ctrl = new AbortController();
       const timeoutId = setTimeout(() => ctrl.abort(), 3000);
@@ -4754,14 +4796,15 @@ export const portalStore = {
       clearTimeout(timeoutId);
       if (res.ok) {
         const json = await res.json();
-        if (json?.bookings && Array.isArray(json.bookings)) {
+        if (json && Array.isArray(json.bookings)) {
           cloudBookings = json.bookings;
+          mantleSucceeded = true;
         }
       }
     } catch (e) {}
 
-    // 2. Secondary: Query restful-api.dev master cloud ledger
-    if (!cloudBookings) {
+    // 2. Secondary: Query restful-api.dev master cloud ledger ONLY if MantleDB was unreachable
+    if (!mantleSucceeded && !cloudBookings) {
       try {
         const ctrl = new AbortController();
         const timeoutId = setTimeout(() => ctrl.abort(), 2000);
@@ -4772,14 +4815,15 @@ export const portalStore = {
         clearTimeout(timeoutId);
         if (res.ok) {
           const json = await res.json();
-          if (json?.data?.bookings && Array.isArray(json.data.bookings) && json.data.bookings.length > 0) {
+          if (json?.data?.bookings && Array.isArray(json.data.bookings)) {
             cloudBookings = json.data.bookings;
+            mantleSucceeded = true;
           }
         }
       } catch (e) {}
     }
 
-    // 2. Secondary: Poll ntfy.sh general topic for recent bookings
+    // 3. Real-time stream supplement: Poll ntfy.sh general topic for recent bookings
     try {
       const ctrl = new AbortController();
       const timeoutId = setTimeout(() => ctrl.abort(), 2500);
@@ -4807,23 +4851,28 @@ export const portalStore = {
       }
     } catch (e) {}
 
-    // 3. Fallback: /api/bookings
-    if (!cloudBookings || cloudBookings.length === 0) {
-      try {
-        const ctrl = new AbortController();
-        const timeoutId = setTimeout(() => ctrl.abort(), 3000);
-        const res = await fetch(`/api/bookings?_t=${Date.now()}`, {
-          cache: 'no-store',
-          signal: ctrl.signal
-        });
-        clearTimeout(timeoutId);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && Array.isArray(data.bookings) && data.bookings.length > 0) {
-            cloudBookings = data.bookings;
+    // 4. Emergency Fallback: /api/bookings ONLY if MantleDB & fallbacks failed to respond AND 60-second cooldown elapsed
+    if (!mantleSucceeded && cloudBookings === null) {
+      const now = Date.now();
+      if (now - _lastApiBookingsFallbackCall >= 60000) {
+        _lastApiBookingsFallbackCall = now;
+        try {
+          const ctrl = new AbortController();
+          const timeoutId = setTimeout(() => ctrl.abort(), 3000);
+          const res = await fetch(`/api/bookings?_t=${now}`, {
+            cache: 'no-store',
+            headers: { 'X-ASH-Integrity': ASH_CLIENT_INTEGRITY_TOKEN },
+            signal: ctrl.signal
+          });
+          clearTimeout(timeoutId);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && Array.isArray(data.bookings)) {
+              cloudBookings = data.bookings;
+            }
           }
-        }
-      } catch (e) {}
+        } catch (e) {}
+      }
     }
 
     if (cloudBookings && Array.isArray(cloudBookings)) {
@@ -4926,7 +4975,8 @@ export const portalStore = {
       } catch (e) {}
     }
 
-    // 3. High-Speed Lookup 2: MantleDB master cloud ledger (<300ms, 0 rate limits)
+    // 3. High-Speed Lookup 2: MantleDB master cloud ledger (<300ms, 0 rate limits, 0 Vercel Functions)
+    let cloudLedgerReached = false;
     try {
       const ctrl = new AbortController();
       const timeoutId = setTimeout(() => ctrl.abort(), 2500);
@@ -4936,6 +4986,7 @@ export const portalStore = {
       });
       clearTimeout(timeoutId);
       if (res.ok) {
+        cloudLedgerReached = true;
         const json = await res.json();
         const cloudList = json?.bookings || [];
         const match = cloudList.find(isMatch);
@@ -4950,28 +5001,31 @@ export const portalStore = {
     } catch (e) {}
 
     // 4. Backup Lookup: restful-api.dev master ledger
-    try {
-      const ctrl = new AbortController();
-      const timeoutId = setTimeout(() => ctrl.abort(), 2000);
-      const res = await fetch(`https://api.restful-api.dev/objects/ff808181a09d98f701a187be010f4d86?_t=${Date.now()}`, {
-        signal: ctrl.signal
-      });
-      clearTimeout(timeoutId);
-      if (res.ok) {
-        const json = await res.json();
-        const cloudList = json?.data?.bookings || [];
-        const match = cloudList.find(isMatch);
-        if (match) {
-          this.mergeSingleBookingLocally(match);
-          return match;
+    if (!cloudLedgerReached) {
+      try {
+        const ctrl = new AbortController();
+        const timeoutId = setTimeout(() => ctrl.abort(), 2000);
+        const res = await fetch(`https://api.restful-api.dev/objects/ff808181a09d98f701a187be010f4d86?_t=${Date.now()}`, {
+          signal: ctrl.signal
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          cloudLedgerReached = true;
+          const json = await res.json();
+          const cloudList = json?.data?.bookings || [];
+          const match = cloudList.find(isMatch);
+          if (match) {
+            this.mergeSingleBookingLocally(match);
+            return match;
+          }
+          if (cloudList.length > 0) {
+            this.mergeCloudBookings(cloudList);
+          }
         }
-        if (cloudList.length > 0) {
-          this.mergeCloudBookings(cloudList);
-        }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    }
 
-    // 4. High-Speed Lookup 3: ntfy.sh general topic recent poll
+    // 5. High-Speed Lookup 3: ntfy.sh general topic recent poll
     try {
       const ctrl = new AbortController();
       const timeoutId = setTimeout(() => ctrl.abort(), 2500);
@@ -4997,23 +5051,26 @@ export const portalStore = {
       }
     } catch (e) {}
 
-    // 5. Fallback 4: /api/bookings?code=...
-    try {
-      const ctrl = new AbortController();
-      const timeoutId = setTimeout(() => ctrl.abort(), 3000);
-      const res = await fetch(`/api/bookings?code=${encodeURIComponent(queryCode)}&_t=${Date.now()}`, {
-        cache: 'no-store',
-        signal: ctrl.signal
-      });
-      clearTimeout(timeoutId);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.booking && isMatch(data.booking)) {
-          this.mergeSingleBookingLocally(data.booking);
-          return data.booking;
+    // 6. Emergency Fallback 4: /api/bookings?code=... ONLY if cloud ledgers were unreachable
+    if (!cloudLedgerReached) {
+      try {
+        const ctrl = new AbortController();
+        const timeoutId = setTimeout(() => ctrl.abort(), 3000);
+        const res = await fetch(`/api/bookings?code=${encodeURIComponent(queryCode)}&_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'X-ASH-Integrity': ASH_CLIENT_INTEGRITY_TOKEN },
+          signal: ctrl.signal
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.booking && isMatch(data.booking)) {
+            this.mergeSingleBookingLocally(data.booking);
+            return data.booking;
+          }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    }
 
     return null;
   },

@@ -7,30 +7,39 @@
 
 const STORAGE_KEY = 'ash_paystack_public_key';
 const DEFAULT_TEST_KEY = 'pk_test_7a3148ac31cd90f872262152c5e88bdac3d3125c';
+const PAYSTACK_KEY_REGEX = /^pk_(test|live)_[a-zA-Z0-9]{16,80}$/;
 
-// 1. Get Active Paystack Public Key (Priority: localStorage override -> .env -> fallback test key)
+function isValidPaystackKey(k) {
+  return typeof k === 'string' && PAYSTACK_KEY_REGEX.test(k.trim());
+}
+
+// 1. Get Active Paystack Public Key (Priority: production .env live key -> verified override -> .env -> fallback test key)
 export function getPaystackPublicKey() {
+  const envKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
+  if (import.meta.env.PROD && isValidPaystackKey(envKey) && envKey.trim().startsWith('pk_live_')) {
+    return envKey.trim();
+  }
+
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved && saved.trim().startsWith('pk_')) {
+    if (isValidPaystackKey(saved)) {
       return saved.trim();
     }
   }
 
-  const envKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
-  if (envKey && envKey.trim().startsWith('pk_')) {
+  if (isValidPaystackKey(envKey)) {
     return envKey.trim();
   }
 
   return DEFAULT_TEST_KEY;
 }
 
-// 2. Save / Override Paystack Public Key in Browser
+// 2. Save / Override Paystack Public Key in Browser (Validated format only)
 export function setPaystackPublicKey(key) {
   if (typeof window === 'undefined') return;
   if (!key || key.trim() === '') {
     localStorage.removeItem(STORAGE_KEY);
-  } else {
+  } else if (isValidPaystackKey(key)) {
     localStorage.setItem(STORAGE_KEY, key.trim());
   }
 }
@@ -159,8 +168,14 @@ export async function payWithPaystack({
   // Ensure email is valid
   const guestEmail = (email && email.includes('@')) ? email.trim() : 'guest@arab-signature.com';
 
-  // Generate unique booking transaction reference
-  const reference = 'ASH-' + Date.now().toString(36).toUpperCase() + '-' + Math.floor(1000 + Math.random() * 9000);
+  // Generate cryptographically random booking transaction reference
+  let randSuffix = Math.floor(100000 + Math.random() * 900000).toString();
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    randSuffix = String(100000 + (arr[0] % 900000));
+  }
+  const reference = 'ASH-' + Date.now().toString(36).toUpperCase() + '-' + randSuffix;
 
   try {
     const PaystackPop = await loadPaystackScript();
