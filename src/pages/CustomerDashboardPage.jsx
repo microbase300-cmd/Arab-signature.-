@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { HOTEL_INFO, ROOMS } from '../data/hotelData';
 import { portalStore } from '../data/portalStore';
-import { payWithPaystack, getPaystackMode } from '../utils/paystack';
+import { payWithPaystack, getPaystackMode, calculatePaystackPassThrough } from '../utils/paystack';
 import { printFolioReceipt } from '../utils/printFolio';
 import {
   Key,
@@ -79,6 +79,7 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
   const [diningCategory, setDiningCategory] = useState('all');
   const [recentRoomOrderBanner, setRecentRoomOrderBanner] = useState(null);
   const [isSettlingBill, setIsSettlingBill] = useState(false);
+  const [pendingPayConfirm, setPendingPayConfirm] = useState(null); // { title, subtitle, amount, breakdown, onConfirm }
   const [, setFolioTick] = useState(0);
   const paystackMode = getPaystackMode();
 
@@ -314,61 +315,74 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
     window.open(`https://wa.me/${HOTEL_INFO.whatsapp}?text=${text}`, '_blank');
   };
 
-  // Order Food (ARB-FDD-...) or Drink (ARB-DRK-...) with immediate Paystack online payment
-  const handleChargeItemToRoomBill = async (item) => {
+  // Order Food (ARB-FDD-...) or Drink (ARB-DRK-...) with Payment Confirmation box + Tax & VAT
+  const handleChargeItemToRoomBill = (item) => {
     const primary = customerProfile?.primaryBooking;
     if (!primary || customerProfile?.isPrimaryCleared) return;
 
     const isDrink = item.type === 'drinks' || ['drinks', 'spirits', 'wines', 'beers', 'softdrinks', 'energy', 'juices'].includes(item.category);
     const amount = Number(item.price) || 0;
+    const breakdown = calculatePaystackPassThrough(amount);
 
-    await payWithPaystack({
-      email: customerProfile.email || primary.email || 'guest@arabsignature.com',
-      amount,
-      guestName: customerProfile.guestName || primary.guestName,
-      guestPhone: customerProfile.phone || primary.phone || '',
-      roomName: `${item.name} - Suite #${primary.roomNumber}`,
-      onSuccess: (res) => {
-        const created = portalStore.addDiningOrder({
-          orderType: isDrink ? 'drinks' : 'food',
+    setPendingPayConfirm({
+      title: item.name,
+      subtitle: `In-Suite Order • Room #${primary.roomNumber}`,
+      breakdown,
+      onConfirm: async () => {
+        setPendingPayConfirm(null);
+        await payWithPaystack({
+          email: customerProfile.email || primary.email || 'guest@arabsignature.com',
+          amount: breakdown.grossAmount,
+          listedAmount: amount,
+          taxAndVatFee: breakdown.taxAndVatFee,
           guestName: customerProfile.guestName || primary.guestName,
-          phone: customerProfile.phone || primary.phone || '',
-          email: customerProfile.email || primary.email || '',
-          isLodgeGuest: true,
-          bookingId: primary.id,
-          roomNumber: primary.roomNumber,
-          building: primary.building || (String(primary.roomNumber || '').startsWith('1') ? 'Extension Building' : 'Main Building'),
-          serviceLocation: `Suite #${primary.roomNumber} (In-Suite Paid Order)`,
-          chargeToRoom: false,
-          paymentStatus: 'Paid',
-          paymentMethod: 'Paystack (Online Verified)',
-          paystackReference: res.reference,
-          items: [
-            {
-              id: item.id,
-              name: item.name,
-              qty: 1,
-              unitPrice: amount,
-              totalPrice: amount,
-              type: isDrink ? 'drinks' : 'food'
-            }
-          ],
-          amount,
-          source: 'Guest Portal Paystack Order'
-        });
+          guestPhone: customerProfile.phone || primary.phone || '',
+          roomName: `${item.name} - Suite #${primary.roomNumber}`,
+          onSuccess: (res) => {
+            const created = portalStore.addDiningOrder({
+              orderType: isDrink ? 'drinks' : 'food',
+              guestName: customerProfile.guestName || primary.guestName,
+              phone: customerProfile.phone || primary.phone || '',
+              email: customerProfile.email || primary.email || '',
+              isLodgeGuest: true,
+              bookingId: primary.id,
+              roomNumber: primary.roomNumber,
+              building: primary.building || (String(primary.roomNumber || '').startsWith('1') ? 'Extension Building' : 'Main Building'),
+              serviceLocation: `Suite #${primary.roomNumber} (In-Suite Paid Order)`,
+              chargeToRoom: false,
+              paymentStatus: 'Paid',
+              paymentMethod: 'Paystack (Online Verified)',
+              paystackReference: res.reference,
+              taxAndVatFee: breakdown.taxAndVatFee,
+              totalPaidWithTaxVat: breakdown.grossAmount,
+              items: [
+                {
+                  id: item.id,
+                  name: item.name,
+                  qty: 1,
+                  unitPrice: amount,
+                  totalPrice: amount,
+                  type: isDrink ? 'drinks' : 'food'
+                }
+              ],
+              amount,
+              source: 'Guest Portal Paystack Order'
+            });
 
-        const refreshed = portalStore.getCustomerSession();
-        if (refreshed) setCustomerProfile({ ...refreshed });
-        setFolioTick((t) => t + 1);
-        setRecentRoomOrderBanner(created);
-      },
-      onClose: () => {},
-      onError: () => {}
+            const refreshed = portalStore.getCustomerSession();
+            if (refreshed) setCustomerProfile({ ...refreshed });
+            setFolioTick((t) => t + 1);
+            setRecentRoomOrderBanner(created);
+          },
+          onClose: () => {},
+          onError: () => {}
+        });
+      }
     });
   };
 
-  // Settle Outstanding Suite Dining/Drink Bill via Paystack or Instant Demo
-  const handleSettleRoomBill = async (useInstantDemo = false, autoCheckoutAfter = false) => {
+  // Settle Outstanding Suite Dining/Drink Bill via Payment Confirmation box + Paystack
+  const handleSettleRoomBill = (useInstantDemo = false, autoCheckoutAfter = false) => {
     const primary = customerProfile?.primaryBooking;
     if (!primary) return;
     const summary = portalStore.getBookingFolioSummary(primary);
@@ -391,18 +405,29 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
       return;
     }
 
-    setIsSettlingBill(true);
-    await payWithPaystack({
-      email: primary.email || customerProfile.email || 'guest@arabsignature.com',
-      amount: summary.balanceDue,
-      guestName: customerProfile.guestName || primary.guestName,
-      guestPhone: customerProfile.phone || primary.phone || '',
-      roomName: `Suite #${primary.roomNumber} Room Bill Settlement (${primary.id})`,
-      onSuccess: (res) => {
-        finishSettlement('Paystack Online (Guest Portal Verified)', res.reference);
-      },
-      onClose: () => setIsSettlingBill(false),
-      onError: () => setIsSettlingBill(false)
+    const breakdown = calculatePaystackPassThrough(summary.balanceDue);
+    setPendingPayConfirm({
+      title: `Suite #${primary.roomNumber} Bill Settlement`,
+      subtitle: `Booking Folio • ${primary.id}`,
+      breakdown,
+      onConfirm: async () => {
+        setPendingPayConfirm(null);
+        setIsSettlingBill(true);
+        await payWithPaystack({
+          email: primary.email || customerProfile.email || 'guest@arabsignature.com',
+          amount: breakdown.grossAmount,
+          listedAmount: summary.balanceDue,
+          taxAndVatFee: breakdown.taxAndVatFee,
+          guestName: customerProfile.guestName || primary.guestName,
+          guestPhone: customerProfile.phone || primary.phone || '',
+          roomName: `Suite #${primary.roomNumber} Room Bill Settlement (${primary.id})`,
+          onSuccess: (res) => {
+            finishSettlement('Paystack Online (Guest Portal Verified)', res.reference);
+          },
+          onClose: () => setIsSettlingBill(false),
+          onError: () => setIsSettlingBill(false)
+        });
+      }
     });
   };
 
@@ -2145,6 +2170,66 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* PAYMENT CONFIRMATION BOX MODAL (WITH TAX & VAT PASS-THROUGH)   */}
+      {/* ============================================================== */}
+      {pendingPayConfirm && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+          <div className="w-full max-w-md rounded-3xl bg-[#16030c] border border-[#d4af37]/60 shadow-2xl p-6 space-y-5 text-gray-100">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-[#d4af37] font-bold block">
+                  Payment Confirmation
+                </span>
+                <h3 className="font-cinzel text-lg font-bold text-white mt-0.5">
+                  {pendingPayConfirm.title}
+                </h3>
+                <p className="text-xs text-gray-400">{pendingPayConfirm.subtitle}</p>
+              </div>
+              <ShieldCheck size={24} className="text-[#d4af37] shrink-0" />
+            </div>
+
+            <div className="p-4 rounded-2xl bg-black/60 border border-[#d4af37]/35 space-y-2.5 text-xs">
+              <div className="flex justify-between text-gray-300">
+                <span>Listed Item / Bill Amount:</span>
+                <span className="font-mono font-semibold text-white">
+                  ₦{pendingPayConfirm.breakdown.netAmount.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between text-amber-200/90">
+                <span>Tax &amp; VAT (Processing &amp; VAT):</span>
+                <span className="font-mono font-semibold text-amber-300">
+                  +₦{pendingPayConfirm.breakdown.taxAndVatFee.toLocaleString()}
+                </span>
+              </div>
+              <div className="pt-2.5 border-t border-[#d4af37]/30 flex justify-between items-center font-bold">
+                <span className="text-white uppercase tracking-wide">Total Payable:</span>
+                <span className="font-mono text-lg font-extrabold text-[#f3e5ab]">
+                  ₦{pendingPayConfirm.breakdown.grossAmount.toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingPayConfirm(null)}
+                className="flex-1 py-3 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold uppercase tracking-wider cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={pendingPayConfirm.onConfirm}
+                className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#059669] to-[#047857] hover:brightness-110 border border-emerald-400/50 text-white text-xs font-extrabold uppercase tracking-wider shadow-lg cursor-pointer"
+              >
+                Confirm &amp; Pay ₦{pendingPayConfirm.breakdown.grossAmount.toLocaleString()}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -124,10 +124,48 @@ export function loadPaystackScript() {
 }
 
 /**
+ * Calculate Paystack Nigeria gross-up amount so the hotel receives 100% of its exact listed price.
+ * Accounts for Paystack local fee (1.5% + ₦100 waived < ₦2,500, capped at ₦2,000) plus 7.5% Nigerian VAT on the fee.
+ * @param {number} netAmount Exact listed price the hotel must receive in Naira
+ * @returns {{ netAmount: number, taxAndVatFee: number, grossAmount: number }}
+ */
+export function calculatePaystackPassThrough(netAmount) {
+  const net = Math.max(0, Math.round(Number(netAmount) || 0));
+  if (net <= 0) {
+    return { netAmount: 0, taxAndVatFee: 0, grossAmount: 0 };
+  }
+
+  const VAT_MULTIPLIER = 1.075;
+  const EFFECTIVE_RATE = 0.015 * VAT_MULTIPLIER; // 0.016125
+  const RETENTION_RATIO = 1 - EFFECTIVE_RATE; // 0.983875
+
+  let grossAmount = net;
+  const noFlatGross = Math.ceil(net / RETENTION_RATIO);
+  if (noFlatGross < 2500) {
+    grossAmount = noFlatGross;
+  } else {
+    const uncappedGross = Math.ceil((net + 100 * VAT_MULTIPLIER) / RETENTION_RATIO);
+    if (uncappedGross * 0.015 + 100 < 2000) {
+      grossAmount = uncappedGross;
+    } else {
+      grossAmount = Math.ceil(net + 2000 * VAT_MULTIPLIER);
+    }
+  }
+
+  return {
+    netAmount: net,
+    taxAndVatFee: Math.max(0, grossAmount - net),
+    grossAmount
+  };
+}
+
+/**
  * 6. Launch Official Paystack Popup Checkout
  * @param {Object} options
  * @param {string} options.email Guest email address
- * @param {number} options.amount Amount in Naira (will be converted to Kobo)
+ * @param {number} options.amount Total Naira amount charged at Paystack (includes Tax & VAT if applicable)
+ * @param {number} [options.listedAmount] Base listed hotel price before Tax & VAT
+ * @param {number} [options.taxAndVatFee] Commission, Tax & VAT added for gateway settlement
  * @param {string} options.guestName Full guest name
  * @param {string} options.guestPhone WhatsApp / phone number
  * @param {string} options.roomName Name of selected suite / room
@@ -142,6 +180,8 @@ export function loadPaystackScript() {
 export async function payWithPaystack({
   email,
   amount,
+  listedAmount = null,
+  taxAndVatFee = null,
   guestName = 'Guest',
   guestPhone = '',
   roomName = 'Arab Signature Suite',
@@ -180,6 +220,22 @@ export async function payWithPaystack({
   try {
     const PaystackPop = await loadPaystackScript();
 
+    const customFields = [
+      { display_name: "Guest Name", variable_name: "guest_name", value: guestName },
+      { display_name: "Phone Number", variable_name: "phone_number", value: guestPhone },
+      { display_name: "Room Reserved", variable_name: "room_reserved", value: roomName },
+      { display_name: "Check In", variable_name: "check_in", value: checkIn },
+      { display_name: "Check Out", variable_name: "check_out", value: checkOut },
+      { display_name: "Nights", variable_name: "nights", value: String(nights) },
+      { display_name: "Hotel", variable_name: "hotel", value: "Arab Signature Hotel & Suites" }
+    ];
+    if (listedAmount !== null) {
+      customFields.push({ display_name: "Hotel Listed Fee (NGN)", variable_name: "listed_amount", value: String(listedAmount) });
+    }
+    if (taxAndVatFee !== null) {
+      customFields.push({ display_name: "Tax & VAT (NGN)", variable_name: "tax_vat_fee", value: String(taxAndVatFee) });
+    }
+
     const handler = PaystackPop.setup({
       key: activeKey,
       email: guestEmail,
@@ -187,15 +243,7 @@ export async function payWithPaystack({
       currency: 'NGN',
       ref: reference,
       metadata: {
-        custom_fields: [
-          { display_name: "Guest Name", variable_name: "guest_name", value: guestName },
-          { display_name: "Phone Number", variable_name: "phone_number", value: guestPhone },
-          { display_name: "Room Reserved", variable_name: "room_reserved", value: roomName },
-          { display_name: "Check In", variable_name: "check_in", value: checkIn },
-          { display_name: "Check Out", variable_name: "check_out", value: checkOut },
-          { display_name: "Nights", variable_name: "nights", value: String(nights) },
-          { display_name: "Hotel", variable_name: "hotel", value: "Arab Signature Hotel & Suites" }
-        ]
+        custom_fields: customFields
       },
       callback: function(response) {
         console.log('[Paystack] Payment Successful:', response);

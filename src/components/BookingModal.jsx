@@ -13,7 +13,8 @@ import {
   getPaystackPublicKey, 
   setPaystackPublicKey, 
   getPaystackMode, 
-  payWithPaystack 
+  payWithPaystack,
+  calculatePaystackPassThrough
 } from '../utils/paystack';
 import { 
   X, 
@@ -175,6 +176,7 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
     ? selectedRoom.promoPrice
     : selectedRoom.price;
   const totalAmount = effectiveNightlyRate * durationDays;
+  const paymentBreakdown = calculatePaystackPassThrough(totalAmount);
 
   // Handle saving new Paystack Public Key
   const handleSaveKey = () => {
@@ -247,6 +249,8 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
       checkOut: checkOut,
       nights: nights,
       amount: totalAmount,
+      taxAndVatFee: paymentBreakdown.taxAndVatFee,
+      totalPaidWithTaxVat: paymentBreakdown.grossAmount,
       status: "Confirmed",
       paymentMethod: isRealPaystack ? "Paystack (Online Verified)" : "Paystack (Simulated Demo)",
       paymentStatus: "Paid",
@@ -317,7 +321,9 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
 
     payWithPaystack({
       email: guestEmail.trim(),
-      amount: totalAmount,
+      amount: paymentBreakdown.grossAmount,
+      listedAmount: totalAmount,
+      taxAndVatFee: paymentBreakdown.taxAndVatFee,
       guestName: guestName.trim(),
       guestPhone: guestPhone.trim(),
       roomName: selectedRoom.name,
@@ -802,6 +808,9 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                     <div className="text-2xl font-extrabold text-[#f3e5ab] font-cinzel mt-0.5">
                       ₦{totalAmount.toLocaleString()}
                     </div>
+                    <span className="text-[10px] text-gray-400 font-mono block mt-0.5">
+                      + ₦{paymentBreakdown.taxAndVatFee.toLocaleString()} Tax &amp; VAT (confirmed at checkout)
+                    </span>
                     {selectedRoom.isPromoActive && selectedRoom.promoPrice > 0 && (
                       <span className="text-[11px] text-emerald-400 font-mono font-medium block mt-0.5">
                         🔥 Promo Applied: Save ₦{((selectedRoom.price - selectedRoom.promoPrice) * durationDays).toLocaleString()} total!
@@ -1082,11 +1091,11 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
           )}
 
           {/* ============================================================== */}
-          {/* STEP 3: PAYSTACK PAYMENT GATEWAY                               */}
+          {/* STEP 3: PAYMENT CONFIRMATION & PAYSTACK CHECKOUT               */}
           {/* ============================================================== */}
           {step === 3 && (
             <div className="space-y-4">
-              {/* Reservation Breakdown */}
+              {/* Reservation Summary */}
               <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
                 <div className="flex justify-between text-xs text-gray-400">
                   <span>Reserved Suite:</span>
@@ -1108,9 +1117,28 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                   <span>Receipt Email:</span>
                   <span className="text-gray-300 font-mono text-[11px]">{guestEmail}</span>
                 </div>
-                <div className="pt-2 border-t border-white/10 flex justify-between text-sm font-bold">
-                  <span className="text-gray-300">Total Paystack Charge:</span>
-                  <span className="text-[#d4af37] font-cinzel text-base">₦{totalAmount.toLocaleString()}</span>
+              </div>
+
+              {/* Payment Confirmation Box (Room Price + Tax & VAT) */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-[#2b0514] via-[#17020a] to-[#0f0206] border border-[#d4af37]/50 space-y-2.5 shadow-xl">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                  <span className="text-xs font-mono uppercase tracking-wider text-[#f3e5ab] font-bold flex items-center gap-1.5">
+                    <ShieldCheck size={14} className="text-[#d4af37]" />
+                    Payment Confirmation
+                  </span>
+                  <span className="text-[10px] font-mono text-gray-400">Net-Settled Checkout</span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-300">
+                  <span>Suite Stay Fee ({durationDays} {durationDays === 1 ? 'Day' : 'Days'}):</span>
+                  <span className="font-mono font-semibold text-white">₦{totalAmount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-xs text-amber-200/90">
+                  <span>Tax &amp; VAT (Processing &amp; VAT):</span>
+                  <span className="font-mono font-semibold text-amber-300">+₦{paymentBreakdown.taxAndVatFee.toLocaleString()}</span>
+                </div>
+                <div className="pt-2.5 border-t border-[#d4af37]/30 flex justify-between items-center text-sm font-bold">
+                  <span className="text-white uppercase tracking-wide text-xs">Total Payable:</span>
+                  <span className="text-[#f3e5ab] font-cinzel text-lg font-extrabold">₦{paymentBreakdown.grossAmount.toLocaleString()}</span>
                 </div>
               </div>
 
@@ -1162,7 +1190,7 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                       Connecting to Paystack Gateway...
                     </span>
                   ) : (
-                    `Pay ₦${totalAmount.toLocaleString()} via Paystack`
+                    `Confirm & Pay ₦${paymentBreakdown.grossAmount.toLocaleString()} via Paystack`
                   )}
                 </button>
 

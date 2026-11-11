@@ -5,7 +5,7 @@ import {
   ShieldCheck, MapPin, Phone, User, Mail, ArrowRight, BellRing
 } from 'lucide-react';
 import { portalStore } from '../data/portalStore';
-import { payWithPaystack } from '../utils/paystack';
+import { payWithPaystack, calculatePaystackPassThrough } from '../utils/paystack';
 import { emailService } from '../utils/emailService';
 
 export default function DiningOrderModal({
@@ -62,6 +62,7 @@ export default function DiningOrderModal({
   const foodSubtotal = foodItems.reduce((sum, i) => sum + Number(i.unitPrice) * Number(i.qty), 0);
   const drinkSubtotal = drinkItems.reduce((sum, i) => sum + Number(i.unitPrice) * Number(i.qty), 0);
   const grandTotal = foodSubtotal + drinkSubtotal;
+  const paymentBreakdown = calculatePaystackPassThrough(grandTotal);
 
   const handleCopyCode = (code) => {
     navigator.clipboard?.writeText(code);
@@ -105,6 +106,8 @@ export default function DiningOrderModal({
       paymentStatus,
       paymentMethod,
       paystackReference,
+      taxAndVatFee: paymentBreakdown.taxAndVatFee,
+      totalPaidWithTaxVat: paymentBreakdown.grossAmount,
       notes: orderNotes.trim(),
       source: 'Direct Website Paystack Order'
     };
@@ -152,7 +155,9 @@ export default function DiningOrderModal({
     setIsProcessing(true);
     await payWithPaystack({
       email: guestEmail.trim() || `${guestPhone.replace(/[^0-9]/g, '')}@arabsignature.com`,
-      amount: grandTotal,
+      amount: paymentBreakdown.grossAmount,
+      listedAmount: grandTotal,
+      taxAndVatFee: paymentBreakdown.taxAndVatFee,
       guestName: guestName.trim(),
       guestPhone: guestPhone.trim(),
       roomName: `Al-Sultan Dining & Drinks (${serviceLocation})`,
@@ -573,6 +578,33 @@ export default function DiningOrderModal({
                 />
               </div>
 
+              {/* 3. PAYMENT CONFIRMATION BOX WITH TAX & VAT */}
+              {cartItems.length > 0 && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#2b0514] via-[#16020b] to-[#0f0206] border border-[#d4af37]/50 space-y-2.5 shadow-xl">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                    <span className="text-xs font-mono uppercase tracking-wider text-[#f3e5ab] font-bold flex items-center gap-1.5">
+                      <ShieldCheck size={14} className="text-[#d4af37]" />
+                      3. Payment Confirmation
+                    </span>
+                    <span className="text-[10px] font-mono text-gray-400">Net-Settled Checkout</span>
+                  </div>
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex justify-between text-gray-300">
+                      <span>Order Subtotal (Food &amp; Drinks Price):</span>
+                      <span className="font-mono font-semibold text-white">₦{grandTotal.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-amber-200/90">
+                      <span>Tax &amp; VAT (Processing &amp; VAT):</span>
+                      <span className="font-mono font-semibold text-amber-300">+₦{paymentBreakdown.taxAndVatFee.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div className="pt-2.5 border-t border-[#d4af37]/30 flex justify-between items-center">
+                    <span className="text-xs font-bold uppercase tracking-wide text-white">Total Payable (incl. Tax &amp; VAT):</span>
+                    <span className="font-mono text-lg font-extrabold text-[#f3e5ab]">₦{paymentBreakdown.grossAmount.toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
+
               {formError && (
                 <div className="p-3.5 rounded-2xl bg-rose-950/60 border border-rose-500/40 text-xs text-rose-200 flex items-center gap-2.5">
                   <AlertCircle size={16} className="text-rose-400 flex-shrink-0" />
@@ -587,14 +619,17 @@ export default function DiningOrderModal({
         {!completedResult && (
           <div className="px-5 sm:px-6 py-4 bg-[#100107] border-t border-[#d4af37]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-3 text-[11px] font-mono text-gray-400">
-                {foodSubtotal > 0 && <span>Food (ARB-FDD): ₦{foodSubtotal.toLocaleString()}</span>}
-                {drinkSubtotal > 0 && <span>Drinks (ARB-DRK): ₦{drinkSubtotal.toLocaleString()}</span>}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-mono text-gray-400">
+                {foodSubtotal > 0 && <span>Food: ₦{foodSubtotal.toLocaleString()}</span>}
+                {drinkSubtotal > 0 && <span>Drinks: ₦{drinkSubtotal.toLocaleString()}</span>}
+                {paymentBreakdown.taxAndVatFee > 0 && (
+                  <span className="text-amber-300/90">Tax &amp; VAT: +₦{paymentBreakdown.taxAndVatFee.toLocaleString()}</span>
+                )}
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-xs text-gray-400 font-mono">TOTAL TO PAY:</span>
                 <span className="font-mono text-2xl font-extrabold text-[#f3e5ab]">
-                  ₦{grandTotal.toLocaleString()}
+                  ₦{paymentBreakdown.grossAmount.toLocaleString()}
                 </span>
               </div>
             </div>
@@ -611,7 +646,7 @@ export default function DiningOrderModal({
                 ) : (
                   <>
                     <CreditCard size={15} />
-                    <span>Order Food &amp; Pay ₦{grandTotal.toLocaleString()}</span>
+                    <span>Confirm &amp; Pay ₦{paymentBreakdown.grossAmount.toLocaleString()}</span>
                     <ArrowRight size={14} />
                   </>
                 )}
