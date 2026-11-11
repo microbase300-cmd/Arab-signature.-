@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import PaymentConfirmationBox from './PaymentConfirmationBox';
 import { HOTEL_INFO } from '../data/hotelData';
 import { portalStore } from '../data/portalStore';
 import { emailService } from '../utils/emailService';
@@ -143,11 +144,14 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
   const [receiptImageToast, setReceiptImageToast] = useState('');
   const [isPreviewImageOpen, setIsPreviewImageOpen] = useState(false);
 
-  // Paystack Key Management
+  // Paystack Key Management & Tax/VAT Confirmation State
   const [keyInput, setKeyInput] = useState('');
   const [showKeyManager, setShowKeyManager] = useState(false);
   const [keySavedMessage, setKeySavedMessage] = useState(false);
   const [gatewayStatus, setGatewayStatus] = useState(getPaystackMode());
+  const [vatAgreed, setVatAgreed] = useState(false);
+  const [vatError, setVatError] = useState(false);
+  const vatBoxRef = useRef(null);
 
   useEffect(() => {
     if (preselectedRoomId) {
@@ -162,6 +166,8 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
       setGatewayStatus(getPaystackMode());
       setPaymentError('');
       setFormError('');
+      setVatAgreed(false);
+      setVatError(false);
     }
   }, [isOpen]);
 
@@ -229,6 +235,8 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
       return;
     }
 
+    setVatAgreed(false);
+    setVatError(false);
     setStep(3);
   };
 
@@ -308,6 +316,13 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
   // Main Paystack Payment Trigger
   const handlePaystackPayment = () => {
     setPaymentError('');
+    if (!vatAgreed) {
+      setVatError(true);
+      setPaymentError('Please tick the Tax & VAT agreement checkbox above before proceeding to Paystack.');
+      vatBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
     const activeKey = getPaystackPublicKey();
 
     // If no valid key is saved, prompt user to enter one
@@ -808,9 +823,11 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                     <div className="text-2xl font-extrabold text-[#f3e5ab] font-cinzel mt-0.5">
                       ₦{totalAmount.toLocaleString()}
                     </div>
-                    <span className="text-[10px] text-gray-400 font-mono block mt-0.5">
-                      + ₦{paymentBreakdown.taxAndVatFee.toLocaleString()} Tax &amp; VAT (confirmed at checkout)
-                    </span>
+                    <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-400/50 text-[11px] font-mono font-bold text-amber-300">
+                      <span>+₦{paymentBreakdown.taxAndVatFee.toLocaleString()} Tax &amp; VAT</span>
+                      <span className="text-white/70">•</span>
+                      <span className="text-[#f3e5ab] font-black">Payable: ₦{paymentBreakdown.grossAmount.toLocaleString()}</span>
+                    </div>
                     {selectedRoom.isPromoActive && selectedRoom.promoPrice > 0 && (
                       <span className="text-[11px] text-emerald-400 font-mono font-medium block mt-0.5">
                         🔥 Promo Applied: Save ₦{((selectedRoom.price - selectedRoom.promoPrice) * durationDays).toLocaleString()} total!
@@ -1095,8 +1112,25 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
           {/* ============================================================== */}
           {step === 3 && (
             <div className="space-y-4">
-              {/* Reservation Summary */}
-              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+              {/* Prominent Payment Confirmation Card Placed First (Immediate Eye-Catching Tax & VAT + Bold Total + Checkbox) */}
+              <PaymentConfirmationBox
+                title="Payment Confirmation"
+                subtotalLabel={`Suite Stay Fee (${durationDays} ${durationDays === 1 ? 'Day' : 'Days'})`}
+                breakdown={paymentBreakdown}
+                agreed={vatAgreed}
+                onToggleAgreed={(checked) => {
+                  setVatAgreed(checked);
+                  if (checked) {
+                    setVatError(false);
+                    setPaymentError('');
+                  }
+                }}
+                showValidationError={vatError}
+                checkboxRef={vatBoxRef}
+              />
+
+              {/* Compact Reservation Summary */}
+              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
                 <div className="flex justify-between text-xs text-gray-400">
                   <span>Reserved Suite:</span>
                   <span className="text-white font-medium">{selectedRoom.name} ({selectedRoom.buildingLabel || 'Main Wing'})</span>
@@ -1106,39 +1140,12 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                   <span className="text-white font-medium">{durationDays} {durationDays === 1 ? 'Day' : 'Days'} ({checkIn} to {checkOut})</span>
                 </div>
                 <div className="flex justify-between text-xs text-gray-400">
-                  <span>Rate Calculation:</span>
-                  <span className="text-emerald-400 font-mono font-bold">₦{effectiveNightlyRate.toLocaleString()} × {durationDays} {durationDays === 1 ? 'Day' : 'Days'}</span>
-                </div>
-                <div className="flex justify-between text-xs text-gray-400">
                   <span>Primary Guest:</span>
                   <span className="text-[#f3e5ab] font-medium">{guestName} ({guestPhone})</span>
                 </div>
                 <div className="flex justify-between text-xs text-gray-400">
                   <span>Receipt Email:</span>
                   <span className="text-gray-300 font-mono text-[11px]">{guestEmail}</span>
-                </div>
-              </div>
-
-              {/* Payment Confirmation Box (Room Price + Tax & VAT) */}
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-[#2b0514] via-[#17020a] to-[#0f0206] border border-[#d4af37]/50 space-y-2.5 shadow-xl">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                  <span className="text-xs font-mono uppercase tracking-wider text-[#f3e5ab] font-bold flex items-center gap-1.5">
-                    <ShieldCheck size={14} className="text-[#d4af37]" />
-                    Payment Confirmation
-                  </span>
-                  <span className="text-[10px] font-mono text-gray-400">Net-Settled Checkout</span>
-                </div>
-                <div className="flex justify-between text-xs text-gray-300">
-                  <span>Suite Stay Fee ({durationDays} {durationDays === 1 ? 'Day' : 'Days'}):</span>
-                  <span className="font-mono font-semibold text-white">₦{totalAmount.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-xs text-amber-200/90">
-                  <span>Tax &amp; VAT (Processing &amp; VAT):</span>
-                  <span className="font-mono font-semibold text-amber-300">+₦{paymentBreakdown.taxAndVatFee.toLocaleString()}</span>
-                </div>
-                <div className="pt-2.5 border-t border-[#d4af37]/30 flex justify-between items-center text-sm font-bold">
-                  <span className="text-white uppercase tracking-wide text-xs">Total Payable:</span>
-                  <span className="text-[#f3e5ab] font-cinzel text-lg font-extrabold">₦{paymentBreakdown.grossAmount.toLocaleString()}</span>
                 </div>
               </div>
 

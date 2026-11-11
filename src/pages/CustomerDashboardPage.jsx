@@ -3,6 +3,7 @@ import { HOTEL_INFO, ROOMS } from '../data/hotelData';
 import { portalStore } from '../data/portalStore';
 import { payWithPaystack, getPaystackMode, calculatePaystackPassThrough } from '../utils/paystack';
 import { printFolioReceipt } from '../utils/printFolio';
+import PaymentConfirmationBox from '../components/PaymentConfirmationBox';
 import {
   Key,
   User,
@@ -79,7 +80,9 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
   const [diningCategory, setDiningCategory] = useState('all');
   const [recentRoomOrderBanner, setRecentRoomOrderBanner] = useState(null);
   const [isSettlingBill, setIsSettlingBill] = useState(false);
-  const [pendingPayConfirm, setPendingPayConfirm] = useState(null); // { title, subtitle, amount, breakdown, onConfirm }
+  const [pendingPayConfirm, setPendingPayConfirm] = useState(null); // { title, subtitle, breakdown, onConfirm }
+  const [pendingVatAgreed, setPendingVatAgreed] = useState(false);
+  const [pendingVatError, setPendingVatError] = useState(false);
   const [, setFolioTick] = useState(0);
   const paystackMode = getPaystackMode();
 
@@ -324,6 +327,8 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
     const amount = Number(item.price) || 0;
     const breakdown = calculatePaystackPassThrough(amount);
 
+    setPendingVatAgreed(false);
+    setPendingVatError(false);
     setPendingPayConfirm({
       title: item.name,
       subtitle: `In-Suite Order • Room #${primary.roomNumber}`,
@@ -406,6 +411,8 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
     }
 
     const breakdown = calculatePaystackPassThrough(summary.balanceDue);
+    setPendingVatAgreed(false);
+    setPendingVatError(false);
     setPendingPayConfirm({
       title: `Suite #${primary.roomNumber} Bill Settlement`,
       subtitle: `Booking Folio • ${primary.id}`,
@@ -2179,42 +2186,29 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
       {/* ============================================================== */}
       {pendingPayConfirm && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
-          <div className="w-full max-w-md rounded-3xl bg-[#16030c] border border-[#d4af37]/60 shadow-2xl p-6 space-y-5 text-gray-100">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-widest text-[#d4af37] font-bold block">
-                  Payment Confirmation
-                </span>
-                <h3 className="font-cinzel text-lg font-bold text-white mt-0.5">
-                  {pendingPayConfirm.title}
-                </h3>
-                <p className="text-xs text-gray-400">{pendingPayConfirm.subtitle}</p>
-              </div>
-              <ShieldCheck size={24} className="text-[#d4af37] shrink-0" />
+          <div className="w-full max-w-md rounded-3xl bg-[#16030c] border border-[#d4af37]/60 shadow-2xl p-5 sm:p-6 space-y-4 text-gray-100">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-[#d4af37] font-bold block">
+                {pendingPayConfirm.subtitle}
+              </span>
+              <h3 className="font-cinzel text-lg sm:text-xl font-bold text-white mt-0.5">
+                {pendingPayConfirm.title}
+              </h3>
             </div>
 
-            <div className="p-4 rounded-2xl bg-black/60 border border-[#d4af37]/35 space-y-2.5 text-xs">
-              <div className="flex justify-between text-gray-300">
-                <span>Listed Item / Bill Amount:</span>
-                <span className="font-mono font-semibold text-white">
-                  ₦{pendingPayConfirm.breakdown.netAmount.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between text-amber-200/90">
-                <span>Tax &amp; VAT (Processing &amp; VAT):</span>
-                <span className="font-mono font-semibold text-amber-300">
-                  +₦{pendingPayConfirm.breakdown.taxAndVatFee.toLocaleString()}
-                </span>
-              </div>
-              <div className="pt-2.5 border-t border-[#d4af37]/30 flex justify-between items-center font-bold">
-                <span className="text-white uppercase tracking-wide">Total Payable:</span>
-                <span className="font-mono text-lg font-extrabold text-[#f3e5ab]">
-                  ₦{pendingPayConfirm.breakdown.grossAmount.toLocaleString()}
-                </span>
-              </div>
-            </div>
+            <PaymentConfirmationBox
+              title="Payment Confirmation"
+              subtotalLabel="Listed Item / Bill Amount"
+              breakdown={pendingPayConfirm.breakdown}
+              agreed={pendingVatAgreed}
+              onToggleAgreed={(checked) => {
+                setPendingVatAgreed(checked);
+                if (checked) setPendingVatError(false);
+              }}
+              showValidationError={pendingVatError}
+            />
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 pt-1">
               <button
                 type="button"
                 onClick={() => setPendingPayConfirm(null)}
@@ -2224,7 +2218,13 @@ export default function CustomerDashboardPage({ onNavigate, onOpenBooking }) {
               </button>
               <button
                 type="button"
-                onClick={pendingPayConfirm.onConfirm}
+                onClick={() => {
+                  if (!pendingVatAgreed) {
+                    setPendingVatError(true);
+                    return;
+                  }
+                  pendingPayConfirm.onConfirm();
+                }}
                 className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#059669] to-[#047857] hover:brightness-110 border border-emerald-400/50 text-white text-xs font-extrabold uppercase tracking-wider shadow-lg cursor-pointer"
               >
                 Confirm &amp; Pay ₦{pendingPayConfirm.breakdown.grossAmount.toLocaleString()}

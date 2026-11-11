@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import PaymentConfirmationBox from './PaymentConfirmationBox';
 import {
   X, Utensils, Wine, Sparkles, CheckCircle2, AlertCircle, Building2,
   CreditCard, Plus, Minus, Trash2, Copy, Check, Printer, MessageSquare,
@@ -33,11 +34,16 @@ export default function DiningOrderModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [completedResult, setCompletedResult] = useState(null); // { createdOrders, totalAmount }
   const [copiedCode, setCopiedCode] = useState('');
+  const [vatAgreed, setVatAgreed] = useState(false);
+  const [vatError, setVatError] = useState(false);
+  const vatBoxRef = useRef(null);
 
   // Auto-prefill guest details if logged into Guest Portal session (still requires 100% immediate Paystack payment)
   useEffect(() => {
     if (!isOpen) return;
     setFormError('');
+    setVatAgreed(false);
+    setVatError(false);
 
     const activeSession = portalStore.getCustomerSession();
     if (activeSession && activeSession.activeBooking && !activeSession.isCheckedOut) {
@@ -148,6 +154,12 @@ export default function DiningOrderModal({
     }
     if (serviceLocation === 'In-Room Suite Delivery' && !deliveryRoomNumber.trim()) {
       setFormError('Please enter your Suite / Room Number (e.g. 601 or 105) for room delivery.');
+      return;
+    }
+    if (!vatAgreed) {
+      setVatError(true);
+      setFormError('Please tick the Tax & VAT agreement checkbox above before launching Paystack.');
+      vatBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
@@ -460,12 +472,31 @@ export default function DiningOrderModal({
                 )}
               </div>
 
-              {/* 2. GUEST DETAILS & PAYSTACK ONLINE PAYMENT FORM */}
+              {/* 2. PROMINENT PAYMENT CONFIRMATION BOX WITH TAX & VAT + CHECKBOX (IMMEDIATELY VISIBLE) */}
+              {cartItems.length > 0 && (
+                <PaymentConfirmationBox
+                  title="2. Payment Confirmation"
+                  subtotalLabel="Food & Drinks Subtotal"
+                  breakdown={paymentBreakdown}
+                  agreed={vatAgreed}
+                  onToggleAgreed={(checked) => {
+                    setVatAgreed(checked);
+                    if (checked) {
+                      setVatError(false);
+                      setFormError('');
+                    }
+                  }}
+                  showValidationError={vatError}
+                  checkboxRef={vatBoxRef}
+                />
+              )}
+
+              {/* 3. GUEST DETAILS & PAYSTACK ONLINE PAYMENT FORM */}
               <div className="p-4 sm:p-5 rounded-2xl bg-[#1d040f] border border-[#d4af37]/35 space-y-4">
                 <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
                   <span className="text-xs font-mono uppercase tracking-wider text-[#f3e5ab] font-bold flex items-center gap-2">
                     <CreditCard size={14} className="text-emerald-400" />
-                    2. Guest Details &amp; Instant Paystack Checkout
+                    3. Guest Details &amp; Delivery Location
                   </span>
                   <span className="text-[10px] font-mono text-emerald-300 bg-emerald-500/15 px-2.5 py-0.5 rounded-full border border-emerald-400/30">
                     Online Payment Required
@@ -578,33 +609,6 @@ export default function DiningOrderModal({
                 />
               </div>
 
-              {/* 3. PAYMENT CONFIRMATION BOX WITH TAX & VAT */}
-              {cartItems.length > 0 && (
-                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#2b0514] via-[#16020b] to-[#0f0206] border border-[#d4af37]/50 space-y-2.5 shadow-xl">
-                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                    <span className="text-xs font-mono uppercase tracking-wider text-[#f3e5ab] font-bold flex items-center gap-1.5">
-                      <ShieldCheck size={14} className="text-[#d4af37]" />
-                      3. Payment Confirmation
-                    </span>
-                    <span className="text-[10px] font-mono text-gray-400">Net-Settled Checkout</span>
-                  </div>
-                  <div className="space-y-1.5 text-xs">
-                    <div className="flex justify-between text-gray-300">
-                      <span>Order Subtotal (Food &amp; Drinks Price):</span>
-                      <span className="font-mono font-semibold text-white">₦{grandTotal.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-amber-200/90">
-                      <span>Tax &amp; VAT (Processing &amp; VAT):</span>
-                      <span className="font-mono font-semibold text-amber-300">+₦{paymentBreakdown.taxAndVatFee.toLocaleString()}</span>
-                    </div>
-                  </div>
-                  <div className="pt-2.5 border-t border-[#d4af37]/30 flex justify-between items-center">
-                    <span className="text-xs font-bold uppercase tracking-wide text-white">Total Payable (incl. Tax &amp; VAT):</span>
-                    <span className="font-mono text-lg font-extrabold text-[#f3e5ab]">₦{paymentBreakdown.grossAmount.toLocaleString()}</span>
-                  </div>
-                </div>
-              )}
-
               {formError && (
                 <div className="p-3.5 rounded-2xl bg-rose-950/60 border border-rose-500/40 text-xs text-rose-200 flex items-center gap-2.5">
                   <AlertCircle size={16} className="text-rose-400 flex-shrink-0" />
@@ -619,16 +623,18 @@ export default function DiningOrderModal({
         {!completedResult && (
           <div className="px-5 sm:px-6 py-4 bg-[#100107] border-t border-[#d4af37]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-mono text-gray-400">
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] font-mono text-gray-300">
                 {foodSubtotal > 0 && <span>Food: ₦{foodSubtotal.toLocaleString()}</span>}
                 {drinkSubtotal > 0 && <span>Drinks: ₦{drinkSubtotal.toLocaleString()}</span>}
                 {paymentBreakdown.taxAndVatFee > 0 && (
-                  <span className="text-amber-300/90">Tax &amp; VAT: +₦{paymentBreakdown.taxAndVatFee.toLocaleString()}</span>
+                  <span className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-300 font-bold">
+                    Tax &amp; VAT: +₦{paymentBreakdown.taxAndVatFee.toLocaleString()}
+                  </span>
                 )}
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-xs text-gray-400 font-mono">TOTAL TO PAY:</span>
-                <span className="font-mono text-2xl font-extrabold text-[#f3e5ab]">
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-white">TOTAL PAYABLE:</span>
+                <span className="font-mono text-2xl sm:text-3xl font-black text-[#f3e5ab] drop-shadow-[0_2px_8px_rgba(212,175,55,0.4)]">
                   ₦{paymentBreakdown.grossAmount.toLocaleString()}
                 </span>
               </div>
