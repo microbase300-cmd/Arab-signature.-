@@ -1150,24 +1150,27 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
               </div>
 
               {/* Paystack Checkout Card */}
-              <div className="p-4 rounded-2xl bg-[#0e1a14] border border-emerald-500/30 text-center space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-semibold">
-                    <ShieldCheck size={16} /> Paystack Secure Checkout
+              <div className="relative overflow-hidden p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#071912] via-[#05110c] to-[#020805] border-2 border-emerald-500/40 text-center space-y-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.8)]">
+                <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2.5">
+                  <div className="flex items-center gap-2 text-emerald-300 text-xs sm:text-sm font-extrabold uppercase tracking-wide">
+                    <div className="w-5 h-5 rounded-md bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center text-emerald-300">
+                      <Lock size={12} className="stroke-[2.5]" />
+                    </div>
+                    <span>Paystack Secure Gateway</span>
                   </div>
                   {/* Gateway Mode Badge */}
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${gatewayStatus.badgeClass}`}>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border ${gatewayStatus.badgeClass}`}>
                     {gatewayStatus.label}
                   </span>
                 </div>
 
                 <p className="text-xs text-gray-300">
-                  Accepts Nigerian ATM Cards (Mastercard, Visa, Verve), Bank Transfers, and USSD.
+                  Instant verification for Nigerian ATM Cards (Mastercard, Visa, Verve), Direct Bank Transfer, and USSD.
                 </p>
 
                 {/* Error Banner */}
                 {paymentError && (
-                  <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-start gap-2 text-left">
+                  <div className="p-3 rounded-xl bg-rose-500/20 border border-rose-500/50 text-rose-200 text-xs flex items-start gap-2 text-left">
                     <AlertCircle size={15} className="shrink-0 mt-0.5 text-rose-400" />
                     <span>{paymentError}</span>
                   </div>
@@ -1178,13 +1181,11 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                   type="button"
                   disabled={isProcessing}
                   onClick={handlePaystackPayment}
-                  className="w-full py-4 rounded-xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-2xl transition-all cursor-pointer active:scale-[0.99] hover:brightness-105"
+                  className="w-full py-4 px-4 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_8px_30px_rgba(16,185,129,0.45)] transition-all cursor-pointer active:scale-[0.99] hover:brightness-110 hover:shadow-[0_10px_35px_rgba(16,185,129,0.65)]"
                   style={{
                     background: 'linear-gradient(135deg, #059669 0%, #10b981 50%, #047857 100%)',
                     color: '#ffffff',
                     border: '2px solid #a7f3d0',
-                    boxShadow: '0 6px 25px rgba(16, 185, 129, 0.5)',
-                    fontWeight: '900',
                     letterSpacing: '0.04em'
                   }}
                 >
@@ -1197,7 +1198,10 @@ export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpe
                       Connecting to Paystack Gateway...
                     </span>
                   ) : (
-                    `Confirm & Pay ₦${paymentBreakdown.grossAmount.toLocaleString()} via Paystack`
+                    <span className="flex items-center justify-center gap-2">
+                      <Lock size={16} className="text-white" />
+                      <span>Confirm &amp; Pay ₦{paymentBreakdown.grossAmount.toLocaleString()} via Paystack</span>
+                    </span>
                   )}
                 </button>
 
