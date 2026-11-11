@@ -362,20 +362,24 @@ export default function App() {
       )}
 
       {/* 4. Instant Paystack & WhatsApp Booking Modal */}
-      <BookingModal
-        key={`${preselectedRoom}-${isBookingOpen}`}
-        isOpen={isBookingOpen}
-        onClose={() => setIsBookingOpen(false)}
-        preselectedRoomId={preselectedRoom}
-        onOpenGuestPass={() => setIsGuestPassOpen(true)}
-      />
+      <ErrorBoundary fallbackLabel="Booking Checkout">
+        <BookingModal
+          key={`${preselectedRoom}-${isBookingOpen}`}
+          isOpen={isBookingOpen}
+          onClose={() => setIsBookingOpen(false)}
+          preselectedRoomId={preselectedRoom}
+          onOpenGuestPass={() => setIsGuestPassOpen(true)}
+        />
+      </ErrorBoundary>
 
       {/* 4b. Active VIP Guest Stay Pass & Suite Folio Modal */}
-      <GuestSessionPassModal
-        isOpen={isGuestPassOpen}
-        onClose={() => setIsGuestPassOpen(false)}
-        onNavigate={handleNavigate}
-      />
+      <ErrorBoundary fallbackLabel="Guest Stay Pass">
+        <GuestSessionPassModal
+          isOpen={isGuestPassOpen}
+          onClose={() => setIsGuestPassOpen(false)}
+          onNavigate={handleNavigate}
+        />
+      </ErrorBoundary>
 
 
 

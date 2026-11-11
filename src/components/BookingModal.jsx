@@ -45,7 +45,8 @@ import {
   RotateCw,
   MessageSquare,
   Eye,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Lock
 } from 'lucide-react';
 
 export default function BookingModal({ isOpen, onClose, preselectedRoomId, onOpenGuestPass }) {
